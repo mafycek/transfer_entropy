@@ -54,8 +54,51 @@ class FinanceDataPlugin(GenericFilePlugin):
                 int(datetime_str[13:15]),
                 int(datetime_str[15:18]),
             )
-            bid = int(float(row[1]) * price_multiplicator)
-            ask = int(float(row[2]) * price_multiplicator)
+            bid = int(round(float(row[1]) * price_multiplicator))
+            ask = int(round(float(row[2]) * price_multiplicator))
+            if previous_ask:
+                difference_ask = ask - previous_ask
+            if previous_bid:
+                difference_bid = bid - previous_bid
+            if previous_date:
+                difference_date = (date - previous_date).total_seconds()
+            previous_ask = ask
+            previous_bid = bid
+            previous_date = date
+            actual_dataset[date] = [
+                bid,
+                ask,
+                difference_bid,
+                difference_ask,
+                difference_date,
+            ]
+        actual_metadata[
+            "format"
+        ] = "bid, ask, difference_bid, difference_ask, difference_date"
+        actual_metadata["price_multiplicator"] = price_multiplicator
+        actual_metadata["type"] = "tick"
+
+    def load_monthly_tick_data(self, frame, actual_dataset, actual_metadata):
+        price_multiplicator = 10**6
+        previous_ask = None
+        previous_bid = None
+        previous_date = None
+        difference_bid = 0
+        difference_ask = 0
+        difference_date = 0
+        for row in frame:
+            datetime_str = row[1]
+            date = datetime.datetime(
+                int(datetime_str[0:4]),
+                int(datetime_str[4:6]),
+                int(datetime_str[6:8]),
+                int(datetime_str[9:10]),
+                int(datetime_str[12:14]),
+                int(datetime_str[15:17]),
+                int(datetime_str[18:21]) * 1000,
+            )
+            bid = int(round(float(row[2]) * price_multiplicator))
+            ask = int(round(float(row[3]) * price_multiplicator))
             if previous_ask:
                 difference_ask = ask - previous_ask
             if previous_bid:
@@ -99,10 +142,10 @@ class FinanceDataPlugin(GenericFilePlugin):
                 int(datetime_str[11:13]),
                 int(datetime_str[13:15]),
             )
-            open_price = int(float(row[1]) * price_multiplicator)
-            max_price = int(float(row[2]) * price_multiplicator)
-            min_price = int(float(row[3]) * price_multiplicator)
-            close_price = int(float(row[4]) * price_multiplicator)
+            open_price = int(round(float(row[1]) * price_multiplicator))
+            max_price = int(round(float(row[2]) * price_multiplicator))
+            min_price = int(round(float(row[3]) * price_multiplicator))
+            close_price = int(round(float(row[4]) * price_multiplicator))
             volume = int(row[5])
 
             if previous_open_price:
@@ -162,7 +205,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                 int(datetime_str[4:6]),
                 int(datetime_str[6:9]) * 1000,
             )
-            price = int(float(row[1]) * price_multiplicator)
+            price = int(round(float(row[1]) * price_multiplicator))
 
             if previous_price:
                 difference_price = price - previous_price
@@ -196,6 +239,11 @@ class FinanceDataPlugin(GenericFilePlugin):
                 actual_metadata["directory"] = self.directory
                 actual_metadata["full_filename"] = filename
                 actual_metadata["code"] = datafile.split(".")[0].split("_")[0]
+                monthly_forex_data = False
+                if "-" in actual_metadata["code"]:
+                    # monthly forex data
+                    monthly_forex_data = True
+                    actual_metadata["code"] = actual_metadata["code"].split("-")[0]
 
                 with open(filename) as csvfile:
                     # check presences of header
@@ -215,11 +263,68 @@ class FinanceDataPlugin(GenericFilePlugin):
                                 frame, actual_dataset, actual_metadata
                             )
                     else:
-                        self.load_tick_data(frame, actual_dataset, actual_metadata)
+                        if monthly_forex_data:
+                            self.load_monthly_tick_data(
+                                frame, actual_dataset, actual_metadata
+                            )
+                        else:
+                            self.load_tick_data(frame, actual_dataset, actual_metadata)
             except EOFError as exc:
                 pass
 
         return dataset, metadata
+
+    def new_load_datasets(self):
+        datafiles = os.listdir(self.directory)
+        datafiles = [
+            file
+            for file in datafiles
+            if "bin" not in file and os.path.isfile(self.directory / file)
+        ]
+        for datafile in datafiles:
+            actual_dataset = {}
+            actual_metadata = {}
+            result = {"metadata": actual_metadata, "dataset": actual_dataset}
+
+            try:
+                filename = self.directory / datafile
+                actual_metadata["file"] = datafile
+                actual_metadata["directory"] = self.directory
+                actual_metadata["full_filename"] = filename
+                actual_metadata["code"] = datafile.split(".")[0].split("_")[0]
+                monthly_forex_data = False
+                if "-" in actual_metadata["code"]:
+                    # monthly forex data
+                    monthly_forex_data = True
+                    actual_metadata["code"] = actual_metadata["code"].split("-")[0]
+
+                with open(filename) as csvfile:
+                    # check presences of header
+                    has_header = csv.Sniffer().has_header(csvfile.read(1024))
+                    csvfile.seek(0)
+
+                    frame = csv.reader(csvfile)
+                    if has_header:
+                        header = next(frame)
+                        actual_metadata["header"] = header
+                        if len(header) == 2:
+                            self.load_shortened_data(
+                                frame, actual_dataset, datafile, actual_metadata
+                            )
+                        else:
+                            self.load_aggregated_data(
+                                frame, actual_dataset, actual_metadata
+                            )
+                    else:
+                        if monthly_forex_data:
+                            self.load_monthly_tick_data(
+                                frame, actual_dataset, actual_metadata
+                            )
+                        else:
+                            self.load_tick_data(frame, actual_dataset, actual_metadata)
+            except EOFError as exc:
+                pass
+            yield result
 
     def prepare_dataset(
         self,
@@ -786,8 +891,10 @@ class FinanceDataPlugin(GenericFilePlugin):
 
 
 if __name__ == "__main__":
-    dataPlugin = FinanceDataPlugin("/home/hynek/work/skola/prog/python/transfer_entropy/data")
-    old_data = True
+    dataPlugin = FinanceDataPlugin(
+        "/home/hynek/work/skola/prog/python/transfer_entropy/data"
+    )
+    old_data = False
     if old_data:
         with open(dataPlugin.file_pickled, "rb") as fh:
             dataset, metadata = pickle.load(fh)
@@ -795,7 +902,7 @@ if __name__ == "__main__":
         dataset, metadata = dataPlugin.load_datasets()
         print(f"We aggregated {len(dataset)} records")
         dataPlugin.pickle_dataset((dataset, metadata))
-        #with open(dataPlugin.file_pickled, "wb") as fh:
+        # with open(dataPlugin.file_pickled, "wb") as fh:
         #    pickle.dump((dataset, metadata), fh)
 
     for data, info in zip(dataset, metadata):
