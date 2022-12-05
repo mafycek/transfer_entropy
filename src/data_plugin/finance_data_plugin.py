@@ -65,13 +65,28 @@ class FinanceDataPlugin(GenericFilePlugin):
             previous_ask = ask
             previous_bid = bid
             previous_date = date
-            actual_dataset[date] = [
-                bid,
-                ask,
-                difference_bid,
-                difference_ask,
-                difference_date,
-            ]
+
+            if isinstance(actual_dataset, Dict):
+                actual_dataset[date] = [
+                    bid,
+                    ask,
+                    difference_bid,
+                    difference_ask,
+                    difference_date,
+                ]
+            else:
+                actual_dataset.append(
+                    (
+                        date,
+                        [
+                            bid,
+                            ask,
+                            difference_bid,
+                            difference_ask,
+                            difference_date,
+                        ],
+                    )
+                )
         actual_metadata[
             "format"
         ] = "bid, ask, difference_bid, difference_ask, difference_date"
@@ -108,13 +123,27 @@ class FinanceDataPlugin(GenericFilePlugin):
             previous_ask = ask
             previous_bid = bid
             previous_date = date
-            actual_dataset[date] = [
-                bid,
-                ask,
-                difference_bid,
-                difference_ask,
-                difference_date,
-            ]
+            if isinstance(actual_dataset, Dict):
+                actual_dataset[date] = [
+                    bid,
+                    ask,
+                    difference_bid,
+                    difference_ask,
+                    difference_date,
+                ]
+            else:
+                actual_dataset.append(
+                    (
+                        date,
+                        [
+                            bid,
+                            ask,
+                            difference_bid,
+                            difference_ask,
+                            difference_date,
+                        ],
+                    )
+                )
         actual_metadata[
             "format"
         ] = "bid, ask, difference_bid, difference_ask, difference_date"
@@ -161,17 +190,35 @@ class FinanceDataPlugin(GenericFilePlugin):
                 difference_close_price = close_price - previous_close_price
             previous_close_price = close_price
 
-            actual_dataset[date] = [
-                open_price,
-                max_price,
-                min_price,
-                close_price,
-                difference_open_price,
-                difference_max_price,
-                difference_min_price,
-                difference_close_price,
-                volume,
-            ]
+            if isinstance(actual_dataset, Dict):
+                actual_dataset[date] = [
+                    open_price,
+                    max_price,
+                    min_price,
+                    close_price,
+                    difference_open_price,
+                    difference_max_price,
+                    difference_min_price,
+                    difference_close_price,
+                    volume,
+                ]
+            else:
+                actual_dataset.append(
+                    (
+                        date,
+                        [
+                            open_price,
+                            max_price,
+                            min_price,
+                            close_price,
+                            difference_open_price,
+                            difference_max_price,
+                            difference_min_price,
+                            difference_close_price,
+                            volume,
+                        ],
+                    )
+                )
 
         actual_metadata[
             "format"
@@ -214,7 +261,12 @@ class FinanceDataPlugin(GenericFilePlugin):
             previous_price = price
             previous_date = date
 
-            actual_dataset[date] = [price, difference_price, difference_date]
+            if isinstance(actual_dataset, Dict):
+                actual_dataset[date] = [price, difference_price, difference_date]
+            else:
+                actual_dataset.append(
+                    (date, [price, difference_price, difference_date])
+                )
         actual_metadata["format"] = "price, difference_price, difference_date"
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "shortened"
@@ -282,7 +334,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             if "bin" not in file and os.path.isfile(self.directory / file)
         ]
         for datafile in datafiles:
-            actual_dataset = {}
+            actual_dataset = []
             actual_metadata = {}
             result = {"metadata": actual_metadata, "dataset": actual_dataset}
 

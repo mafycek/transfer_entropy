@@ -15,6 +15,7 @@ from sqlalchemy import (
     select,
     schema,
     Enum,
+    types,
     MetaData,
     PrimaryKeyConstraint,
     __version__,
@@ -23,6 +24,12 @@ from sqlalchemy import (
 
 from data_plugin.generic_database_plugin import GenericDatabasePlugin
 from data_plugin.finance_data_plugin import FinanceDataPlugin
+
+
+db_schema = "TEST_SCHEMA"
+metadata_obj = MetaData(schema=db_schema)
+
+Base = declarative_base(metadata=metadata_obj)
 
 
 class DatasetType(enum.Enum):
@@ -67,12 +74,6 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
 
     def __del__(self):
         pass
-
-
-db_schema = "TEST_SCHEMA"
-metadata_obj = MetaData(schema=db_schema)
-
-Base = declarative_base(metadata=metadata_obj)
 
 
 class Dataset(Base):
@@ -233,34 +234,38 @@ if __name__ == "__main__":
             ).all()
             dataset_id = record[0].id
 
-        with financial_plugin.Session.begin() as session:
-            new_records = []
-            for date, record in raw_dataset.items():
-                if metadata["type"] == "aggregated":
-                    new_records.append(
-                        TimeseriesOHLC(
-                            dataset_fk=dataset_id,
-                            open=record[0],
-                            high=record[1],
-                            low=record[2],
-                            close=record[3],
-                            date=date,
+        size_of_chunk = 100000
+        chunks = (len(raw_dataset)//size_of_chunk)+1
+        for chunk_number in range(chunks):
+            with financial_plugin.Session.begin() as session:
+                new_records = []
+                start_of_chunk = size_of_chunk*chunk_number
+                for date, record in raw_dataset[start_of_chunk: start_of_chunk+size_of_chunk]:
+                    if metadata["type"] == "aggregated":
+                        new_records.append(
+                            TimeseriesOHLC(
+                                dataset_fk=dataset_id,
+                                open=record[0],
+                                high=record[1],
+                                low=record[2],
+                                close=record[3],
+                                date=date,
+                            )
                         )
-                    )
-                elif metadata["type"] == "shortened":
-                    new_records.append(
-                        TimeseriesPrice(
-                            dataset_fk=dataset_id, value=record[0], date=date
+                    elif metadata["type"] == "shortened":
+                        new_records.append(
+                            TimeseriesPrice(
+                                dataset_fk=dataset_id, value=record[0], date=date
+                            )
                         )
-                    )
-                elif metadata["type"] == "tick":
-                    new_records.append(
-                        TimeseriesBidAsk(
-                            dataset_fk=dataset_id,
-                            bid=record[0],
-                            ask=record[1],
-                            date=date,
+                    elif metadata["type"] == "tick":
+                        new_records.append(
+                            TimeseriesBidAsk(
+                                dataset_fk=dataset_id,
+                                bid=record[0],
+                                ask=record[1],
+                                date=date,
+                            )
                         )
-                    )
-            session.add_all(new_records)
-            session.commit()
+                session.add_all(new_records)
+                session.commit()
