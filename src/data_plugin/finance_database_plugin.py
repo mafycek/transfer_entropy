@@ -235,12 +235,14 @@ if __name__ == "__main__":
             dataset_id = record[0].id
 
         size_of_chunk = 100000
-        chunks = (len(raw_dataset)//size_of_chunk)+1
+        chunks = (len(raw_dataset) // size_of_chunk) + 1
         for chunk_number in range(chunks):
             with financial_plugin.Session.begin() as session:
                 new_records = []
-                start_of_chunk = size_of_chunk*chunk_number
-                for date, record in raw_dataset[start_of_chunk: start_of_chunk+size_of_chunk]:
+                start_of_chunk = size_of_chunk * chunk_number
+                for date, record in raw_dataset[
+                    start_of_chunk : start_of_chunk + size_of_chunk
+                ]:
                     if metadata["type"] == "aggregated":
                         new_records.append(
                             TimeseriesOHLC(
