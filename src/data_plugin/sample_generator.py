@@ -120,12 +120,18 @@ def preparation_dataset_for_transfer_entropy(
 
     if "postselection_y_fut" in kwargs:
         postselection_y_fut = kwargs["postselection_y_fut"]
+    else:
+        postselection_y_fut = False
 
     if "postselection_z_hist" in kwargs:
         postselection_z_hist = kwargs["postselection_z_hist"]
+    else:
+        postselection_z_hist = False
 
     if "postselection_y_hist" in kwargs:
         postselection_y_hist = kwargs["postselection_y_hist"]
+    else:
+        postselection_y_hist = False
 
     shape = marginal_solution_1.shape
     marginal_solution_1_selected = (
