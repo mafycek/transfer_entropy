@@ -7,16 +7,10 @@ import os
 import pickle
 import time
 from pathlib import Path
-
 import numpy as np
 
 from cli_helpers import process_CLI_arguments
-from src.data_plugin.finance_data_plugin import (
-    load_datasets,
-    select_dataset_with_code,
-    prepare_dataset,
-    time_join_dataset,
-)
+from src.data_plugin.finance_data_plugin import FinanceDataPlugin
 from transfer_entropy import renyi_conditional_information_transfer
 from src.data_plugin.sample_generator import preparation_dataset_for_transfer_entropy
 
@@ -42,6 +36,7 @@ if __name__ == "__main__":
         metavar="XXX",
         type=str,
         nargs="+",
+        default=[1],
         help="History to take into account",
     )
     parser.add_argument(
@@ -49,6 +44,7 @@ if __name__ == "__main__":
         metavar="XXX",
         type=str,
         nargs="+",
+        default=[1],
         help="History to take into account",
     )
     parser.add_argument(
@@ -56,6 +52,7 @@ if __name__ == "__main__":
         metavar="XXX",
         type=str,
         nargs="+",
+        default=[1],
         help="History to take into account",
     )
     parser.add_argument(
@@ -68,6 +65,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--arbitrary_precision",
         action="store_true",
+        default=False,
         help="Calculates the main part in arbitrary precision",
     )
     parser.add_argument(
@@ -77,9 +75,11 @@ if __name__ == "__main__":
         default=100,
         help="Sets number saved in arbitrary precision arithmetic",
     )
-    parser.add_argument("--dataset_1_code", help="First dataset to load", default=False)
     parser.add_argument(
-        "--dataset_2_code", help="Second dataset to load", default=False
+        "--dataset_1_code", help="First dataset to load", default="sp500"
+    )
+    parser.add_argument(
+        "--dataset_2_code", help="Second dataset to load", default="visa"
     )
     parser.add_argument(
         "--dataset_1_selector",
@@ -145,18 +145,19 @@ if __name__ == "__main__":
     dataset_2_selector = args.dataset_2_selector
 
     print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Load datasets")
+    dataset_handler = FinanceDataPlugin(os.getcwd())
 
     # load static dataset
-    dataset, metadata = load_datasets()
+    dataset, metadata = dataset_handler.load_datasets()
 
     # selection of the dataset 1
-    dataset1, metadata1 = select_dataset_with_code(
+    dataset1, metadata1 = dataset_handler.select_dataset_with_code(
         (dataset, metadata), args.dataset_1_code
     )
-    dataset2, metadata2 = select_dataset_with_code(
+    dataset2, metadata2 = dataset_handler.select_dataset_with_code(
         (dataset, metadata), args.dataset_2_code
     )
-    joint_dataset = time_join_dataset(
+    joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )
     del dataset, metadata
@@ -173,9 +174,9 @@ if __name__ == "__main__":
 
         # loop over shuffling
         for shuffle_dataset in [True, False]:
-            # prepare dataset that is been processed
+            # prepare dataset that is being processed
 
-            marginal_solution_1, marginal_solution_2 = prepare_dataset(
+            marginal_solution_1, marginal_solution_2 = dataset_handler.prepare_dataset(
                 datasets=joint_dataset,
                 swap_datasets=swap_datasets,
                 shuffle_dataset=shuffle_dataset,

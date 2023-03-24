@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from scipy.optimize import curve_fit
 
-from sample_generator import shuffle_sample
+from data_plugin.sample_generator import shuffle_sample
 from data_plugin.generic_file_plugin import GenericFilePlugin
 
 
@@ -149,6 +149,47 @@ class FinanceDataPlugin(GenericFilePlugin):
         ] = "bid, ask, difference_bid, difference_ask, difference_date"
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "tick"
+
+    def load_minute_data(self, frame, actual_dataset, actual_metadata):
+        price_multiplicator = 10**6
+        separator = ";"
+
+        for row in frame:
+            datetime_str = row[0].replace("-", "").replace(":", "")
+            date = datetime.datetime(
+                int(datetime_str[0:4]),
+                int(datetime_str[4:6]),
+                int(datetime_str[6:8]),
+                int(datetime_str[9:11]),
+                int(datetime_str[11:13]),
+                int(datetime_str[13:15]),
+            )
+
+            separated_row = row[0].split(separator)
+            price = int(round(float(separated_row[1]) * price_multiplicator))
+            price_return = float(separated_row[2])
+
+            if isinstance(actual_dataset, Dict):
+                actual_dataset[date] = [
+                    price,
+                    price_return,
+                ]
+            else:
+                actual_dataset.append(
+                    (
+                        date,
+                        [
+                            price,
+                            price_return,
+                        ],
+                    )
+                )
+
+        actual_metadata[
+            "format"
+        ] = "price, return"
+        actual_metadata["price_multiplicator"] = price_multiplicator
+        actual_metadata["type"] = "minute_simplified"
 
     def load_aggregated_data(self, frame, actual_dataset, actual_metadata):
         price_multiplicator = 10**4
@@ -305,13 +346,18 @@ class FinanceDataPlugin(GenericFilePlugin):
                     frame = csv.reader(csvfile)
                     if has_header:
                         header = next(frame)
+                        semicolon_present_in_header = header[0].find(";") != -1
                         actual_metadata["header"] = header
                         if len(header) == 2:
                             self.load_shortened_data(
                                 frame, actual_dataset, datafile, actual_metadata
                             )
-                        else:
+                        elif not semicolon_present_in_header:
                             self.load_aggregated_data(
+                                frame, actual_dataset, actual_metadata
+                            )
+                        else:
+                            self.load_minute_data(
                                 frame, actual_dataset, actual_metadata
                             )
                     else:
