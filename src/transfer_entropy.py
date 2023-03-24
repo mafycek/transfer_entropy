@@ -321,7 +321,7 @@ def renyi_entropy(*args, **kwargs):
     if "arbitrary_precision" not in kwargs:
         raise BaseException("arbitrary_precision missing in kwargs")
     else:
-        if kwargs[ "arbitrary_precision"]:
+        if kwargs["arbitrary_precision"]:
             if "base_of_logarithm" in kwargs:
                 kwargs["logarithm"] = lambda x: mpmath.log(x, kwargs["base_of_logarithm"])
             else:
