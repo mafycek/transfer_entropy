@@ -1,0 +1,60 @@
+Bootstrap: docker
+From: library/python:3.11-bullseye
+#library/ubuntu:22.04
+Stage: build
+
+%setup
+    #touch /file1
+    #touch ${SINGULARITY_ROOTFS}/file2
+
+%files
+    poetry_install.sh
+    poetry_install.sh /opt/poetry_install.sh
+    poetry_run.sh
+    poetry_run.sh /opt/poetry_run.sh
+
+%environment
+    export LISTEN_PORT=12345
+    export LC_ALL=C
+    export PYTHONPATH="${PYTHONPATH}:/opt/transfer_entropy"
+
+%post
+    #apt update && apt-get upgrade -y
+    apt-get install -y git
+
+    cd /opt
+    git clone https://github.com/mafycek/transfer_entropy.git
+    cd transfer_entropy
+    pip install virtualenv
+    bash /opt/poetry_install.sh
+    #./venv/bin/activate
+    #source venv/bin/activate
+    #pip install --upgrade pip
+    #pip install poetry
+    #poetry install
+
+    NOW=`date`
+    echo "export NOW=\"${NOW}\"" >> $SINGULARITY_ENVIRONMENT
+
+%runscript
+    echo "Container was created $NOW"
+    echo "Arguments received: $*"
+    #exec echo "$@"
+    cd /opt/transfer_entropy
+    ls -l
+    bash ../poetry_run.sh "$@"
+    #poetry run python3 src/conditional_information_transfer_financial_data_test.py "$@"
+
+%startscript
+    nc -lp $LISTEN_PORT
+
+%test
+    grep -q NAME=\"Ubuntu\" /etc/os-release
+    echo "$NAME"
+
+%labels
+    Author h.lavicka@email.cz
+    Version v0.1.0
+
+%help
+    This is a container for calculation Renyi entropy and Renyi transfer entropy
