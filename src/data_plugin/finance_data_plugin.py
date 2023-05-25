@@ -28,6 +28,8 @@ class FinanceDataPlugin(GenericFilePlugin):
         super().__init__(base_directory)
         self.directory = self.base_directory / "finance_data_reference"
         self.file_pickled = self.directory / "dataset.bin"
+        self.dataset = None
+        self.metadata = None
 
         if not self.directory.is_dir():
             print(f"Problem detected: {self.directory}")
@@ -185,9 +187,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                     )
                 )
 
-        actual_metadata[
-            "format"
-        ] = "price, return"
+        actual_metadata["format"] = "price, return"
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "minute_simplified"
 
@@ -370,7 +370,8 @@ class FinanceDataPlugin(GenericFilePlugin):
             except EOFError as exc:
                 pass
 
-        return dataset, metadata
+        self.dataset = dataset
+        self.metadata = metadata
 
     def new_load_datasets(self):
         datafiles = os.listdir(self.directory)
@@ -379,7 +380,11 @@ class FinanceDataPlugin(GenericFilePlugin):
             for file in datafiles
             if "bin" not in file and os.path.isfile(self.directory / file)
         ]
-        for datafile in datafiles:
+        for datafile_number, datafile in enumerate(datafiles):
+            if datafile_number < 793:
+                print(f"Skipping {datafile_number} filename {datafile}")
+                continue
+            print(f"Processing {datafile_number} filename {datafile}")
             actual_dataset = []
             actual_metadata = {}
             result = {"metadata": actual_metadata, "dataset": actual_dataset}
@@ -424,41 +429,11 @@ class FinanceDataPlugin(GenericFilePlugin):
                 pass
             yield result
 
-    def prepare_dataset(
-        self,
-        datasets=None,
-        swap_datasets=False,
-        shuffle_dataset=False,
-        selection1=1,
-        selection2=1,
-    ):
-        filtrated_solution = datasets
-
-        print(
-            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Shape of solution: {filtrated_solution.shape}",
-            flush=True,
-        )
-        marginal_solution_1 = filtrated_solution[:, 0:selection1]
-        marginal_solution_2 = filtrated_solution[
-            :, selection1 : selection1 + selection2
-        ]
-
-        if swap_datasets:
-            marginal_solution_1, marginal_solution_2 = (
-                marginal_solution_2,
-                marginal_solution_1,
-            )
-
-        if shuffle_dataset:
-            marginal_solution_1 = shuffle_sample(marginal_solution_1)
-
-        return marginal_solution_1, marginal_solution_2
-
-    def select_dataset_with_code(self, dataset_with_metadata, code):
-        for dataset, metadata in zip(*dataset_with_metadata):
+    def select_dataset_with_code(self, code):
+        for dataset, metadata in zip(self.dataset, self.metadata):
             if metadata["code"] == code:
                 return dataset, metadata
-        return None
+        return None, None
 
     def bid_ask_price_analysis(self, prefix, dataset, dpi=400, bins=250):
         delta_bids = [record[2] for time, record in dataset.items()]
@@ -1014,10 +989,6 @@ if __name__ == "__main__":
             dataPlugin.price_analysis(info["code"], data)
             pass
 
-    data1, metadata1 = dataPlugin.select_dataset_with_code(
-        (dataset, metadata), "EURSEK"
-    )
-    data2, metadata2 = dataPlugin.select_dataset_with_code(
-        (dataset, metadata), "EURPLN"
-    )
+    data1, metadata1 = dataPlugin.select_dataset_with_code("EURSEK")
+    data2, metadata2 = dataPlugin.select_dataset_with_code("EURPLN")
     joint_dataset = dataPlugin.time_join_dataset(data1, data2, (1, 2), (1, 2))
