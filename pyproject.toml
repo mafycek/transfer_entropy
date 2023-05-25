@@ -32,6 +32,7 @@ yarl = ">=1.8.0"
 black = "^22.10.0"
 wrapt = "^1.14.1"
 sqlalchemy-utils = "^0.38.3"
+mongo = "^0.2.0"
 
 [tool.poetry.dev-dependencies]
 pytest = ">=3.4"
