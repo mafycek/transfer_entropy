@@ -6,11 +6,18 @@ import datetime
 import os
 import pickle
 import time
+import base64
 from pathlib import Path
 import numpy as np
 
 from cli_helpers import process_CLI_arguments
+from src.data_plugin.generic_data_plugin import GenericDataPlugin
 from src.data_plugin.finance_data_plugin import FinanceDataPlugin
+from src.data_plugin.finance_database_plugin import (
+    FinanceDatabasePlugin,
+    CalculationStatusType,
+)
+from src.data_plugin.mongodb_data_plugin import FinanceMongoDatabasePlugin
 from transfer_entropy import renyi_conditional_information_transfer
 from src.data_plugin.sample_generator import preparation_dataset_for_transfer_entropy
 
@@ -18,6 +25,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Calculates conditional information transfer for financial datasets."
     )
+    parser.add_argument(
+        "--database",
+        type=bool,
+        default=False,
+        help="Switch to use db",
+    )
+
+    # inserts support for SQL database arguments
+    FinanceDatabasePlugin.CLISupport(parser)
+    # inserts support for NoSQL database arguments
+    FinanceMongoDatabasePlugin.CLISupport(parser)
+
     parser.add_argument(
         "--directory",
         type=str,
@@ -87,6 +106,7 @@ if __name__ == "__main__":
         type=int,
         nargs="+",
         help="Selector of columns for first dataset",
+        default=[0],
     )
     parser.add_argument(
         "--dataset_2_selector",
@@ -94,6 +114,7 @@ if __name__ == "__main__":
         type=int,
         nargs="+",
         help="Selector of columns for second dataset",
+        default=[0],
     )
     parser.add_argument(
         "--alpha_params",
@@ -145,38 +166,71 @@ if __name__ == "__main__":
     dataset_2_selector = args.dataset_2_selector
 
     print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Load datasets")
-    dataset_handler = FinanceDataPlugin(os.getcwd())
+    if args.database:
+        dataset_handler = FinanceDatabasePlugin(
+            args.database_sql_url,
+            args.database_sql_table,
+            args.database_sql_username,
+            args.database_sql_password,
+        )
+        nosql_storage_handler = FinanceMongoDatabasePlugin(
+            args.database_nosql_url,
+            args.database_nosql_table,
+            args.database_nosql_username,
+            args.database_nosql_password,
+        )
+    else:
+        dataset_handler = FinanceDataPlugin(os.getcwd() + "/../data")
+        nosql_storage_handler = None
 
     # load static dataset
-    dataset, metadata = dataset_handler.load_datasets()
+    dataset_handler.load_datasets()
 
     # selection of the dataset 1
-    dataset1, metadata1 = dataset_handler.select_dataset_with_code(
-        (dataset, metadata), args.dataset_1_code
-    )
-    dataset2, metadata2 = dataset_handler.select_dataset_with_code(
-        (dataset, metadata), args.dataset_2_code
-    )
+    dataset1, metadata1 = dataset_handler.select_dataset_with_code(args.dataset_1_code)
+    dataset2, metadata2 = dataset_handler.select_dataset_with_code(args.dataset_2_code)
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )
-    del dataset, metadata
 
     print(
         f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Datasets {metadata1['code']} and {metadata2['code']} loaded and merged together"
     )
     symbol = f"{metadata1['code']}_{metadata2['code']}"
 
+    # preparation of
+    parameters = {
+        "histories_firsts": histories_firsts,
+        "future_firsts": future_firsts,
+        "histories_seconds": histories_seconds,
+        "arbitrary_precision": arbitrary_precision,
+        "arbitrary_precision_decimal_numbers": arbitrary_precision_decimal_numbers,
+        "dataset_1_selector": dataset_1_selector,
+        "dataset_2_selector": dataset_2_selector,
+        "dataset_1_code": args.dataset_1_code,
+        "dataset_2_code": args.dataset_2_code,
+        "maximal_neighborhood": args.maximal_neighborhood,
+        "alphas": alphas.tolist(),
+        "symbol": symbol,
+        "collection": "conditional_information_transfer",
+    }
+
+    if args.database:
+        # insert record to database
+        calculation_id = dataset_handler.add_start_of_calculation(
+            metadata1["id"], metadata2["id"], parameters
+        )
+        parameters["calculation_id"] = calculation_id
+
     # create structure for results
     results = {}
 
     for swap_datasets in [False, True]:
-
         # loop over shuffling
         for shuffle_dataset in [True, False]:
             # prepare dataset that is being processed
 
-            marginal_solution_1, marginal_solution_2 = dataset_handler.prepare_dataset(
+            marginal_solution_1, marginal_solution_2 = GenericDataPlugin.prepare_dataset(
                 datasets=joint_dataset,
                 swap_datasets=swap_datasets,
                 shuffle_dataset=shuffle_dataset,
@@ -270,12 +324,36 @@ if __name__ == "__main__":
                             flush=True,
                         )
 
-    # save result structure to the file
-    path = Path(f"{args.directory}/Conditional_information_transfer-{symbol}.bin")
-    print(
-        f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Save to file {path}",
-        flush=True,
-    )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "wb") as fb:
-        pickle.dump(results, fb)
+    if args.database:
+        # save to database
+        print(
+            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Save to database",
+            flush=True,
+        )
+
+        pickled_result = pickle.dumps(results, -1)
+        parameters["document"] = base64.b64encode(pickled_result)
+        parameters["format"] = "pickle"
+        mongo_id = nosql_storage_handler.insert_document(
+            parameters["collection"], parameters
+        )
+        parameters["document_id"] = str(mongo_id)
+
+        # insert record to database
+
+        del parameters["document"]
+        del parameters["_id"]
+        dataset_handler.update_state_of_calculation(
+            parameters["calculation_id"], CalculationStatusType.FINISHED, parameters
+        )
+
+    else:
+        # save result structure to the file
+        path = Path(f"{args.directory}/Conditional_information_transfer-{symbol}.bin")
+        print(
+            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Save to file {path}",
+            flush=True,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "wb") as fb:
+            pickle.dump(results, fb)

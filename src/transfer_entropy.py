@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import datetime
 import time
 import mpmath
@@ -616,7 +617,8 @@ def renyi_conditional_information_transfer(data_x_fut, data_x_hist, data_y, **kw
                 ]
                 results[alpha] = result
             except KeyError as exc:
-                print(f"Key {alpha} is missing: {exc.with_traceback()}")
+                tb = sys.exception().__traceback__
+                print(f"Key {alpha} is missing: {exc.with_traceback(tb)}")
         return results
     else:
         joint_dataset = np.concatenate((data_x_hist, data_y), axis=axis_to_join)
