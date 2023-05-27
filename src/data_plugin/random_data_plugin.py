@@ -9,7 +9,7 @@ import datetime
 import logging
 import scipy.interpolate
 
-import random_samples
+import src.mathematical_models.random_samples
 
 
 def prepare_dataset(
@@ -20,8 +20,13 @@ def prepare_dataset(
     # provide random numbers
     t0 = time.process_time()
     sigma = np.array([[1, 0], [0, 1]])
-    sol = random_samples.sample_normal_distribution(sigma, size)
-    sol = sol.T + np.array([np.sin(0.01* np.linspace(0, 10*np.pi, size)), np.sin(0.01* np.linspace(0.1, 10*np.pi, size))])
+    sol = src.mathematical_models.random_samples.sample_normal_distribution(sigma, size)
+    sol = sol.T + np.array(
+        [
+            np.sin(0.01 * np.linspace(0, 10 * np.pi, size)),
+            np.sin(0.01 * np.linspace(0.1, 10 * np.pi, size)),
+        ]
+    )
     sol = sol.T
     t1 = time.process_time()
     duration = t1 - t0
