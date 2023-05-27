@@ -137,9 +137,9 @@ def figures2d_imshow(
     ax.set(xlabel=xlabel)
     ax.set(ylabel=ylabel)
     ax.grid(True)
-    #ax.set_ylim([0.85, 1.5])
+    # ax.set_ylim([0.85, 1.5])
 
-    #dataset = dataset.loc[ dataset["alpha"].between(0.85, 1.5) ]
+    # dataset = dataset.loc[ dataset["alpha"].between(0.85, 1.5) ]
 
     epsilons = dataset["epsilon"].unique()
     alphas = dataset["alpha"].unique()
@@ -571,7 +571,6 @@ def figures2d_fixed_epsilon(
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
-
     subselected_alphas = [
         alpha
         for number, alpha in enumerate(alphas)
@@ -581,15 +580,18 @@ def figures2d_fixed_epsilon(
     constants = []
     for alpha in subselected_alphas:
         subselection = dataset.loc[dataset["alpha"] == alpha]
-        constant = subselection.loc[dataset["epsilon"] == fixed_epsilon][[selector]].values[0][0]- 1.1
+        constant = (
+                subselection.loc[dataset["epsilon"] == fixed_epsilon][[selector]].values[0][
+                    0
+                ]
+                - 1.1
+        )
         constants.append(constant)
 
         ys = subselection[["epsilon"]].values
         zs = [[constant] for item in ys]
 
-        trasform = lambda alpha: (alpha - min(alphas)) / (
-            max(alphas) - min(alphas)
-        )
+        trasform = lambda alpha: (alpha - min(alphas)) / (max(alphas) - min(alphas))
         color = color_map(trasform(alpha))
         try:
             ax.plot(
@@ -602,12 +604,14 @@ def figures2d_fixed_epsilon(
         except Exception as exc:
             print(f"{exc}: Problem D=")
 
-    ax.set_ylim(min(constants), max(constants)+(max(constants) - min(constants))*0.3)
+    ax.set_ylim(
+        min(constants), max(constants) + (max(constants) - min(constants)) * 0.3
+    )
     plt.legend(ncol=6, fontsize=fontsize)
     plt.xticks(fontsize=fontsize)
     plt.yticks(fontsize=fontsize)
 
-    plt.savefig(filename+ "_f" +"." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.savefig(filename + "_f" + "." + suffix, dpi=dpi, bbox_inches="tight")
     plt.close()
     del fig
 
@@ -813,12 +817,16 @@ def qgauss_plot(
 
 
 def process_datasets(
-    processed_datasets,
-    result_dataset,
-    result_raw_dataset,
-    new_columns_base_name="transfer_entropy",
-    take_k_th_nearest_neighbor=5,
-    converter_epsilon=lambda file: float("-"+file.split("--")[1].split(".b")[0] if "--" in file else file.split("-")[1].split(".b")[0]),
+        processed_datasets,
+        result_dataset,
+        result_raw_dataset,
+        new_columns_base_name="transfer_entropy",
+        take_k_th_nearest_neighbor=5,
+        converter_epsilon=lambda file: float(
+            "-" + file.split("--")[1].split(".b")[0]
+            if "--" in file
+            else file.split("-")[1].split(".b")[0]
+        ),
 ):
     # taking only some nn data to assure that it converge in theory
     files = glob.glob(processed_datasets)
@@ -1060,7 +1068,6 @@ def process_datasets(
         # dropping the index
         frame = frame.reset_index()
 
-        # print(frame.columns.tolist())
         column = [
             ("alpha", "", "") if "index" == item[0] else item
             for item in frame.columns.tolist()
