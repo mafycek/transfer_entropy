@@ -212,7 +212,7 @@ if __name__ == "__main__":
         "maximal_neighborhood": args.maximal_neighborhood,
         "alphas": alphas.tolist(),
         "symbol": symbol,
-        "collection": "conditional_information_transfer",
+        "collection": FinanceMongoDatabasePlugin.conditional_information_transfer_name,
     }
 
     if args.database:
@@ -332,16 +332,17 @@ if __name__ == "__main__":
         )
 
         pickled_result = pickle.dumps(results, -1)
-        parameters["document"] = base64.b64encode(pickled_result)
+        document_id = nosql_storage_handler.upload_to_gridfs(f"Conditional_information_transfer-{symbol}.bin",
+                                                             pickled_result)
+        parameters["document_id"] = document_id
         parameters["format"] = "pickle"
         mongo_id = nosql_storage_handler.insert_document(
-            parameters["collection"], parameters
+            FinanceMongoDatabasePlugin.conditional_information_transfer_name, parameters
         )
         parameters["document_id"] = str(mongo_id)
 
         # insert record to database
 
-        del parameters["document"]
         del parameters["_id"]
         dataset_handler.update_state_of_calculation(
             parameters["calculation_id"], CalculationStatusType.FINISHED, parameters
