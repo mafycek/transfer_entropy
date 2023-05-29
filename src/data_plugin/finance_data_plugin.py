@@ -381,7 +381,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             if "bin" not in file and os.path.isfile(self.directory / file)
         ]
         for datafile_number, datafile in enumerate(datafiles):
-            if datafile_number < 793:
+            if datafile_number < 0:
                 print(f"Skipping {datafile_number} filename {datafile}")
                 continue
             print(f"Processing {datafile_number} filename {datafile}")
@@ -392,8 +392,8 @@ class FinanceDataPlugin(GenericFilePlugin):
             try:
                 filename = self.directory / datafile
                 actual_metadata["file"] = datafile
-                actual_metadata["directory"] = self.directory
-                actual_metadata["full_filename"] = filename
+                actual_metadata["directory"] = str(self.directory)
+                actual_metadata["full_filename"] = str(filename)
                 actual_metadata["code"] = datafile.split(".")[0].split("_")[0]
                 monthly_forex_data = False
                 if "-" in actual_metadata["code"]:

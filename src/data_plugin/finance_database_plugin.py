@@ -318,8 +318,6 @@ def setup_database(financial_plugin):
 
 
 if __name__ == "__main__":
-    # snapshot1 = tracemalloc.take_snapshot()
-
     dataPlugin = FinanceDataPlugin(
         "/home/hynek/work/skola/prog/python/transfer_entropy/data"
     )
