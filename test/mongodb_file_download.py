@@ -23,16 +23,19 @@ if __name__ == "__main__":
     #    variable = pickle.loads(decoded_result, encoding="base64")
     #    print(variable)
 
-    dbHandler.database.get_collection(FinanceMongoDatabasePlugin.conditional_information_transfer_name).delete_many({})
-    results = dbHandler.get_all_documents("dataset", {})
-    id = dbHandler.gridfs_client.find_one({})
-    dbHandler.gridfs_client.delete(id._id)
-    for result in results:
-        if dbHandler.gridfs_client.exists(result["dataset_id"]):
-            dbHandler.gridfs_client.delete(result["dataset_id"])
+    result = dbHandler.database.command("dbstats")
 
-    results = dbHandler.gridfs_client.find({})
-    for result in results:
-        if dbHandler.gridfs_client.exists(result["_id"]):
-            dbHandler.gridfs_client.delete(result["_id"])
-    pass
+    if False:
+        dbHandler.database.get_collection(FinanceMongoDatabasePlugin.conditional_information_transfer_name).delete_many(
+            {})
+        results = dbHandler.get_all_documents("dataset", {})
+        id = dbHandler.gridfs_client.find_one({})
+        dbHandler.gridfs_client.delete(id._id)
+        for result in results:
+            if dbHandler.gridfs_client.exists(result["dataset_id"]):
+                dbHandler.gridfs_client.delete(result["dataset_id"])
+
+        results = dbHandler.gridfs_client.find({})
+        for result in results:
+            if dbHandler.gridfs_client.exists(result["_id"]):
+                dbHandler.gridfs_client.delete(result["_id"])
