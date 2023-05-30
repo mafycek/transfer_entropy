@@ -202,8 +202,10 @@ if __name__ == "__main__":
     dataset_handler.load_datasets()
 
     # selection of the dataset 1
-    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(args.dataset_1_code)
-    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(args.dataset_2_code)
+    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(args.dataset_1_code, args.start_datetime,
+                                                                         args.end_datetime)
+    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(args.dataset_2_code, args.start_datetime,
+                                                                         args.end_datetime)
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )
@@ -231,11 +233,12 @@ if __name__ == "__main__":
     }
 
     if args.database:
-        # insert record to database
-        calculation_id = dataset_handler.add_start_of_calculation(
-            metadata1["id"], metadata2["id"], parameters
-        )
-        parameters["calculation_id"] = calculation_id
+        if "id" in metadata1 and "id" in metadata2:
+            # insert record to database
+            calculation_id = dataset_handler.add_start_of_calculation(
+                metadata1["id"], metadata2["id"], parameters
+            )
+            parameters["calculation_id"] = calculation_id
 
     # create structure for results
     results = {}

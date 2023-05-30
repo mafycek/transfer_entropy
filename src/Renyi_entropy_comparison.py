@@ -7,8 +7,11 @@ import pickle
 from itertools import product
 
 import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
+import random_samples
 from random_samples import *
 
 matplotlib.rcParams['text.usetex'] = True

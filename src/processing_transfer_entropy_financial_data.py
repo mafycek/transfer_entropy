@@ -36,9 +36,10 @@ if __name__ == "__main__":
     latex_title_size = "\\Huge"
     latex_label_size = "\\huge"
     directories = [
-        "conditional_information_transfer_4",
-        #"conditional_information_transfer_3",
-        # "financial_transfer_entropy_3", "financial_transfer_entropy_2", "financial_transfer_entropy_1", "financial_transfer_entropy"
+        # "conditional_information_transfer",
+        # "conditional_information_transfer_3",
+        "financial_transfer_entropy"
+        # , "financial_transfer_entropy_2", "financial_transfer_entropy_1", "financial_transfer_entropy"
     ]
 
     for directory in directories:
