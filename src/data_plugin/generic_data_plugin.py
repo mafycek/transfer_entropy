@@ -15,7 +15,7 @@ class GenericDataPlugin(ABC):
         pass
 
     @abc.abstractmethod
-    def select_dataset_with_code(self, code):
+    def select_dataset_with_code(self, code, start_date=None, end_date=None):
         pass
 
     @staticmethod

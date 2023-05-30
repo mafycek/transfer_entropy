@@ -123,9 +123,24 @@ if __name__ == "__main__":
         nargs="+",
         help="Calculation for alphas, min, max, number between",
     )
+    parser.add_argument(
+        "--start_date",
+        metavar="XXX",
+        type=str,
+        help="Start date of joint timeseries",
+        default=None,
+    )
+    parser.add_argument(
+        "--end_date",
+        metavar="XXX",
+        type=str,
+        help="End date of joint timeseries",
+        default=None,
+    )
 
     args = parser.parse_args()
-    # print(args.epsilon, flush=True)
+    args.start_datetime = datetime.datetime.fromisoformat(args.start_date) if args.start_date else None
+    args.end_datetime = datetime.datetime.fromisoformat(args.end_date) if args.end_date else None
 
     if args.history_first:
         histories_firsts = process_CLI_arguments(args.history_first)
@@ -187,8 +202,8 @@ if __name__ == "__main__":
     dataset_handler.load_datasets()
 
     # selection of the dataset 1
-    dataset1, metadata1 = dataset_handler.select_dataset_with_code(args.dataset_1_code)
-    dataset2, metadata2 = dataset_handler.select_dataset_with_code(args.dataset_2_code)
+    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(args.dataset_1_code)
+    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(args.dataset_2_code)
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )

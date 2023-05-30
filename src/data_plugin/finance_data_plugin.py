@@ -429,10 +429,20 @@ class FinanceDataPlugin(GenericFilePlugin):
                 pass
             yield result
 
-    def select_dataset_with_code(self, code):
+    def select_dataset_with_code(self, code, start_date=None, end_date=None):
         for dataset, metadata in zip(self.dataset, self.metadata):
             if metadata["code"] == code:
-                return dataset, metadata
+                filtered_dataset = {}
+                for row_data in dataset.items():
+                    if (
+                            (start_date and end_date and start_date <= row_data[0] <= end_date)
+                            or (start_date and not end_date and start_date <= row_data[0])
+                            or (not start_date and end_date and row_data[0] <= end_date)
+                            or (not start_date and not end_date)
+                    ):
+                        filtered_dataset[row_data[0]] = row_data[1]
+
+                return filtered_dataset, metadata
         return None, None
 
     def bid_ask_price_analysis(self, prefix, dataset, dpi=400, bins=250):

@@ -34,7 +34,7 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         self.gridfs_client = GridFS(self.database)
 
         try:
-            self.client.admin.command('ping')
+            self.client.admin.command("ping")
         except ConnectionFailure:
             print("Server not available")
 
@@ -74,9 +74,6 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
             help="NoSQL database table",
         )
 
-    def select_dataset_with_code(self, code):
-        pass
-
     def insert_document(self, collection: str, document):
         collection = self.database[collection]
         post_id = collection.insert_one(document).inserted_id
@@ -87,11 +84,36 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         collection = self.database[collection]
         return collection.find(querry)
 
+    def select_dataset_with_code(self, code, start_date=None, end_date=None):
+        datset_documents = self.get_all_documents(
+            FinanceMongoDatabasePlugin.dataset_collection_name, {"code": code}
+        )
+        dataset_metadata_complete = {}
+        dataset_raw_complete = {}
+        for datset_document in datset_documents:
+            pickled_dataset_raw = self.download_from_gridfs(
+                datset_document["dataset_id"]
+            )
+            dataset_raw = pickle.loads(pickled_dataset_raw)
+            for row_data in dataset_raw:
+                if (
+                        (start_date and end_date and start_date <= row_data[0] <= end_date)
+                        or (start_date and not end_date and start_date <= row_data[0])
+                        or (not start_date and end_date and row_data[0] <= end_date)
+                        or (not start_date and not end_date)
+                ):
+                    dataset_raw_complete[row_data[0]] = row_data[1]
+            dataset_metadata_complete.update(datset_document)
+
+        return dataset_raw_complete, dataset_metadata_complete
+
 
 def setup_database(database_plugin):
     list_of_collections = database_plugin.database.list_collection_names()
     if FinanceMongoDatabasePlugin.dataset_collection_name not in list_of_collections:
-        database_plugin.database.create_collection(FinanceMongoDatabasePlugin.dataset_collection_name)
+        database_plugin.database.create_collection(
+            FinanceMongoDatabasePlugin.dataset_collection_name
+        )
 
 
 if __name__ == "__main__":
@@ -101,11 +123,13 @@ if __name__ == "__main__":
     password = "mongo"
     mongo_uri = f"mongodb://{quote_plus(username)}:{quote_plus(password)}@ashley.fjfi.cvut.cz:27017/"
 
-    mongo_engine = FinanceMongoDatabasePlugin(url
-                                              , database, username, password
-                                              )
+    mongo_engine = FinanceMongoDatabasePlugin(url, database, username, password)
 
-    results = mongo_engine.get_all_documents("conditional_information_transfer", {"symbol": "APD_BAC"})
+    dataset = mongo_engine.select_dataset_with_code("APD")
+
+    results = mongo_engine.get_all_documents(
+        "conditional_information_transfer", {"symbol": "APD_BAC"}
+    )
 
     for result in results:
         decoded_result = mongo_engine.download_from_gridfs(result["document_id"])
@@ -128,16 +152,18 @@ if __name__ == "__main__":
     setup_database(mongo_engine)
     # updated_row = mongo_engine.add_start_of_calculation(1, 2, {"ABC": "CDE"})
     # mongo_engine.update_finish_of_calculation(updated_row)
-    # data = mongo_engine.select_dataset_with_code("ADUS")
 
     for dataset in datasets_generator:
         metadata = dataset["metadata"]
         raw_dataset = dataset["dataset"]
         pickled_raw_dataset = pickle.dumps(raw_dataset)
 
-        gridfs_raw_dataset_id = mongo_engine.upload_to_gridfs(str(metadata["full_filename"]), pickled_raw_dataset)
+        gridfs_raw_dataset_id = mongo_engine.upload_to_gridfs(
+            str(metadata["full_filename"]), pickled_raw_dataset
+        )
         metadata["dataset_id"] = gridfs_raw_dataset_id
-        dataset_keys = raw_dataset.keys()
-        metadata["start_date_time"] = min(dataset_keys)
-        metadata["end_date_time"] = max(dataset_keys)
-        mongo_engine.insert_document(FinanceMongoDatabasePlugin.dataset_collection_name, metadata)
+        metadata["start_date_time"] = raw_dataset[0][0]
+        metadata["end_date_time"] = raw_dataset[-1][0]
+        mongo_engine.insert_document(
+            FinanceMongoDatabasePlugin.dataset_collection_name, metadata
+        )

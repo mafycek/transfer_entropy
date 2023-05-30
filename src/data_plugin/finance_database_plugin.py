@@ -114,7 +114,7 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
             help="SQL database table",
         )
 
-    def select_dataset_with_code(self, code):
+    def select_dataset_with_code(self, code, start_date, end_date):
         # implement method
         sql_statement = select(Dataset).where(Dataset.code == code)
         with Session(self.engine) as session:
@@ -140,20 +140,26 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
         price_multiplicator = dataset_metadata["price_multiplicator"]
         for row in dataset_data_rows:
             row_dict = row[0].__dict__
-            if dataset_metadata["type"] == DatasetType.TIMESERIES_OHLC:
-                dataset_data[row_dict["date"]] = (
-                    row_dict["open"] / price_multiplicator,
-                    row_dict["high"] / price_multiplicator,
-                    row_dict["low"] / price_multiplicator,
-                    row_dict["close"] / price_multiplicator,
-                )
-            elif dataset_metadata["type"] == DatasetType.TIMESERIES_PRICE:
-                dataset_data[row_dict["date"]] = row_dict["value"] / price_multiplicator
-            elif dataset_metadata["type"] == DatasetType.TIMESERIES_ASK_BID:
-                dataset_data[row_dict["date"]] = (
-                    row_dict["bid"] / price_multiplicator,
-                    row_dict["ask"] / price_multiplicator,
-                )
+            if (
+                    (start_date and end_date and start_date <= row_dict["date"] <= end_date)
+                    or (start_date and not end_date and start_date <= row_dict["date"])
+                    or (not start_date and end_date and row_dict["date"] <= end_date)
+                    or (not start_date and not end_date)
+            ):
+                if dataset_metadata["type"] == DatasetType.TIMESERIES_OHLC:
+                    dataset_data[row_dict["date"]] = (
+                        row_dict["open"] / price_multiplicator,
+                        row_dict["high"] / price_multiplicator,
+                        row_dict["low"] / price_multiplicator,
+                        row_dict["close"] / price_multiplicator,
+                    )
+                elif dataset_metadata["type"] == DatasetType.TIMESERIES_PRICE:
+                    dataset_data[row_dict["date"]] = row_dict["value"] / price_multiplicator
+                elif dataset_metadata["type"] == DatasetType.TIMESERIES_ASK_BID:
+                    dataset_data[row_dict["date"]] = (
+                        row_dict["bid"] / price_multiplicator,
+                        row_dict["ask"] / price_multiplicator,
+                    )
 
         return dataset_data, dataset_metadata
 
