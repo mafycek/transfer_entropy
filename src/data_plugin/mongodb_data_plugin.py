@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Handler of MongoDB for financial datasets"""
 
-import pymongo
 import pickle
 from urllib.parse import quote_plus
+import pymongo
 from gridfs import GridFS
 from pymongo.errors import ConnectionFailure
 
@@ -12,6 +13,9 @@ from data_plugin.finance_data_plugin import FinanceDataPlugin
 
 
 class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
+    """
+    Handler of finance dataset stored in MongoDB
+    """
     dataset_collection_name = "dataset"
     conditional_information_transfer_name = "conditional_information_transfer"
 
@@ -33,9 +37,20 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
             print("Server not available")
 
     def upload_to_gridfs(self, filename, data):
+        """
+        Uploads dataset in MongoDB with a filename
+        :param filename:  of dataset
+        :param data: Raw data
+        :return: ObjectId of stared dataset
+        """
         return self.gridfs_client.put(data, filename=filename)
 
     def download_from_gridfs(self, document_id):
+        """
+        Downloads dataset stored in MongoDB
+        :param document_id: ObjectId of stored dataset
+        :return: Raw data
+        """
         return self.gridfs_client.get(document_id).read()
 
     def __del__(self):
@@ -43,6 +58,10 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
 
     @staticmethod
     def CLISupport(parser):
+        """
+        Additional parameters for CLI interface
+        :param parser: parser object used to handle  CLI
+        """
         parser.add_argument(
             "--database_nosql_url",
             type=str,
