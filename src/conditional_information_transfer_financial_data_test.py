@@ -206,9 +206,11 @@ if __name__ == "__main__":
     dataset_handler.load_datasets()
 
     # selection of the dataset 1
+    # dataset_handler
     dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(
         args.dataset_1_code, args.start_datetime, args.end_datetime
     )
+    # dataset_handler
     dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(
         args.dataset_2_code, args.start_datetime, args.end_datetime
     )

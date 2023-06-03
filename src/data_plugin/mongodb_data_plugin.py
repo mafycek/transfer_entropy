@@ -85,25 +85,26 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         return collection.find(querry)
 
     def select_dataset_with_code(self, code, start_date=None, end_date=None):
-        datset_documents = self.get_all_documents(
+        dataset_documents = self.get_all_documents(
             FinanceMongoDatabasePlugin.dataset_collection_name, {"code": code}
         )
         dataset_metadata_complete = {}
         dataset_raw_complete = {}
-        for datset_document in datset_documents:
-            pickled_dataset_raw = self.download_from_gridfs(
-                datset_document["dataset_id"]
-            )
-            dataset_raw = pickle.loads(pickled_dataset_raw)
-            for row_data in dataset_raw:
-                if (
-                        (start_date and end_date and start_date <= row_data[0] <= end_date)
-                        or (start_date and not end_date and start_date <= row_data[0])
-                        or (not start_date and end_date and row_data[0] <= end_date)
-                        or (not start_date and not end_date)
-                ):
-                    dataset_raw_complete[row_data[0]] = row_data[1]
-            dataset_metadata_complete.update(datset_document)
+        for dataset_document in dataset_documents:
+            if not (end_date < dataset_document["start_date_time"] or dataset_document["end_date_time"] < start_date):
+                pickled_dataset_raw = self.download_from_gridfs(
+                    dataset_document["dataset_id"]
+                )
+                dataset_raw = pickle.loads(pickled_dataset_raw)
+                for row_data in dataset_raw:
+                    if (
+                            (start_date and end_date and start_date <= row_data[0] <= end_date)
+                            or (start_date and not end_date and start_date <= row_data[0])
+                            or (not start_date and end_date and row_data[0] <= end_date)
+                            or (not start_date and not end_date)
+                    ):
+                        dataset_raw_complete[row_data[0]] = row_data[1]
+                dataset_metadata_complete.update(dataset_document)
 
         return dataset_raw_complete, dataset_metadata_complete
 
