@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import base64
 import pymongo
 import pickle
-import datetime
-import pprint
 from urllib.parse import quote_plus
 from gridfs import GridFS
 from pymongo.errors import ConnectionFailure
-from bson.objectid import ObjectId
 
 from data_plugin.generic_database_plugin import GenericDatabasePlugin
 from data_plugin.finance_data_plugin import FinanceDataPlugin
@@ -19,9 +15,7 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
     dataset_collection_name = "dataset"
     conditional_information_transfer_name = "conditional_information_transfer"
 
-    def __init__(self, database_url, database, username, password):
-        username = "admin"
-        password = "admin"
+    def __init__(self, database_url, database, username="admin", password="admin"):
         mongo_uri = (
             f"mongodb://{quote_plus(username)}:{quote_plus(password)}@{database_url}/"
         )
@@ -91,14 +85,21 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         dataset_metadata_complete = {}
         dataset_raw_complete = {}
         for dataset_document in dataset_documents:
-            if not (end_date < dataset_document["start_date_time"] or dataset_document["end_date_time"] < start_date):
+            if not (
+                    end_date < dataset_document["start_date_time"]
+                    or dataset_document["end_date_time"] < start_date
+            ):
                 pickled_dataset_raw = self.download_from_gridfs(
                     dataset_document["dataset_id"]
                 )
                 dataset_raw = pickle.loads(pickled_dataset_raw)
                 for row_data in dataset_raw:
                     if (
-                            (start_date and end_date and start_date <= row_data[0] <= end_date)
+                            (
+                                    start_date
+                                    and end_date
+                                    and start_date <= row_data[0] <= end_date
+                            )
                             or (start_date and not end_date and start_date <= row_data[0])
                             or (not start_date and end_date and row_data[0] <= end_date)
                             or (not start_date and not end_date)
