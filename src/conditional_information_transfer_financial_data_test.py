@@ -139,8 +139,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    args.start_datetime = datetime.datetime.fromisoformat(args.start_date) if args.start_date else None
-    args.end_datetime = datetime.datetime.fromisoformat(args.end_date) if args.end_date else None
+    args.start_datetime = (
+        datetime.datetime.fromisoformat(args.start_date) if args.start_date else None
+    )
+    args.end_datetime = (
+        datetime.datetime.fromisoformat(args.end_date) if args.end_date else None
+    )
 
     if args.history_first:
         histories_firsts = process_CLI_arguments(args.history_first)
@@ -202,10 +206,12 @@ if __name__ == "__main__":
     dataset_handler.load_datasets()
 
     # selection of the dataset 1
-    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(args.dataset_1_code, args.start_datetime,
-                                                                         args.end_datetime)
-    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(args.dataset_2_code, args.start_datetime,
-                                                                         args.end_datetime)
+    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(
+        args.dataset_1_code, args.start_datetime, args.end_datetime
+    )
+    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(
+        args.dataset_2_code, args.start_datetime, args.end_datetime
+    )
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )
@@ -248,7 +254,10 @@ if __name__ == "__main__":
         for shuffle_dataset in [True, False]:
             # prepare dataset that is being processed
 
-            marginal_solution_1, marginal_solution_2 = GenericDataPlugin.prepare_dataset(
+            (
+                marginal_solution_1,
+                marginal_solution_2,
+            ) = GenericDataPlugin.prepare_dataset(
                 datasets=joint_dataset,
                 swap_datasets=swap_datasets,
                 shuffle_dataset=shuffle_dataset,
@@ -350,10 +359,13 @@ if __name__ == "__main__":
         )
 
         pickled_result = pickle.dumps(results, -1)
-        document_id = nosql_storage_handler.upload_to_gridfs(f"Conditional_information_transfer-{symbol}.bin",
-                                                             pickled_result)
+        document_id = nosql_storage_handler.upload_to_gridfs(
+            f"Conditional_information_transfer-{symbol}.bin", pickled_result
+        )
         parameters["document_id"] = document_id
         parameters["format"] = "pickle"
+        parameters["comment"] = ""
+        parameters["timestamp"] = datetime.datetime.now()
         mongo_id = nosql_storage_handler.insert_document(
             FinanceMongoDatabasePlugin.conditional_information_transfer_name, parameters
         )
@@ -361,10 +373,11 @@ if __name__ == "__main__":
 
         # insert record to database
 
-        del parameters["_id"]
-        dataset_handler.update_state_of_calculation(
-            parameters["calculation_id"], CalculationStatusType.FINISHED, parameters
-        )
+        if "calculation_id" in parameters:
+            del parameters["_id"]
+            dataset_handler.update_state_of_calculation(
+                parameters["calculation_id"], CalculationStatusType.FINISHED, parameters
+            )
 
     else:
         # save result structure to the file
