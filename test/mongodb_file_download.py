@@ -26,7 +26,7 @@ if __name__ == "__main__":
     result = dbHandler.database.command("dbstats")
 
     if False:
-        dbHandler.database.get_collection(FinanceMongoDatabasePlugin.conditional_information_transfer_name).delete_many(
+        dbHandler.DATABASE.get_collection(FinanceMongoDatabasePlugin.conditional_information_transfer_name).delete_many(
             {})
         results = dbHandler.get_all_documents("dataset", {})
         id = dbHandler.gridfs_client.find_one({})

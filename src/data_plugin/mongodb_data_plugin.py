@@ -130,21 +130,21 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
 
 
 def setup_database(database_plugin):
-    list_of_collections = database_plugin.database.list_collection_names()
+    list_of_collections = database_plugin.DATABASE.list_collection_names()
     if FinanceMongoDatabasePlugin.dataset_collection_name not in list_of_collections:
-        database_plugin.database.create_collection(
+        database_plugin.DATABASE.create_collection(
             FinanceMongoDatabasePlugin.dataset_collection_name
         )
 
 
 if __name__ == "__main__":
-    url = "ashley.fjfi.cvut.cz:27017"
-    database = "test"
-    username = "mongo"
-    password = "mongo"
-    mongo_uri = f"mongodb://{quote_plus(username)}:{quote_plus(password)}@ashley.fjfi.cvut.cz:27017/"
+    URL = "ashley.fjfi.cvut.cz:27017"
+    DATABASE = "test"
+    USERNAME = "mongo"
+    PASSWORD = "mongo"
+    mongo_uri = f"mongodb://{quote_plus(USERNAME)}:{quote_plus(PASSWORD)}@ashley.fjfi.cvut.cz:27017/"
 
-    mongo_engine = FinanceMongoDatabasePlugin(url, database, username, password)
+    mongo_engine = FinanceMongoDatabasePlugin(URL, DATABASE, USERNAME, PASSWORD)
 
     dataset = mongo_engine.select_dataset_with_code("APD")
 
