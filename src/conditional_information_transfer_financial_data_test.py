@@ -238,6 +238,7 @@ if __name__ == "__main__":
         "alphas": alphas.tolist(),
         "symbol": symbol,
         "collection": FinanceMongoDatabasePlugin.conditional_information_transfer_name,
+        "start_timestamp": datetime.datetime.now(),
     }
 
     if args.database:
@@ -367,7 +368,7 @@ if __name__ == "__main__":
         parameters["document_id"] = document_id
         parameters["format"] = "pickle"
         parameters["comment"] = ""
-        parameters["timestamp"] = datetime.datetime.now()
+        parameters["end_timestamp"] = datetime.datetime.now()
         mongo_id = nosql_storage_handler.insert_document(
             FinanceMongoDatabasePlugin.conditional_information_transfer_name, parameters
         )

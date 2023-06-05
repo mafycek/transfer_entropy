@@ -471,6 +471,7 @@ def renyi_entropy(*args, **kwargs):
     if "arbitrary_precision" not in kwargs:
         raise BaseException("arbitrary_precision missing in kwargs")
     else:
+        # definition of logarithms for Renyi entropy calculation
         if kwargs["arbitrary_precision"]:
             if "base_of_logarithm" in kwargs:
                 kwargs["logarithm"] = lambda x: mpmath.log(
@@ -479,10 +480,11 @@ def renyi_entropy(*args, **kwargs):
             else:
                 kwargs["logarithm"] = lambda x: mpmath.log(x)
         else:
+            # special treatment of negative values in argument of logarithm
             if "base_of_logarithm" in kwargs:
-                kwargs["logarithm"] = lambda x: np.log(x, kwargs["base_of_logarithm"])
+                kwargs["logarithm"] = lambda x: np.log(x, kwargs["base_of_logarithm"]) if x > 0 else 0.0
             else:
-                kwargs["logarithm"] = lambda x: np.log(x) if x > 0 else ShowTraceback()
+                kwargs["logarithm"] = lambda x: np.log(x) if x > 0 else 0.0
                 # if x > 0 else 0
 
     if "method" in kwargs:
@@ -501,11 +503,6 @@ def renyi_entropy(*args, **kwargs):
     else:
         logging.error("No method was choosen.")
         raise Exception("No method was choosen.")
-
-
-def ShowTraceback():
-    traceback.print_stack()
-    raise Exception("Log")
 
 
 def renyi_mutual_entropy(data_x, data_y, **kwargs):
