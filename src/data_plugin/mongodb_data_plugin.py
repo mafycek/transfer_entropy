@@ -105,8 +105,8 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         dataset_raw_complete = {}
         for dataset_document in dataset_documents:
             if not (
-                    end_date < dataset_document["start_date_time"]
-                    or dataset_document["end_date_time"] < start_date
+                    (end_date and end_date < dataset_document["start_date_time"])
+                    or (start_date and dataset_document["end_date_time"] < start_date)
             ):
                 pickled_dataset_raw = self.download_from_gridfs(
                     dataset_document["dataset_id"]
