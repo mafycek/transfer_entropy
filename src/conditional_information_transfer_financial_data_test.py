@@ -138,6 +138,13 @@ if __name__ == "__main__":
         default=None,
     )
 
+    parser.add_argument(
+        "--comment",
+        type=str,
+        help="Comment that is added to database",
+        default=None,
+    )
+
     args = parser.parse_args()
     args.start_datetime = (
         datetime.datetime.fromisoformat(args.start_date) if args.start_date else None
@@ -239,6 +246,7 @@ if __name__ == "__main__":
         "symbol": symbol,
         "collection": FinanceMongoDatabasePlugin.conditional_information_transfer_name,
         "start_timestamp": datetime.datetime.now(),
+        "comment": args.comment,
     }
 
     if args.database:
@@ -367,7 +375,6 @@ if __name__ == "__main__":
         )
         parameters["document_id"] = document_id
         parameters["format"] = "pickle"
-        parameters["comment"] = ""
         parameters["end_timestamp"] = datetime.datetime.now()
         mongo_id = nosql_storage_handler.insert_document(
             FinanceMongoDatabasePlugin.conditional_information_transfer_name, parameters
