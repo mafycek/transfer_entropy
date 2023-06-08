@@ -7,8 +7,8 @@ from src.data_plugin.mongodb_data_plugin import FinanceMongoDatabasePlugin
 if __name__ == "__main__":
     url = "ashley.fjfi.cvut.cz"
     table = "test"
-    username = "mongo"
-    password = "mongo"
+    username = "admin"
+    password = "admin"
     dbHandler = FinanceMongoDatabasePlugin(
         url,
         table,
@@ -24,6 +24,18 @@ if __name__ == "__main__":
     #    print(variable)
 
     result = dbHandler.database.command("dbstats")
+
+    collection_handler = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
+    symbol = "BATRK_ALT"
+    cursor_find = collection_handler.find({"symbol": symbol})
+
+    for cursor in cursor_find:
+        document_id = cursor["document_id"]
+        document_pickle = dbHandler.download_from_gridfs(document_id)
+        document = pickle.loads(document_pickle)
+
+        with open(f"Conditional_information_transfer-{symbol}.bin", "wb") as fh:
+            fh.write(document_pickle)
 
     if False:
         dbHandler.DATABASE.get_collection(FinanceMongoDatabasePlugin.conditional_information_transfer_name).delete_many(
