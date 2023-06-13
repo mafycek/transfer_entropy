@@ -2,13 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import pickle
+import os
+from dotenv import load_dotenv
+
 from src.data_plugin.mongodb_data_plugin import FinanceMongoDatabasePlugin
 
 if __name__ == "__main__":
-    url = "ashley.fjfi.cvut.cz"
-    table = "test"
-    username = "admin"
-    password = "admin"
+    load_dotenv()
+    url = os.getenv("URL")
+    table = os.getenv("NOSQL_TABLE")
+    username = os.getenv("NOSQL_USERNAME")
+    password = os.getenv("NOSQL_PASSWORD")
+
     dbHandler = FinanceMongoDatabasePlugin(
         url,
         table,
@@ -26,11 +31,12 @@ if __name__ == "__main__":
     result = dbHandler.database.command("dbstats")
 
     collection_handler = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
-    symbol = "BATRK_ALT"
-    cursor_find = collection_handler.find({"symbol": symbol})
+    code = "BATRK"
+    cursor_find = collection_handler.find({"dataset_1_code": code})
 
     for cursor in cursor_find:
         document_id = cursor["document_id"]
+        symbol = cursor["symbol"]
         document_pickle = dbHandler.download_from_gridfs(document_id)
         document = pickle.loads(document_pickle)
 
