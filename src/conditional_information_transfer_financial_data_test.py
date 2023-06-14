@@ -211,6 +211,7 @@ if __name__ == "__main__":
 
     # load static dataset
     dataset_handler.load_datasets()
+    dataset_handler.disconnect()
 
     # selection of the dataset 1
     # dataset_handler
@@ -363,6 +364,8 @@ if __name__ == "__main__":
                         )
 
     if args.database:
+        dataset_handler.reconnect()
+
         # save to database
         print(
             f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Save to database",
