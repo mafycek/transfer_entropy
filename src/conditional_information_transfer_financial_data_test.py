@@ -193,35 +193,37 @@ if __name__ == "__main__":
 
     print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Load datasets")
     if args.database:
-        dataset_handler = FinanceDatabasePlugin(
-            args.database_sql_url,
-            args.database_sql_table,
-            args.database_sql_username,
-            args.database_sql_password,
-        )
-        nosql_storage_handler = FinanceMongoDatabasePlugin(
+        # dataset_handler = FinanceDatabasePlugin(
+        #    args.database_sql_url,
+        #    args.database_sql_table,
+        #    args.database_sql_username,
+        #    args.database_sql_password,
+        # )
+        dataset_handler = FinanceMongoDatabasePlugin(
             args.database_nosql_url,
             args.database_nosql_table,
             args.database_nosql_username,
             args.database_nosql_password,
         )
+
     else:
         dataset_handler = FinanceDataPlugin(os.getcwd() + "/../data")
-        nosql_storage_handler = None
 
     # load static dataset
+
     dataset_handler.load_datasets()
-    dataset_handler.disconnect()
 
     # selection of the dataset 1
     # dataset_handler
-    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(
+    dataset1, metadata1 = dataset_handler.select_dataset_with_code(
         args.dataset_1_code, args.start_datetime, args.end_datetime
     )
     # dataset_handler
-    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(
+    dataset2, metadata2 = dataset_handler.select_dataset_with_code(
         args.dataset_2_code, args.start_datetime, args.end_datetime
     )
+    dataset_handler.disconnect()
+
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )
@@ -373,13 +375,13 @@ if __name__ == "__main__":
         )
 
         pickled_result = pickle.dumps(results, -1)
-        document_id = nosql_storage_handler.upload_to_gridfs(
+        document_id = dataset_handler.upload_to_gridfs(
             f"Conditional_information_transfer-{symbol}.bin", pickled_result
         )
         parameters["document_id"] = document_id
         parameters["format"] = "pickle"
         parameters["end_timestamp"] = datetime.datetime.now()
-        mongo_id = nosql_storage_handler.insert_document(
+        mongo_id = dataset_handler.insert_document(
             FinanceMongoDatabasePlugin.conditional_information_transfer_name, parameters
         )
         parameters["document_id"] = str(mongo_id)
@@ -402,3 +404,8 @@ if __name__ == "__main__":
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as fb:
             pickle.dump(results, fb)
+
+    print(
+        f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Calculation finished",
+        flush=True,
+    )

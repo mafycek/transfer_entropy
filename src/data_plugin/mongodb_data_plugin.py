@@ -19,11 +19,14 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
     dataset_collection_name = "dataset"
     conditional_information_transfer_name = "conditional_information_transfer"
 
-    def __init__(self, database_url, database, username="admin", password="admin"):
+    def __init__(self, database_url, database_table_name, username="admin", password="admin"):
         mongo_uri = (
             f"mongodb://{quote_plus(username)}:{quote_plus(password)}@{database_url}/"
         )
-        super().__init__(mongo_uri, database, username, password)
+        super().__init__(mongo_uri, database_table_name, username, password)
+        self.client = None
+        self.database = None
+        self.gridfs_client = None
 
         self.reconnect()
 
@@ -50,14 +53,16 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         return self.gridfs_client.get(document_id).read()
 
     def disconnect(self):
-        self.client.close()
-        self.database = None
-        self.gridfs_client = None
+        if self.client:
+            self.client.close()
+            self.client = None
+            self.database = None
+            self.gridfs_client = None
 
     def reconnect(self):
         print(f"Connecting to {self.database_url}")
         self.client = pymongo.MongoClient(self.database_url)
-        self.database = self.client[self.database]
+        self.database = self.client[self.database_table_name]
         self.gridfs_client = GridFS(self.database)
 
     def __del__(self):
