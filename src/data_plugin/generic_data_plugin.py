@@ -47,3 +47,6 @@ class GenericDataPlugin(ABC):
             marginal_solution_1 = shuffle_sample(marginal_solution_1)
 
         return marginal_solution_1, marginal_solution_2
+
+    def disconnect(self):
+        pass

@@ -11,3 +11,6 @@ class GenericDatabasePlugin(GenericDataPlugin):
         self.database = database
         self.username = username
         self.password = password
+
+    def reconnect(self):
+        pass
