@@ -3,6 +3,8 @@
 """Handler of MongoDB for financial datasets"""
 
 import pickle
+import os
+import datetime
 from urllib.parse import quote_plus
 import pymongo
 from gridfs import GridFS
@@ -58,10 +60,12 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
             self.client = None
             self.database = None
             self.gridfs_client = None
+        print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Disconnecting from Mongo DB")
 
-    def reconnect(self):
-        print(f"Connecting to {self.database_url}")
-        self.client = pymongo.MongoClient(self.database_url)
+    def reconnect(self, connect_timeout_ms=3600000, socket_timeout_ms=1800000, timeout_ms=600000):
+        print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Connecting to {self.database_url}")
+        self.client = pymongo.MongoClient(self.database_url, timeoutMS=timeout_ms, socketTimeoutMS=socket_timeout_ms,
+                                          connectTimeoutMS=connect_timeout_ms)
         self.database = self.client[self.database_table_name]
         self.gridfs_client = GridFS(self.database)
 
