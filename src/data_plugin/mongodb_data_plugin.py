@@ -18,10 +18,13 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
     """
     Handler of finance dataset stored in MongoDB
     """
+
     dataset_collection_name = "dataset"
     conditional_information_transfer_name = "conditional_information_transfer"
 
-    def __init__(self, database_url, database_table_name, username="admin", password="admin"):
+    def __init__(
+            self, database_url, database_table_name, username="admin", password="admin"
+    ):
         mongo_uri = (
             f"mongodb://{quote_plus(username)}:{quote_plus(password)}@{database_url}/"
         )
@@ -56,18 +59,35 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
 
     def disconnect(self):
         if self.client:
+            print(f"{self.client}")
             self.client.close()
             self.client = None
             self.database = None
             self.gridfs_client = None
-        print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Disconnecting from Mongo DB")
 
-    def reconnect(self, connect_timeout_ms=3600000, socket_timeout_ms=1800000, timeout_ms=600000):
-        print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Connecting to {self.database_url}")
-        self.client = pymongo.MongoClient(self.database_url, timeoutMS=timeout_ms, socketTimeoutMS=socket_timeout_ms,
-                                          connectTimeoutMS=connect_timeout_ms)
+            pid = os.getpid()
+            timestamp = datetime.datetime.now().isoformat()
+            print(f"PID:{pid} {timestamp} Disconnecting from Mongo DB")
+
+    def reconnect(
+            self, connect_timeout_ms=600000, socket_timeout_ms=300000, timeout_ms=150000
+    ):
+        print(
+            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Connecting to {self.database_url}"
+        )
+        self.client = pymongo.MongoClient(
+            self.database_url,
+            timeoutMS=timeout_ms,
+            socketTimeoutMS=socket_timeout_ms,
+            connectTimeoutMS=connect_timeout_ms,
+        )
         self.database = self.client[self.database_table_name]
         self.gridfs_client = GridFS(self.database)
+
+    def add_start_of_calculation(
+            self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
+    ):
+        pass
 
     def __del__(self):
         self.disconnect()
