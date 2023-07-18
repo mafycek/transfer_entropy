@@ -393,6 +393,7 @@ if __name__ == "__main__":
             dataset_handler.update_state_of_calculation(
                 parameters["calculation_id"], CalculationStatusType.FINISHED, parameters
             )
+        dataset_handler.disconnect()
 
     else:
         # save result structure to the file
