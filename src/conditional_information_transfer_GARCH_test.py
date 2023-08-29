@@ -152,7 +152,6 @@ if __name__ == "__main__":
         results = {}
 
         for swap_datasets in [False, True]:
-
             # loop over shuffling
             for shuffle_dataset in [True, False]:
                 configuration_of_integration = {

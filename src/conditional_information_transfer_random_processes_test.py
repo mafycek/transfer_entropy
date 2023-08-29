@@ -131,7 +131,6 @@ if __name__ == "__main__":
     results = {}
 
     for swap_datasets in [False, True]:
-
         # loop over shuffling
         for shuffle_dataset in [True, False]:
             # prepare dataset that is been processed
