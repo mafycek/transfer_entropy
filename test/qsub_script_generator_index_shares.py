@@ -23,7 +23,7 @@ if __name__ == "__main__":
     history_second = "0 1"
     alpha_params = "0.1 3.0 117"
     dataset_1_selector = "6"
-    dataset_2_selector = "6"
+    dataset_2_selector = "7"
 
     dbHandler = FinanceMongoDatabasePlugin(
         url,
@@ -62,9 +62,9 @@ if __name__ == "__main__":
     base_code = list_of_codes[0]
     directory = os.getcwd() + "/"
     for count, base_code in enumerate(list_of_codes):
-        for code in list_of_codes[count + 1: len(list_of_codes)]:
-            with open(directory + f"script_{base_code}_{code}.sh", "wt") as fh:
-                print(
-                    f"./calculations/transfer_entropy.sif --database=True --database_nosql_url={url} --database_sql_url={url} --database_sql_username={sql_username} --database_sql_password={sql_password} --database_sql_table={sql_database} --database_nosql_username={username} --database_nosql_password={password} --database_nosql_table={table} --dataset_1_code={base_code} --dataset_2_code={code} --dataset_1_selector {dataset_1_selector} --dataset_2_selector {dataset_2_selector} --alpha_params {alpha_params} --history_first {history_first} --history_second {history_second} --maximal_neighborhood {maximal_neighborhood}",
-                    file=fh,
-                )
+        #        for code in list_of_codes[count + 1: len(list_of_codes)]:
+        with open(directory + f"script_{base_code}.sh", "wt") as fh:
+            print(
+                f"./calculations/transfer_entropy.sif --database=True --database_nosql_url={url} --database_sql_url={url} --database_sql_username={sql_username} --database_sql_password={sql_password} --database_sql_table={sql_database} --database_nosql_username={username} --database_nosql_password={password} --database_nosql_table={table} --dataset_1_code={base_code} --dataset_2_code={base_code} --dataset_1_selector {dataset_1_selector} --dataset_2_selector {dataset_2_selector} --alpha_params {alpha_params} --history_first {history_first} --history_second {history_second} --maximal_neighborhood {maximal_neighborhood}",
+                file=fh,
+            )
