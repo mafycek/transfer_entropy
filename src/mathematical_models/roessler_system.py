@@ -387,7 +387,6 @@ if __name__ == "__main__":
                 "tStop": 10000,
                 "cache": True,
                 "epsilon": epsilon,
-                "cache": True,
             }
             sol = roessler_oscillator(**configuration_of_integration)
             roessler_3d_plot(
