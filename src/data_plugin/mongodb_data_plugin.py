@@ -90,7 +90,7 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         pass
 
     def __del__(self):
-        self.disconnect()
+        pass
 
     @staticmethod
     def CLISupport(parser):
@@ -166,9 +166,9 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
 
 
 def setup_database(database_plugin):
-    list_of_collections = database_plugin.DATABASE.list_collection_names()
+    list_of_collections = database_plugin.database.list_collection_names()
     if FinanceMongoDatabasePlugin.dataset_collection_name not in list_of_collections:
-        database_plugin.DATABASE.create_collection(
+        database_plugin.database.create_collection(
             FinanceMongoDatabasePlugin.dataset_collection_name
         )
 
@@ -210,6 +210,7 @@ if __name__ == "__main__":
     # updated_row = mongo_engine.add_start_of_calculation(1, 2, {"ABC": "CDE"})
     # mongo_engine.update_finish_of_calculation(updated_row)
 
+    # upload dataset to mongodb
     for dataset in datasets_generator:
         metadata = dataset["metadata"]
         raw_dataset = dataset["dataset"]
