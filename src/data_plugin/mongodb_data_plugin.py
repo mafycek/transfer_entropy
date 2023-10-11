@@ -87,9 +87,11 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
     def add_start_of_calculation(
             self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
     ):
+        # unimplemented method
         pass
 
     def __del__(self):
+        # unimplemented method
         pass
 
     @staticmethod
@@ -148,22 +150,25 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
                     dataset_document["dataset_id"]
                 )
                 dataset_raw = pickle.loads(pickled_dataset_raw)
-                for row_data in dataset_raw:
-                    if (
-                            (
-                                    start_date
-                                    and end_date
-                                    and start_date <= row_data[0] <= end_date
-                            )
-                            or (start_date and not end_date and start_date <= row_data[0])
-                            or (not start_date and end_date and row_data[0] <= end_date)
-                            or (not start_date and not end_date)
-                    ):
-                        dataset_raw_complete[row_data[0]] = row_data[1]
+                select_data_from_dataset(dataset_raw, start_date, end_date, dataset_raw_complete)
                 dataset_metadata_complete.update(dataset_document)
 
         return dataset_raw_complete, dataset_metadata_complete
 
+
+def select_data_from_dataset(dataset_raw, start_date, end_date, dataset_raw_complete):
+    for row_data in dataset_raw:
+        if (
+                (
+                        start_date
+                        and end_date
+                        and start_date <= row_data[0] <= end_date
+                )
+                or (start_date and not end_date and start_date <= row_data[0])
+                or (not start_date and end_date and row_data[0] <= end_date)
+                or (not start_date and not end_date)
+        ):
+            dataset_raw_complete[row_data[0]] = row_data[1]
 
 def setup_database(database_plugin):
     list_of_collections = database_plugin.database.list_collection_names()

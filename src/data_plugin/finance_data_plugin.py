@@ -536,7 +536,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                             )
                         else:
                             self.load_tick_data(frame, actual_dataset, actual_metadata)
-            except EOFError as exc:
+            except EOFError:
                 pass
 
         self.dataset = dataset
@@ -600,7 +600,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                             )
                         else:
                             self.load_tick_data(frame, actual_dataset, actual_metadata)
-            except EOFError as exc:
+            except EOFError:
                 pass
             yield result
 
@@ -783,7 +783,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         ]
         logged_bin = np.array([item[0] for item in selector_data])
         logged_hist = np.array([item[1] for item in selector_data])
-        popt, pcov = curve_fit(func, logged_bin, logged_hist, p0=p0)
+        popt, _ = curve_fit(func, logged_bin, logged_hist, p0=p0)
         return multiplicator * np.exp(logged_bin), np.exp(func(logged_bin, *popt)), popt
 
     def price_analysis(self, prefix, dataset, dpi=400, number_bins=250):
@@ -901,6 +901,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             dataset_dict, prefix + "_time_log.png", xlim=(bins[1], bins[-1]), dpi=dpi
         )
 
+    @staticmethod
     def time_join_dataset(
         dataset1: Dict[Any, Tuple],
         dataset2: Dict[Any, Tuple],
@@ -990,7 +991,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         func = lambda x, a, b: a * x + b
         logged_bin = np.log(bins_bid[1:])
         logged_hist = np.log(cumsum_bid)
-        popt, pcov = curve_fit(func, logged_bin, logged_hist, p0=(-1, 2))
+        popt, _ = curve_fit(func, logged_bin, logged_hist, p0=(-1, 2))
         interp_values = np.exp(func(logged_bin, *popt))
         dataset_dict = {
             "x": (bins_bid[1:], bins_bid[1:]),
@@ -1108,8 +1109,9 @@ class FinanceDataPlugin(GenericFilePlugin):
         }
         self.quadruple_plot(dataset_dict, prefix + "_price_cumsum.png", dpi=dpi)
 
+    @staticmethod
     def quadruple_plot(datasets, name, dpi=300):
-        fig, axs = plt.subplots(2, 2)
+        _, axs = plt.subplots(2, 2)
         for row in range(2):
             for column in range(2):
                 dataset = datasets[(row, column)]
@@ -1176,7 +1178,6 @@ if __name__ == "__main__":
             pass
         elif info["type"] == "shortened":
             dataPlugin.price_analysis(info["code"], data)
-            pass
 
     data1, metadata1 = dataPlugin.select_dataset_with_code("EURSEK")
     data2, metadata2 = dataPlugin.select_dataset_with_code("EURPLN")

@@ -64,7 +64,7 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         default=[1],
-        help="History to take into account",
+        help="Future to take into account",
     )
     parser.add_argument(
         "--history_second",
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     dataset_handler.disconnect()
 
     if not dataset1 or not dataset2:
-        raise Exception(
+        raise RuntimeError(
             f"Any of input datasets are empty. The selection code {args.dataset_1_code} or {args.dataset_2_code} is wrong or time period {args.start_datetime}--{args.end_datetime} is incorrect."
         )
 
@@ -257,13 +257,12 @@ if __name__ == "__main__":
         "comment": args.comment,
     }
 
-    if args.database:
-        if "id" in metadata1 and "id" in metadata2:
-            # insert record to database
-            calculation_id = dataset_handler.add_start_of_calculation(
-                metadata1["id"], metadata2["id"], parameters
-            )
-            parameters["calculation_id"] = calculation_id
+    if args.database and "id" in metadata1 and "id" in metadata2:
+        # insert record to database
+        calculation_id = dataset_handler.add_start_of_calculation(
+            metadata1["id"], metadata2["id"], parameters
+        )
+        parameters["calculation_id"] = calculation_id
 
     # create structure for results
     results = {}

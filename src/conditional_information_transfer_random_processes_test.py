@@ -44,7 +44,7 @@ if __name__ == "__main__":
         metavar="XXX",
         type=str,
         nargs="+",
-        help="History to take into account",
+        help="Future to take into account",
     )
     parser.add_argument(
         "--history_second",
