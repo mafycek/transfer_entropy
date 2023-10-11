@@ -44,6 +44,8 @@ class FinanceDataPlugin(GenericFilePlugin):
         previous_date = None
         difference_bid = 0
         difference_ask = 0
+        log_return_bid = 0
+        log_return_ask = 0
         difference_date = 0
         for row in frame:
             datetime_str = row[0]
@@ -60,8 +62,10 @@ class FinanceDataPlugin(GenericFilePlugin):
             ask = int(round(float(row[2]) * price_multiplicator))
             if previous_ask:
                 difference_ask = ask - previous_ask
+                log_return_ask = np.log(ask / previous_ask)
             if previous_bid:
                 difference_bid = bid - previous_bid
+                log_return_bid = np.log(bid / previous_bid)
             if previous_date:
                 difference_date = (date - previous_date).total_seconds()
             previous_ask = ask
@@ -72,9 +76,11 @@ class FinanceDataPlugin(GenericFilePlugin):
                 actual_dataset[date] = [
                     bid,
                     ask,
-                    difference_bid,
-                    difference_ask,
                     difference_date,
+                    difference_bid / bid,
+                    difference_ask / ask,
+                    log_return_bid,
+                    log_return_ask,
                 ]
             else:
                 actual_dataset.append(
@@ -83,15 +89,23 @@ class FinanceDataPlugin(GenericFilePlugin):
                         [
                             bid,
                             ask,
-                            difference_bid,
-                            difference_ask,
                             difference_date,
+                            difference_bid / bid,
+                            difference_ask / ask,
+                            log_return_bid,
+                            log_return_ask,
                         ],
                     )
                 )
-        actual_metadata[
-            "format"
-        ] = "bid, ask, difference_bid, difference_ask, difference_date"
+        actual_metadata["format"] = [
+            "bid",
+            "ask",
+            "difference_date",
+            "return_bid",
+            "return_ask",
+            "log_return_bid",
+            "log_return_ask",
+        ]
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "tick"
 
@@ -103,6 +117,8 @@ class FinanceDataPlugin(GenericFilePlugin):
         difference_bid = 0
         difference_ask = 0
         difference_date = 0
+        log_return_bid = 0
+        log_return_ask = 0
         for row in frame:
             datetime_str = row[1]
             date = datetime.datetime(
@@ -118,8 +134,10 @@ class FinanceDataPlugin(GenericFilePlugin):
             ask = int(round(float(row[3]) * price_multiplicator))
             if previous_ask:
                 difference_ask = ask - previous_ask
+                log_return_ask = np.log(ask / previous_ask)
             if previous_bid:
                 difference_bid = bid - previous_bid
+                log_return_bid = np.log(bid / previous_bid)
             if previous_date:
                 difference_date = (date - previous_date).total_seconds()
             previous_ask = ask
@@ -129,9 +147,11 @@ class FinanceDataPlugin(GenericFilePlugin):
                 actual_dataset[date] = [
                     bid,
                     ask,
-                    difference_bid,
-                    difference_ask,
                     difference_date,
+                    difference_bid / bid,
+                    difference_ask / ask,
+                    log_return_bid,
+                    log_return_ask,
                 ]
             else:
                 actual_dataset.append(
@@ -140,15 +160,23 @@ class FinanceDataPlugin(GenericFilePlugin):
                         [
                             bid,
                             ask,
-                            difference_bid,
-                            difference_ask,
                             difference_date,
+                            difference_bid / bid,
+                            difference_ask / ask,
+                            log_return_bid,
+                            log_return_ask,
                         ],
                     )
                 )
-        actual_metadata[
-            "format"
-        ] = "bid, ask, difference_bid, difference_ask, difference_date"
+        actual_metadata["format"] = [
+            "bid",
+            "ask",
+            "return_bid",
+            "difference_date",
+            "return_ask",
+            "log_return_bid",
+            "log_return_ask",
+        ]
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "tick"
 
@@ -187,20 +215,112 @@ class FinanceDataPlugin(GenericFilePlugin):
                     )
                 )
 
-        actual_metadata["format"] = "price, return"
+        actual_metadata["format"] = ["price", "return"]
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "minute_simplified"
+
+    def load_stock_with_index_data(self, frame, actual_dataset, actual_metadata):
+        price_multiplicator = 10 ** 6
+        previous_sp500_index = None
+        difference_sp500_index = 0
+        log_return_sp500_index = 0
+        previous_stock_price = None
+        difference_stock_price = 0
+        log_return_stock_price = 0
+        previous_sp500_index_without_stock = None
+        difference_sp500_index_without_stock = 0
+        log_return_sp500_index_without_stock = 0
+
+        for raw_row in frame:
+            row = raw_row[0].split(";")
+            datetime_str = row[0].replace("-", "").replace(":", "")
+            date = datetime.datetime(
+                int(datetime_str[0:4]),
+                int(datetime_str[4:6]),
+                int(datetime_str[6:8]),
+                int(datetime_str[9:11]),
+                int(datetime_str[11:13]),
+                int(datetime_str[13:15]),
+            )
+            sp500_index = int(round(float(row[1]) * price_multiplicator))
+            stock_price = int(round(float(row[2]) * price_multiplicator))
+            sp500_without_stock = int(round(float(row[3]) * price_multiplicator))
+
+            if previous_sp500_index:
+                difference_sp500_index = sp500_index - previous_sp500_index
+                log_return_sp500_index = np.log(sp500_index / previous_sp500_index)
+            previous_sp500_index = sp500_index
+            if previous_stock_price:
+                difference_stock_price = stock_price - previous_stock_price
+                log_return_stock_price = np.log(stock_price / previous_stock_price)
+            previous_stock_price = stock_price
+            if previous_sp500_index_without_stock:
+                difference_sp500_index_without_stock = (
+                        sp500_without_stock - previous_sp500_index_without_stock
+                )
+                log_return_sp500_index_without_stock = np.log(
+                    sp500_without_stock / previous_sp500_index_without_stock
+                )
+            previous_sp500_index_without_stock = sp500_without_stock
+
+            if isinstance(actual_dataset, Dict):
+                actual_dataset[date] = [
+                    stock_price,
+                    sp500_index,
+                    sp500_without_stock,
+                    difference_stock_price / stock_price,
+                    difference_sp500_index / sp500_index,
+                    difference_sp500_index_without_stock / sp500_without_stock,
+                    log_return_stock_price,
+                    log_return_sp500_index,
+                    log_return_sp500_index_without_stock,
+                ]
+            else:
+                actual_dataset.append(
+                    (
+                        date,
+                        [
+                            stock_price,
+                            sp500_index,
+                            sp500_without_stock,
+                            difference_stock_price / stock_price,
+                            difference_sp500_index / sp500_index,
+                            difference_sp500_index_without_stock / sp500_without_stock,
+                            log_return_stock_price,
+                            log_return_sp500_index,
+                            log_return_sp500_index_without_stock,
+                        ],
+                    )
+                )
+
+        actual_metadata["format"] = [
+            "stock price",
+            "SP500",
+            "SP500_without_stock",
+            "return_of_stock_price",
+            "return_of_SP500",
+            "return_of_SP500_without_stock_price",
+            "log_return_of_stock_price",
+            "log_return_of_SP500",
+            "log_return_of_SP500_without_stock_price",
+        ]
+        actual_metadata["price_multiplicator"] = price_multiplicator
+        actual_metadata["type"] = "stock_with_index"
 
     def load_aggregated_data(self, frame, actual_dataset, actual_metadata):
         price_multiplicator = 10**4
         previous_open_price = None
         difference_open_price = 0
+        log_return_open_price = 0
         previous_max_price = None
         difference_max_price = 0
+        log_return_max_price = 0
         previous_min_price = None
         difference_min_price = 0
+        log_return_min_price = 0
         previous_close_price = None
         difference_close_price = 0
+        log_return_close_price = 0
 
         for row in frame:
             datetime_str = row[0].replace("-", "").replace(":", "")
@@ -220,15 +340,19 @@ class FinanceDataPlugin(GenericFilePlugin):
 
             if previous_open_price:
                 difference_open_price = open_price - previous_open_price
+                log_return_open_price = np.log(open_price / previous_open_price)
             previous_open_price = open_price
             if previous_max_price:
                 difference_max_price = max_price - previous_max_price
+                log_return_max_price = np.log(max_price / previous_max_price)
             previous_max_price = max_price
             if previous_min_price:
                 difference_min_price = min_price - previous_min_price
+                log_return_min_price = np.log(min_price / previous_min_price)
             previous_min_price = min_price
             if previous_close_price:
                 difference_close_price = close_price - previous_close_price
+                log_return_close_price = np.log(close_price / previous_close_price)
             previous_close_price = close_price
 
             if isinstance(actual_dataset, Dict):
@@ -237,11 +361,15 @@ class FinanceDataPlugin(GenericFilePlugin):
                     max_price,
                     min_price,
                     close_price,
-                    difference_open_price,
-                    difference_max_price,
-                    difference_min_price,
-                    difference_close_price,
                     volume,
+                    difference_open_price / open_price,
+                    difference_max_price / max_price,
+                    difference_min_price / min_price,
+                    difference_close_price / close_price,
+                    np.log(log_return_open_price),
+                    np.log(log_return_max_price),
+                    np.log(log_return_min_price),
+                    np.log(log_return_close_price),
                 ]
             else:
                 actual_dataset.append(
@@ -252,18 +380,34 @@ class FinanceDataPlugin(GenericFilePlugin):
                             max_price,
                             min_price,
                             close_price,
-                            difference_open_price,
-                            difference_max_price,
-                            difference_min_price,
-                            difference_close_price,
                             volume,
+                            difference_open_price / open_price,
+                            difference_max_price / max_price,
+                            difference_min_price / min_price,
+                            difference_close_price / close_price,
+                            np.log(log_return_open_price),
+                            np.log(log_return_max_price),
+                            np.log(log_return_min_price),
+                            np.log(log_return_close_price),
                         ],
                     )
                 )
 
-        actual_metadata[
-            "format"
-        ] = "open_price, max_price, min_price, close_price, difference_open_price, difference_max_price, difference_min_price, difference_close_price, volume"
+        actual_metadata["format"] = [
+            "open_price",
+            "max_price",
+            "min_price",
+            "close_price",
+            "volume",
+            "return_open_price",
+            "return_max_price",
+            "return_min_price",
+            "return_close_price",
+            "log_return_open_price",
+            "log_return_max_price",
+            "log_return_min_price",
+            "log_return_close_price",
+        ]
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "aggregated"
 
@@ -274,6 +418,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         previous_price = None
         previous_date = None
         difference_price = 0
+        log_return_price = 0
         difference_date = 0
         price_multiplicator = 10**5
 
@@ -297,18 +442,37 @@ class FinanceDataPlugin(GenericFilePlugin):
 
             if previous_price:
                 difference_price = price - previous_price
+                log_return_price = np.log(price / previous_price)
             if previous_date:
                 difference_date = (date - previous_date).total_seconds()
             previous_price = price
             previous_date = date
 
             if isinstance(actual_dataset, Dict):
-                actual_dataset[date] = [price, difference_price, difference_date]
+                actual_dataset[date] = [
+                    price,
+                    difference_date,
+                    difference_price / price,
+                    log_return_price,
+                ]
             else:
                 actual_dataset.append(
-                    (date, [price, difference_price, difference_date])
+                    (
+                        date,
+                        [
+                            price,
+                            difference_date,
+                            difference_price / price,
+                            log_return_price,
+                        ],
+                    )
                 )
-        actual_metadata["format"] = "price, difference_price, difference_date"
+        actual_metadata["format"] = [
+            "price",
+            "difference_date",
+            "return_price",
+            "log_return_price",
+        ]
         actual_metadata["price_multiplicator"] = price_multiplicator
         actual_metadata["type"] = "shortened"
 
@@ -347,6 +511,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                     if has_header:
                         header = next(frame)
                         semicolon_present_in_header = header[0].find(";") != -1
+                        index_present_in_header = header[0].find("sp") != -1
                         actual_metadata["header"] = header
                         if len(header) == 2:
                             self.load_shortened_data(
@@ -354,6 +519,10 @@ class FinanceDataPlugin(GenericFilePlugin):
                             )
                         elif not semicolon_present_in_header:
                             self.load_aggregated_data(
+                                frame, actual_dataset, actual_metadata
+                            )
+                        elif index_present_in_header:
+                            self.load_stock_with_index_data(
                                 frame, actual_dataset, actual_metadata
                             )
                         else:
@@ -410,12 +579,18 @@ class FinanceDataPlugin(GenericFilePlugin):
                     if has_header:
                         header = next(frame)
                         actual_metadata["header"] = header
+                        semicolon_present_in_header = header[0].find(";") != -1
+                        index_present_in_header = header[0].find("sp") != -1
                         if len(header) == 2:
                             self.load_shortened_data(
                                 frame, actual_dataset, datafile, actual_metadata
                             )
-                        else:
+                        elif not semicolon_present_in_header:
                             self.load_aggregated_data(
+                                frame, actual_dataset, actual_metadata
+                            )
+                        elif index_present_in_header:
+                            self.load_stock_with_index_data(
                                 frame, actual_dataset, actual_metadata
                             )
                     else:
@@ -435,7 +610,11 @@ class FinanceDataPlugin(GenericFilePlugin):
                 filtered_dataset = {}
                 for row_data in dataset.items():
                     if (
-                            (start_date and end_date and start_date <= row_data[0] <= end_date)
+                            (
+                                    start_date
+                                    and end_date
+                                    and start_date <= row_data[0] <= end_date
+                            )
                             or (start_date and not end_date and start_date <= row_data[0])
                             or (not start_date and end_date and row_data[0] <= end_date)
                             or (not start_date and not end_date)
