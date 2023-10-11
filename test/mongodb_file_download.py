@@ -3,6 +3,7 @@
 
 import pickle
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 from src.data_plugin.mongodb_data_plugin import FinanceMongoDatabasePlugin
@@ -30,9 +31,13 @@ if __name__ == "__main__":
 
     result = dbHandler.database.command("dbstats")
 
-    collection_handler = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
+    collection_handler = dbHandler.database[
+        FinanceMongoDatabasePlugin.conditional_information_transfer_name
+    ]
     code = "BATRK"
-    cursor_find = collection_handler.find({"dataset_1_code": code})
+    cursor_find = collection_handler.find(
+        {"end_timestamp": {"$gt": datetime.fromisoformat("2023-07-30T00:00:01.879Z")}}
+    )
 
     for cursor in cursor_find:
         document_id = cursor["document_id"]
@@ -44,8 +49,9 @@ if __name__ == "__main__":
             fh.write(document_pickle)
 
     if False:
-        dbHandler.DATABASE.get_collection(FinanceMongoDatabasePlugin.conditional_information_transfer_name).delete_many(
-            {})
+        dbHandler.DATABASE.get_collection(
+            FinanceMongoDatabasePlugin.conditional_information_transfer_name
+        ).delete_many({})
         results = dbHandler.get_all_documents("dataset", {})
         id = dbHandler.gridfs_client.find_one({})
         dbHandler.gridfs_client.delete(id._id)

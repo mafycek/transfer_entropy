@@ -207,7 +207,7 @@ if __name__ == "__main__":
         )
 
     else:
-        dataset_handler = FinanceDataPlugin(os.getcwd() + "/../data")
+        dataset_handler = FinanceDataPlugin(os.getcwd() + "/../data/1Q23_sp_stocks")
 
     # load static dataset
 
@@ -223,6 +223,11 @@ if __name__ == "__main__":
         args.dataset_2_code, args.start_datetime, args.end_datetime
     )
     dataset_handler.disconnect()
+
+    if not dataset1 or not dataset2:
+        raise Exception(
+            f"Any of input datasets are empty. The selection code {args.dataset_1_code} or {args.dataset_2_code} is wrong or time period {args.start_datetime}--{args.end_datetime} is incorrect."
+        )
 
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
