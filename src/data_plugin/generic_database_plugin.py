@@ -14,3 +14,7 @@ class GenericDatabasePlugin(GenericDataPlugin):
 
     def reconnect(self):
         pass
+
+    @abc.abstractmethod
+    def update_state_of_calculation(self):
+        pass

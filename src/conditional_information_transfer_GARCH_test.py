@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from cli_helpers import process_CLI_arguments
-from src.data_plugin.GARCH_data_plugin import load_static_dataset, prepare_dataset
+from src.data_plugin.GARCH_data_plugin import GARCHDataPlugin
 from transfer_entropy import renyi_conditional_information_transfer
 from src.data_plugin.sample_generator import preparation_dataset_for_transfer_entropy
 
@@ -120,6 +120,8 @@ if __name__ == "__main__":
     else:
         alpha_params = (0.1, 1.9, 37)
 
+    dataset_handler = GARCHDataPlugin(os.getcwd() + "/data")
+
     # create alphas that are been calculated
     alphas = np.round(
         np.linspace(alpha_params[0], alpha_params[1], alpha_params[2], endpoint=True), 3
@@ -138,7 +140,7 @@ if __name__ == "__main__":
 
     # load static dataset
     if args.dataset:
-        datasets, epsilons = load_static_dataset(args)
+        datasets, epsilons = dataset_handler.load_static_dataset(args)
     else:
         datasets = None
 
@@ -162,7 +164,7 @@ if __name__ == "__main__":
                 }
 
                 # prepare dataset that is been processed
-                marginal_solution_1, marginal_solution_2 = prepare_dataset(
+                marginal_solution_1, marginal_solution_2 = GARCHDataPlugin.prepare_dataset(
                     args,
                     index_epsilon=index_epsilon,
                     datasets=datasets,

@@ -8,11 +8,10 @@ import time
 import mpmath
 import logging
 import collections
-import traceback
 import numpy as np
 from numpy import random
 from sklearn.neighbors import KDTree
-from scipy.spatial import cKDTree
+# from scipy.spatial import cKDTree
 import scipy.special as scipyspecial
 
 
@@ -327,8 +326,8 @@ def entropy_sum_generic_LeonenkoProzanto(
                 )
 
                 entropy[index_of_distances] += multiplicator * sum_of_power_of_distances
-        except Exception as exc:
-            print(f"Exception happened: {exc.exc_info()[0]} {alpha} {use_index}")
+        except Exception:
+            print(f"Exception happened: {sys.exc_info()[0]} {alpha} {use_index}")
 
     return entropy
 
