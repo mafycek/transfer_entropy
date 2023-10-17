@@ -6,7 +6,6 @@ import datetime
 import os
 import pickle
 import time
-import base64
 from pathlib import Path
 import numpy as np
 
@@ -117,6 +116,30 @@ if __name__ == "__main__":
         default=[0],
     )
     parser.add_argument(
+        "--postselection_X_future",
+        metavar="XXX",
+        type=int,
+        default=None,
+        nargs="+",
+        help="Postselector of future X",
+    )
+    parser.add_argument(
+        "--postselection_X_history",
+        metavar="XXX",
+        type=int,
+        default=None,
+        nargs="+",
+        help="Postselector of history X",
+    )
+    parser.add_argument(
+        "--postselection_Y_history",
+        metavar="XXX",
+        type=int,
+        default=None,
+        nargs="+",
+        help="Postselector of history Y",
+    )
+    parser.add_argument(
         "--alpha_params",
         metavar="XXX",
         type=str,
@@ -146,6 +169,11 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    postselection_X_future = args.postselection_X_future
+    postselection_X_history = args.postselection_X_history
+    postselection_Y_history = args.postselection_Y_history
+
     args.start_datetime = (
         datetime.datetime.fromisoformat(args.start_date) if args.start_date else None
     )
@@ -299,6 +327,9 @@ if __name__ == "__main__":
                             "history_index_x": histories_first,
                             "history_index_y": histories_second,
                             "future_index_x": future_first,
+                            "postselection_y_fut": postselection_X_future,
+                            "postselection_z_hist": postselection_Y_history,
+                            "postselection_y_hist": postselection_X_history,
                         }
 
                         # prepare samples to be used to calculate transfer entropy
