@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import abc
 from data_plugin.generic_data_plugin import GenericDataPlugin
 
 
@@ -13,8 +14,4 @@ class GenericDatabasePlugin(GenericDataPlugin):
         self.password = password
 
     def reconnect(self):
-        pass
-
-    @abc.abstractmethod
-    def update_state_of_calculation(self):
         pass

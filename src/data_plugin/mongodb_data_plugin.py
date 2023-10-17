@@ -155,7 +155,6 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
 
         return dataset_raw_complete, dataset_metadata_complete
 
-
 def select_data_from_dataset(dataset_raw, start_date, end_date, dataset_raw_complete):
     for row_data in dataset_raw:
         if (
