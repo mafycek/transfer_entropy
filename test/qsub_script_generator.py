@@ -4,10 +4,11 @@ import pprint
 from src.data_plugin.mongodb_data_plugin import FinanceMongoDatabasePlugin
 
 if __name__ == "__main__":
+    number_of_samples = 500
     url = "ashley.fjfi.cvut.cz"
     table = "test"
-    username = "mongo"
-    password = "mongo"
+    username = "admin"
+    password = "admin"
 
     dbHandler = FinanceMongoDatabasePlugin(
         url,
@@ -31,7 +32,7 @@ if __name__ == "__main__":
 
     base_code = list_of_codes[0]
     directory = os.getcwd() + "/../data/scripts/"
-    for code in list_of_codes[1:100]:
+    for code in list_of_codes[1:number_of_samples]:
         with open(directory + f"script_{base_code}_{code}.sh", "wt") as fh:
             print(
                 f"./calculations/transfer_entropy.sif --database=True --database_nosql_url=ashley.fjfi.cvut.cz --database_sql_url=ashley.fjfi.cvut.cz --database_sql_username=postgresrenyi --database_sql_password=postgresrenyi --database_sql_table=postgres --database_nosql_table=test --dataset_1_code={base_code} --dataset_2_code={code} --dataset_1_selector 4 5 6 7 --dataset_2_selector 4 5 6 7 --alpha_params 0.1 3.0 80 --history_first 0 , 0 1 , 0 1 2 3  --history_second 0 , 0 1 , 0 1 2 3 --maximal_neighborhood 80",
