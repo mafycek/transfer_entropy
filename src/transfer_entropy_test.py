@@ -11,9 +11,9 @@ from pathlib import Path
 import numpy as np
 
 from cli_helpers import process_CLI_arguments
-from src.data_plugin.Roessler_oscillator_data_plugin import RoesslerOscillatorDataPlugin
+from data_plugin.Roessler_oscillator_data_plugin import RoesslerOscillatorDataPlugin
 from transfer_entropy import renyi_transfer_entropy
-from src.data_plugin.sample_generator import preparation_dataset_for_transfer_entropy
+from data_plugin.sample_generator import preparation_dataset_for_transfer_entropy
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

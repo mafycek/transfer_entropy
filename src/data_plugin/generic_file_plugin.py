@@ -13,9 +13,7 @@ class GenericFilePlugin(GenericDataPlugin):
         super().__init__()
         self.base_directory = Path(base_directory)
         self.directory = self.base_directory / "finance_data_reference"
-        self.file_pickled = (
-            self.directory / "dataset.bin"
-        )
+        self.file_pickled = self.directory / "dataset.bin"
 
     @abstractmethod
     def load_datasets(self):
