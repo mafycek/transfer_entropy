@@ -6,7 +6,6 @@ import datetime
 import os
 import pickle
 import time
-import base64
 from pathlib import Path
 import numpy as np
 
@@ -64,7 +63,7 @@ if __name__ == "__main__":
         type=str,
         nargs="+",
         default=[1],
-        help="History to take into account",
+        help="Future to take into account",
     )
     parser.add_argument(
         "--history_second",
@@ -117,6 +116,30 @@ if __name__ == "__main__":
         default=[0],
     )
     parser.add_argument(
+        "--postselection_X_future",
+        metavar="XXX",
+        type=int,
+        default=None,
+        nargs="+",
+        help="Postselector of future X",
+    )
+    parser.add_argument(
+        "--postselection_X_history",
+        metavar="XXX",
+        type=int,
+        default=None,
+        nargs="+",
+        help="Postselector of history X",
+    )
+    parser.add_argument(
+        "--postselection_Y_history",
+        metavar="XXX",
+        type=int,
+        default=None,
+        nargs="+",
+        help="Postselector of history Y",
+    )
+    parser.add_argument(
         "--alpha_params",
         metavar="XXX",
         type=str,
@@ -146,6 +169,11 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    postselection_X_future = args.postselection_X_future
+    postselection_X_history = args.postselection_X_history
+    postselection_Y_history = args.postselection_Y_history
+
     args.start_datetime = (
         datetime.datetime.fromisoformat(args.start_date) if args.start_date else None
     )
@@ -193,34 +221,42 @@ if __name__ == "__main__":
 
     print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Load datasets")
     if args.database:
-        dataset_handler = FinanceDatabasePlugin(
-            args.database_sql_url,
-            args.database_sql_table,
-            args.database_sql_username,
-            args.database_sql_password,
-        )
-        nosql_storage_handler = FinanceMongoDatabasePlugin(
+        # dataset_handler = FinanceDatabasePlugin(
+        #    args.database_sql_url,
+        #    args.database_sql_table,
+        #    args.database_sql_username,
+        #    args.database_sql_password,
+        # )
+        dataset_handler = FinanceMongoDatabasePlugin(
             args.database_nosql_url,
             args.database_nosql_table,
             args.database_nosql_username,
             args.database_nosql_password,
         )
+
     else:
-        dataset_handler = FinanceDataPlugin(os.getcwd() + "/../data")
-        nosql_storage_handler = None
+        dataset_handler = FinanceDataPlugin(os.getcwd() + "/../data/1Q23_sp_stocks")
 
     # load static dataset
+
     dataset_handler.load_datasets()
 
     # selection of the dataset 1
     # dataset_handler
-    dataset1, metadata1 = nosql_storage_handler.select_dataset_with_code(
+    dataset1, metadata1 = dataset_handler.select_dataset_with_code(
         args.dataset_1_code, args.start_datetime, args.end_datetime
     )
     # dataset_handler
-    dataset2, metadata2 = nosql_storage_handler.select_dataset_with_code(
+    dataset2, metadata2 = dataset_handler.select_dataset_with_code(
         args.dataset_2_code, args.start_datetime, args.end_datetime
     )
+    dataset_handler.disconnect()
+
+    if not dataset1 or not dataset2:
+        raise RuntimeError(
+            f"Any of input datasets are empty. The selection code {args.dataset_1_code} or {args.dataset_2_code} is wrong or time period {args.start_datetime}--{args.end_datetime} is incorrect."
+        )
+
     joint_dataset = FinanceDataPlugin.time_join_dataset(
         dataset1, dataset2, dataset_1_selector, dataset_2_selector
     )
@@ -249,13 +285,12 @@ if __name__ == "__main__":
         "comment": args.comment,
     }
 
-    if args.database:
-        if "id" in metadata1 and "id" in metadata2:
-            # insert record to database
-            calculation_id = dataset_handler.add_start_of_calculation(
-                metadata1["id"], metadata2["id"], parameters
-            )
-            parameters["calculation_id"] = calculation_id
+    if args.database and "id" in metadata1 and "id" in metadata2:
+        # insert record to database
+        calculation_id = dataset_handler.add_start_of_calculation(
+            metadata1["id"], metadata2["id"], parameters
+        )
+        parameters["calculation_id"] = calculation_id
 
     # create structure for results
     results = {}
@@ -292,6 +327,9 @@ if __name__ == "__main__":
                             "history_index_x": histories_first,
                             "history_index_y": histories_second,
                             "future_index_x": future_first,
+                            "postselection_y_fut": postselection_X_future,
+                            "postselection_z_hist": postselection_Y_history,
+                            "postselection_y_hist": postselection_X_history,
                         }
 
                         # prepare samples to be used to calculate transfer entropy
@@ -363,6 +401,8 @@ if __name__ == "__main__":
                         )
 
     if args.database:
+        dataset_handler.reconnect()
+
         # save to database
         print(
             f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Save to database",
@@ -370,13 +410,13 @@ if __name__ == "__main__":
         )
 
         pickled_result = pickle.dumps(results, -1)
-        document_id = nosql_storage_handler.upload_to_gridfs(
+        document_id = dataset_handler.upload_to_gridfs(
             f"Conditional_information_transfer-{symbol}.bin", pickled_result
         )
         parameters["document_id"] = document_id
         parameters["format"] = "pickle"
         parameters["end_timestamp"] = datetime.datetime.now()
-        mongo_id = nosql_storage_handler.insert_document(
+        mongo_id = dataset_handler.insert_document(
             FinanceMongoDatabasePlugin.conditional_information_transfer_name, parameters
         )
         parameters["document_id"] = str(mongo_id)
@@ -388,6 +428,7 @@ if __name__ == "__main__":
             dataset_handler.update_state_of_calculation(
                 parameters["calculation_id"], CalculationStatusType.FINISHED, parameters
             )
+        dataset_handler.disconnect()
 
     else:
         # save result structure to the file
@@ -399,3 +440,8 @@ if __name__ == "__main__":
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as fb:
             pickle.dump(results, fb)
+
+    print(
+        f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Calculation finished",
+        flush=True,
+    )

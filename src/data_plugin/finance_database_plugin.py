@@ -76,10 +76,10 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
         print(f"SqlAlchemy version: {__version__}")
 
         print(
-            f"Connecting to postgresql://{self.username}:{self.password}@{self.database_url}/{self.database}"
+            f"Connecting to postgresql://{self.username}:{self.password}@{self.database_url}/{self.database_table_name}"
         )
         self.engine = create_engine(
-            f"postgresql+psycopg2://{self.username}:{self.password}@{self.database_url}/{self.database}",
+            f"postgresql+psycopg2://{self.username}:{self.password}@{self.database_url}/{self.database_table_name}",
             echo=True,
         )
         self.Session = sessionmaker(self.engine)

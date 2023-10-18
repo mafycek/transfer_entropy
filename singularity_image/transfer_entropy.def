@@ -12,6 +12,8 @@ Stage: build
     poetry_install.sh /opt/poetry_install.sh
     poetry_run.sh
     poetry_run.sh /opt/poetry_run.sh
+    ../.env
+    ../.env /opt/.env
 
 %environment
     export LISTEN_PORT=12345
@@ -24,6 +26,7 @@ Stage: build
 
     cd /opt
     git clone https://github.com/mafycek/transfer_entropy.git
+    cp .env transfer_entropy/
     cd transfer_entropy
     pip install virtualenv
     bash /opt/poetry_install.sh

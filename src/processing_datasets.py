@@ -185,16 +185,16 @@ def figures2d_imshow(
 
 
 def figures2d_TE_alpha(
-    dataset,
-    selector,
-    title,
-    xlabel,
-    ylabel,
-    filename,
-    suffix,
-    cmap="rainbow",
-    dpi=300,
-    fontsize=15,
+        dataset,
+        selector,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
 ):
     matplotlib.style.use("seaborn")
     fig = plt.figure(figsize=(13, 8))
@@ -225,16 +225,15 @@ def figures2d_TE_alpha(
             list_selector[4] = swap
             selector = tuple(list_selector)
             if selector in columns:
-
                 label = code.replace("_", "-")
                 if swap:
                     label_split = label.split("-")
                     if len(label_split) >= 2:
-                        label = label_split[1] + "-" + label_split[0]
+                        label = f"${{ \\scriptstyle {label_split[1]}-{label_split[0]}, Y->X }}$"
                     else:
-                        label = f"$N={label}, YX$"
+                        label = f"${label}, Y->X$"
                 else:
-                    label = f"$N={label}, X->Y$"
+                    label = f"${{ \\scriptstyle {label}, X->Y }}$"
 
                 ys = subselection[["alpha"]]
                 zs = subselection[[selector]]
@@ -306,6 +305,15 @@ def figures2d_TE_alpha_errorbar(
             list_selector[4] = swap
             selector = tuple(list_selector)
             if selector in columns:
+                label = code.replace("_", "-")
+                if swap:
+                    label_split = label.split("-")
+                    if len(label_split) >= 2:
+                        label = f"${label_split[1]}-{label_split[0]}, Y->X$"
+                    else:
+                        label = f"${label}, Y->X$"
+                else:
+                    label = f"${label}, X->Y$"
 
                 ys = subselection[["alpha"]]
                 zs = subselection[[selector]]
@@ -325,7 +333,7 @@ def figures2d_TE_alpha_errorbar(
                         zs.values.flatten(),
                         yerr=errors.flatten(),
                         linewidth=3,
-                        label=code.replace("_", "-"),
+                        label=label,
                         color=color,
                         ls="dotted",
                     )
@@ -843,54 +851,75 @@ def process_datasets(
         old_columns = frame.columns
 
         for item in old_columns[:-1]:
-            reversed_order = item[4]
-            mean_column_name = f"{new_columns_base_name}_{item[1]}_{item[2]}"
-            std_column_name = f"{new_columns_base_name}_{item[1]}_{item[2]}"
+            try:
+                print(f"Processing {item}")
+                reversed_order = item[4]
+                mean_column_name = f"{new_columns_base_name}_{item[1]}_{item[2]}"
+                std_column_name = f"{new_columns_base_name}_{item[1]}_{item[2]}"
 
-            if isinstance(item[3], bool):
-                bool_column = 3
-            else:
-                bool_column = 4
+                if isinstance(item[3], bool):
+                    bool_column = 3
+                else:
+                    bool_column = 4
 
-            # add mean of entropy
+                # add mean of entropy
+                debug = frame[item]
 
-            calculation = frame.apply(
-                lambda row: np.mean(row[item][take_k_th_nearest_neighbor:]),
-                axis=1,
-                raw=False,
-            )
-            # calculation = frame.apply(lambda row: if any(row) print(row), axis=1, raw=True)
-            # calculation = frame.apply(lambda row: float(np.mean(row[item])), axis=1, raw=True)
-            if bool_column == 3:
-                frame[
-                    mean_column_name, "mean", "", item[bool_column], reversed_order
-                ] = calculation
-            else:
-                frame[
-                    mean_column_name, "mean", "", "", item[bool_column], reversed_order
-                ] = calculation
+                calculation = frame.apply(
+                    lambda row: np.mean(row[item][take_k_th_nearest_neighbor:])
+                    if isinstance(row[item], list)
+                    else np.nan,
+                    axis=1,
+                    raw=False,
+                )
+                # calculation = frame.apply(lambda row: if any(row) print(row), axis=1, raw=True)
+                # calculation = frame.apply(lambda row: float(np.mean(row[item])), axis=1, raw=True)
+                if bool_column == 3:
+                    frame[
+                        mean_column_name, "mean", "", item[bool_column], reversed_order
+                    ] = calculation
+                else:
+                    frame[
+                        mean_column_name,
+                        "mean",
+                        "",
+                        "",
+                        item[bool_column],
+                        reversed_order,
+                    ] = calculation
 
-            # add std of entropy
-            calculation = frame.apply(
-                lambda row: float(np.std(row[item][take_k_th_nearest_neighbor:])),
-                axis=1,
-                raw=False,
-            )
-            if bool_column == 3:
-                frame[
-                    std_column_name, "std", "", item[bool_column], reversed_order
-                ] = calculation
-            else:
-                frame[
-                    mean_column_name, "std", "", "", item[bool_column], reversed_order
-                ] = calculation
+                # add std of entropy
+                calculation = frame.apply(
+                    lambda row: float(np.std(row[item][take_k_th_nearest_neighbor:]))
+                    if isinstance(row[item], list)
+                    else np.nan,
+                    axis=1,
+                    raw=False,
+                )
+                if bool_column == 3:
+                    frame[
+                        std_column_name, "std", "", item[bool_column], reversed_order
+                    ] = calculation
+                else:
+                    frame[
+                        mean_column_name,
+                        "std",
+                        "",
+                        "",
+                        item[bool_column],
+                        reversed_order,
+                    ] = calculation
+
+            except Exception as exc:
+                print(f"{exc} {item} {debug}")
+                raise exc
 
         # effective transfer entropy
         column_to_use = [
             item
             for item in frame.columns.tolist()
             if item[bool_column] is False
-            and not ("entropy" in str(item[0]) or "information" in str(item[0]))
+               and not ("entropy" in str(item[0]) or "information" in str(item[0]))
         ]
         for item in column_to_use:
             mean_column_name = f"effective_{new_columns_base_name}_{item[1]}_{item[2]}"

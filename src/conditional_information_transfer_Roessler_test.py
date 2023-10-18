@@ -78,7 +78,7 @@ if __name__ == "__main__":
         metavar="XXX",
         type=str,
         nargs="+",
-        help="History to take into account",
+        help="Future to take into account",
     )
     parser.add_argument(
         "--history_second",
@@ -252,7 +252,6 @@ if __name__ == "__main__":
         results = {}
 
         for swap_datasets in [False, True]:
-
             # loop over shuffling
             for shuffle_dataset in [True, False]:
                 configuration_of_integration = {
@@ -266,7 +265,10 @@ if __name__ == "__main__":
                 }
 
                 # prepare dataset that is being processed
-                marginal_solution_1, marginal_solution_2 = dataset_plugin.prepare_dataset(
+                (
+                    marginal_solution_1,
+                    marginal_solution_2,
+                ) = dataset_plugin.prepare_dataset(
                     args,
                     index_epsilon=index_epsilon,
                     datasets=datasets,

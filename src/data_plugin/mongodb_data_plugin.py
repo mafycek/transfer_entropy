@@ -3,6 +3,8 @@
 """Handler of MongoDB for financial datasets"""
 
 import pickle
+import os
+import datetime
 from urllib.parse import quote_plus
 import pymongo
 from gridfs import GridFS
@@ -16,20 +18,22 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
     """
     Handler of finance dataset stored in MongoDB
     """
+
     dataset_collection_name = "dataset"
     conditional_information_transfer_name = "conditional_information_transfer"
 
-    def __init__(self, database_url, database, username="admin", password="admin"):
+    def __init__(
+            self, database_url, database_table_name, username="admin", password="admin"
+    ):
         mongo_uri = (
             f"mongodb://{quote_plus(username)}:{quote_plus(password)}@{database_url}/"
         )
+        super().__init__(mongo_uri, database_table_name, username, password)
+        self.client = None
+        self.database = None
+        self.gridfs_client = None
 
-        super().__init__(mongo_uri, database, username, password)
-
-        print(f"Connecting to {mongo_uri}")
-        self.client = pymongo.MongoClient(mongo_uri)
-        self.database = self.client[database]
-        self.gridfs_client = GridFS(self.database)
+        self.reconnect()
 
         try:
             self.client.admin.command("ping")
@@ -53,7 +57,41 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         """
         return self.gridfs_client.get(document_id).read()
 
+    def disconnect(self):
+        if self.client:
+            print(f"{self.client}")
+            self.client.close()
+            self.client = None
+            self.database = None
+            self.gridfs_client = None
+
+            pid = os.getpid()
+            timestamp = datetime.datetime.now().isoformat()
+            print(f"PID:{pid} {timestamp} Disconnecting from Mongo DB")
+
+    def reconnect(
+            self, connect_timeout_ms=600000, socket_timeout_ms=300000, timeout_ms=150000
+    ):
+        print(
+            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Connecting to {self.database_url}"
+        )
+        self.client = pymongo.MongoClient(
+            self.database_url,
+            timeoutMS=timeout_ms,
+            socketTimeoutMS=socket_timeout_ms,
+            connectTimeoutMS=connect_timeout_ms,
+        )
+        self.database = self.client[self.database_table_name]
+        self.gridfs_client = GridFS(self.database)
+
+    def add_start_of_calculation(
+            self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
+    ):
+        # unimplemented method
+        pass
+
     def __del__(self):
+        # unimplemented method
         pass
 
     @staticmethod
@@ -112,27 +150,29 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
                     dataset_document["dataset_id"]
                 )
                 dataset_raw = pickle.loads(pickled_dataset_raw)
-                for row_data in dataset_raw:
-                    if (
-                            (
-                                    start_date
-                                    and end_date
-                                    and start_date <= row_data[0] <= end_date
-                            )
-                            or (start_date and not end_date and start_date <= row_data[0])
-                            or (not start_date and end_date and row_data[0] <= end_date)
-                            or (not start_date and not end_date)
-                    ):
-                        dataset_raw_complete[row_data[0]] = row_data[1]
+                select_data_from_dataset(dataset_raw, start_date, end_date, dataset_raw_complete)
                 dataset_metadata_complete.update(dataset_document)
 
         return dataset_raw_complete, dataset_metadata_complete
 
+def select_data_from_dataset(dataset_raw, start_date, end_date, dataset_raw_complete):
+    for row_data in dataset_raw:
+        if (
+                (
+                        start_date
+                        and end_date
+                        and start_date <= row_data[0] <= end_date
+                )
+                or (start_date and not end_date and start_date <= row_data[0])
+                or (not start_date and end_date and row_data[0] <= end_date)
+                or (not start_date and not end_date)
+        ):
+            dataset_raw_complete[row_data[0]] = row_data[1]
 
 def setup_database(database_plugin):
-    list_of_collections = database_plugin.DATABASE.list_collection_names()
+    list_of_collections = database_plugin.database.list_collection_names()
     if FinanceMongoDatabasePlugin.dataset_collection_name not in list_of_collections:
-        database_plugin.DATABASE.create_collection(
+        database_plugin.database.create_collection(
             FinanceMongoDatabasePlugin.dataset_collection_name
         )
 
@@ -174,6 +214,7 @@ if __name__ == "__main__":
     # updated_row = mongo_engine.add_start_of_calculation(1, 2, {"ABC": "CDE"})
     # mongo_engine.update_finish_of_calculation(updated_row)
 
+    # upload dataset to mongodb
     for dataset in datasets_generator:
         metadata = dataset["metadata"]
         raw_dataset = dataset["dataset"]

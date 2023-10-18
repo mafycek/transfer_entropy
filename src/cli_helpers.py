@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-def process_CLI_arguments(arguments, separator=[",", "'", "/", "|"]):
+def process_CLI_arguments(arguments, separator=(",", "'", "/", "|")):
 	processed_arguments = []
 	neu_set = []
 	for item in arguments:
