@@ -56,7 +56,7 @@ def samples_from_arrays(data, **kwargs):
     range_of_history = select_indices if "select_indices" in kwargs else range(history)
 
     for position_of_item, item in enumerate(
-        range(skip_first, skip_first + length_of_timeserie)
+            range(skip_first, skip_first + length_of_timeserie)
     ):
         for position_of_history, hist in enumerate(range_of_history):
             for dim_iter in range(shape_of_array[0]):
@@ -72,7 +72,7 @@ def samples_from_arrays(data, **kwargs):
 
 
 def preparation_dataset_for_transfer_entropy(
-    marginal_solution_1, marginal_solution_2, **kwargs
+        marginal_solution_1, marginal_solution_2, **kwargs
 ):
     if "history_x" in kwargs:
         history_x = kwargs["history_x"]
@@ -183,10 +183,10 @@ def preparation_dataset_for_transfer_entropy(
 
     if "future_index_x" in kwargs:
         y_fut = samples_marginal_1[: shape[0] * len(future_index_x), :]
-        y_history = samples_marginal_1[shape[0] * len(future_index_x) :, :]
+        y_history = samples_marginal_1[shape[0] * len(future_index_x):, :]
     else:
         y_fut = samples_marginal_1[: shape[0], :]
-        y_history = samples_marginal_1[shape[0] :, :]
+        y_history = samples_marginal_1[shape[0]:, :]
 
     if postselection_y_fut:
         y_fut = y_fut[postselection_y_fut, :]

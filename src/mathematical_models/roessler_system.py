@@ -273,7 +273,7 @@ def roessler_3d_plot(dataset, configurations, title, filename, suffix, dpi=300):
 
 
 def roessler_3d_multocolor_plot(
-    dataset, configurations, title, filename, suffix, dpi=300
+        dataset, configurations, title, filename, suffix, dpi=300
 ):
     columns = 3
     rows = 3

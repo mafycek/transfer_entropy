@@ -57,13 +57,13 @@ class GARCHDataPlugin(GenericFilePlugin):
         return dataset
 
     def prepare_dataset(
-        self,
-        args,
-        index_epsilon,
-        datasets=None,
-        swap_datasets=False,
-        shuffle_dataset=False,
-        configuration_of_integration=None,
+            self,
+            args,
+            index_epsilon,
+            datasets=None,
+            swap_datasets=False,
+            shuffle_dataset=False,
+            configuration_of_integration=None,
     ):
         if not args.dataset:
             pass

@@ -15,7 +15,7 @@ plt.rcParams.update(
 
 
 def load_processed_dataset(
-    dataset, dataset_raw, new_columns_base_name="transfer_entropy_"
+        dataset, dataset_raw, new_columns_base_name="transfer_entropy_"
 ):
     TE = pd.read_pickle(dataset)
     columns = TE.columns
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         if len(files) == 0:
             TE, TE_column_names, TE_raw = process_datasets(
                 processed_datasets=directory
-                + "/Conditional_information_transfer-*.bin",
+                                   + "/Conditional_information_transfer-*.bin",
                 result_dataset=processed_dataset,
                 result_raw_dataset=processed_raw_dataset,
                 new_columns_base_name=name_of_title,
@@ -127,8 +127,8 @@ if __name__ == "__main__":
                 pure_title = name_of_title.capitalize().replace("_", " ")
                 latex_title = latex_title_size + f"""{{{pure_title}}}"""
                 latex_title_std = (
-                    latex_title_size
-                    + f"""{{Standard deviation of {pure_title.lower()} }}"""
+                        latex_title_size
+                        + f"""{{Standard deviation of {pure_title.lower()} }}"""
                 )
 
                 title_graph = {
@@ -141,25 +141,25 @@ if __name__ == "__main__":
                 }
                 title_map = {
                     (False, False): r"{\alpha: {"
-                    + symbol_of_X
-                    + r"}\rightarrow {"
-                    + symbol_of_Y
-                    + r"}}",
+                                    + symbol_of_X
+                                    + r"}\rightarrow {"
+                                    + symbol_of_Y
+                                    + r"}}",
                     (True, False): r"{\alpha: {"
-                    + symbol_of_X
-                    + r"}_{shuffled}\rightarrow {"
-                    + symbol_of_Y
-                    + r"}}",
+                                   + symbol_of_X
+                                   + r"}_{shuffled}\rightarrow {"
+                                   + symbol_of_Y
+                                   + r"}}",
                     (False, True): r"{\alpha: {"
-                    + symbol_of_Y
-                    + r"}\rightarrow {"
-                    + symbol_of_X
-                    + r"}}",
+                                   + symbol_of_Y
+                                   + r"}\rightarrow {"
+                                   + symbol_of_X
+                                   + r"}}",
                     (True, True): r"{\alpha: {"
-                    + symbol_of_Y
-                    + r"}_{shuffled}\rightarrow {"
-                    + symbol_of_X
-                    + r"}}",
+                                  + symbol_of_Y
+                                  + r"}_{shuffled}\rightarrow {"
+                                  + symbol_of_X
+                                  + r"}}",
                 }
 
                 if future_first_TS is not None:
@@ -195,65 +195,65 @@ if __name__ == "__main__":
                 print(column_name, label, label_latex_std)
 
                 errorbar_filename = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled" if shuffled_calculation else "")
-                    + "_2d_bars"
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_2d_bars"
                 )
                 standard_filename = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled" if shuffled_calculation else "")
-                    + "_2d"
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_2d"
                 )
                 plot_3D_filename = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled" if shuffled_calculation else "")
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled" if shuffled_calculation else "")
                 )
                 plot_3D_surf_filename = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled_surf" if shuffled_calculation else "_surf")
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled_surf" if shuffled_calculation else "_surf")
                 )
                 plot_2D_filename_implot = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled" if shuffled_calculation else "")
-                    + "_implot"
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_implot"
                 )
                 plot_2D_filename_implot_std = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled" if shuffled_calculation else "")
-                    + "_implot_std"
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_implot_std"
                 )
                 std_filename = (
-                    directory
-                    + "/"
-                    + column_name
-                    + "_"
-                    + filename_direction[swapped_datasets]
-                    + ("_shuffled" if shuffled_calculation else "")
-                    + "_2d_std"
+                        directory
+                        + "/"
+                        + column_name
+                        + "_"
+                        + filename_direction[swapped_datasets]
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_2d_std"
                 )
 
                 # TE = TE[TE["epsilon"] >= 0.01]

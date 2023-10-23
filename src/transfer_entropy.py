@@ -62,29 +62,29 @@ def graph_calculation_within_distance_Lavicka(data, radii, **kwargs):
 def special(k, q, d, N, p0, p1, p, e0, e1):
     value = p0 * e1 - p1 * e0
     return (
-        pow(p, 1 + k - q)
-        / (1 + k - q)
-        * pow((p0 - p1) / (p0 * e1 - p1 * e0), d * (1 - q))
-        * mpmath.appellf1(
-            1 + k - q,
-            1 + k - N,
-            d * (1 - q),
-            2 + k - q,
-            p,
-            p * (e0 - e1) / (p1 * e0 - p0 * e1),
-        )
+            pow(p, 1 + k - q)
+            / (1 + k - q)
+            * pow((p0 - p1) / (p0 * e1 - p1 * e0), d * (1 - q))
+            * mpmath.appellf1(
+        1 + k - q,
+        1 + k - N,
+        d * (1 - q),
+        2 + k - q,
+        p,
+        p * (e0 - e1) / (p1 * e0 - p0 * e1),
+    )
     )
 
 
 def renyi_entropy_Lavicka(
-    dataset_x: np.matrix,
-    alpha=1,
-    leaf_size=15,
-    metric="chebyshev",
-    dualtree=True,
-    sample_size=1000,
-    indices_to_use=[3, 4],
-    **kwargs,
+        dataset_x: np.matrix,
+        alpha=1,
+        leaf_size=15,
+        metric="chebyshev",
+        dualtree=True,
+        sample_size=1000,
+        indices_to_use=[3, 4],
+        **kwargs,
 ):
     shape_of_data = dataset_x.shape
     maximal_index = max(indices_to_use) + 1
@@ -118,7 +118,7 @@ def renyi_entropy_Lavicka(
         for distance in ordered_distances:
             actual_distance = distance
             actual_probability = (
-                previous_probability + float(counter[distance]) / divisor
+                    previous_probability + float(counter[distance]) / divisor
             )
 
             addition_to_entropy = special(
@@ -245,12 +245,12 @@ def tsallis_entropy_LeonenkoProzanto(dataset_x: np.matrix, alpha=1, **kwargs):
         return entropy_sum_Shannon_LeonenkoProzanto(dataset_x, alpha, **kwargs)
     else:
         return (
-            1 - entropy_sum_generic_LeonenkoProzanto(dataset_x, alpha, **kwargs)
+                1 - entropy_sum_generic_LeonenkoProzanto(dataset_x, alpha, **kwargs)
         ) / (1 - alpha)
 
 
 def entropy_sum_generic_LeonenkoProzanto(
-    dataset_x: np.matrix, distances, alpha=1, **kwargs
+        dataset_x: np.matrix, distances, alpha=1, **kwargs
 ):
     indices_to_use = kwargs["indices_to_use"]
     dimension_of_data = kwargs["dimension_of_data"]
@@ -288,13 +288,13 @@ def entropy_sum_generic_LeonenkoProzanto(
                     [use_index], [use_index + one_minus_alpha]
                 )
                 multiplicator = (
-                    multiplicator_gamma
-                    * mpmath.power(mpmath.pi, dimension_of_data / 2.0 * one_minus_alpha)
-                    * mpmath.power(number_of_data - 1, one_minus_alpha)
-                    / number_of_data
-                    / mpmath.power(
-                        mpmath.gamma(dimension_of_data / 2.0 + 1), one_minus_alpha
-                    )
+                        multiplicator_gamma
+                        * mpmath.power(mpmath.pi, dimension_of_data / 2.0 * one_minus_alpha)
+                        * mpmath.power(number_of_data - 1, one_minus_alpha)
+                        / number_of_data
+                        / mpmath.power(
+                    mpmath.gamma(dimension_of_data / 2.0 + 1), one_minus_alpha
+                )
                 )
 
                 entropy[index_of_distances] += multiplicator * addition_to_entropy
@@ -320,10 +320,10 @@ def entropy_sum_generic_LeonenkoProzanto(
                     * scipyspecial.gammaln(dimension_of_data / 2.0 + 1.0)
                 )
                 multiplicator = (
-                    multiplicator_exp_logarithms
-                    * np.power(np.pi, exponent / 2.0)
-                    * np.power(number_of_data - 1, one_minus_alpha)
-                    / number_of_data
+                        multiplicator_exp_logarithms
+                        * np.power(np.pi, exponent / 2.0)
+                        * np.power(number_of_data - 1, one_minus_alpha)
+                        / number_of_data
                 )
 
                 entropy[index_of_distances] += multiplicator * sum_of_power_of_distances
@@ -362,10 +362,10 @@ def entropy_sum_Shannon_LeonenkoProzanto(dataset_x: np.matrix, distances, **kwar
 
             digamma = mpmath.digamma(use_index)
             argument_log = (
-                mpmath.power(mpmath.pi, dimension_of_data / 2.0)
-                / mpmath.gamma(dimension_of_data / 2.0 + 1)
-                * mpmath.exp(-digamma)
-                * (number_of_data - 1)
+                    mpmath.power(mpmath.pi, dimension_of_data / 2.0)
+                    / mpmath.gamma(dimension_of_data / 2.0 + 1)
+                    * mpmath.exp(-digamma)
+                    * (number_of_data - 1)
             )
 
             entropy[index_of_distances] += addition_to_entropy + kwargs["logarithm"](
@@ -378,17 +378,17 @@ def entropy_sum_Shannon_LeonenkoProzanto(dataset_x: np.matrix, distances, **kwar
             )
 
             addition_to_entropy = (
-                np.sum(kwargs["logarithm"](subselected_distances))
-                * dimension_of_data
-                / number_of_data
+                    np.sum(kwargs["logarithm"](subselected_distances))
+                    * dimension_of_data
+                    / number_of_data
             )
 
             digamma = scipyspecial.digamma(use_index)
             argument_log = (
-                np.power(np.pi, dimension_of_data / 2.0)
-                / scipyspecial.gamma(dimension_of_data / 2.0 + 1)
-                * np.exp(-digamma)
-                * (number_of_data - 1)
+                    np.power(np.pi, dimension_of_data / 2.0)
+                    / scipyspecial.gamma(dimension_of_data / 2.0 + 1)
+                    * np.exp(-digamma)
+                    * (number_of_data - 1)
             )
 
             entropy[index_of_distances] += addition_to_entropy + kwargs["logarithm"](
@@ -402,14 +402,14 @@ def entropy_sum_Shannon_LeonenkoProzanto(dataset_x: np.matrix, distances, **kwar
 
 
 def renyi_entropy_Paly(
-    dataset_x: np.matrix,
-    alpha=0.75,
-    leaf_size=15,
-    metric="chebyshev",
-    dualtree=True,
-    sample_size=1000,
-    indices_to_use=[3, 4],
-    **kwargs,
+        dataset_x: np.matrix,
+        alpha=0.75,
+        leaf_size=15,
+        metric="chebyshev",
+        dualtree=True,
+        sample_size=1000,
+        indices_to_use=[3, 4],
+        **kwargs,
 ):
     """
     Calculation of Renyi entropy
@@ -445,18 +445,18 @@ def renyi_entropy_Paly(
             )
 
             entropy = (
-                1
-                / (1 - alpha)
-                * np.log(
-                    L_p_V_data
-                    / (
+                    1
+                    / (1 - alpha)
+                    * np.log(
+                L_p_V_data
+                / (
                         gamma
                         * np.power(
-                            length_of_data,
-                            1 - power_of_distance_data / dimension_of_data,
-                        )
-                    )
+                    length_of_data,
+                    1 - power_of_distance_data / dimension_of_data,
                 )
+                )
+            )
             )
 
             results[alpha] = [entropy]
@@ -491,8 +491,8 @@ def renyi_entropy(*args, **kwargs):
 
     if "method" in kwargs:
         if (
-            kwargs["method"] == "Paly"
-            or kwargs["method"] == "GeneralizedNearestNeighbor"
+                kwargs["method"] == "Paly"
+                or kwargs["method"] == "GeneralizedNearestNeighbor"
         ):
             return renyi_entropy_Paly(*args, **kwargs)
         elif kwargs["method"] == "Lavicka" or kwargs["method"] == "NearestNeighbor":
@@ -521,7 +521,7 @@ def renyi_mutual_entropy(data_x, data_y, **kwargs):
     results = {}
     for alpha in kwargs["alphas"]:
         result = (
-            marginal_entropy_x[alpha] + marginal_entropy_y[alpha] - entropy_xy[alpha]
+                marginal_entropy_x[alpha] + marginal_entropy_y[alpha] - entropy_xy[alpha]
         )
         results[alpha] = result
 

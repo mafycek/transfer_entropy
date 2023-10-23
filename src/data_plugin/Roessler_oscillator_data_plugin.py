@@ -18,17 +18,17 @@ from data_plugin.generic_file_plugin import GenericFilePlugin
 
 class RoesslerOscillatorDataPlugin(GenericFilePlugin):
     def __init__(
-        self,
-        base_directory=Path(__file__).parents[0],
+            self,
+            base_directory=Path(__file__).parents[0],
     ):
         super().__init__(base_directory)
         self.file = (
-            self.base_directory
-            / "roessler_system_reference"
-            / "arosf11n00eps100raw.dat"
+                self.base_directory
+                / "roessler_system_reference"
+                / "arosf11n00eps100raw.dat"
         )
         self.file_pickled = (
-            Path(__file__).parents[0] / "roessler_system_reference" / "dataset.bin"
+                Path(__file__).parents[0] / "roessler_system_reference" / "dataset.bin"
         )
 
     def read_header(self, fh):
@@ -80,13 +80,13 @@ class RoesslerOscillatorDataPlugin(GenericFilePlugin):
         return dataset
 
     def prepare_dataset(
-        self,
-        args,
-        index_epsilon,
-        datasets=None,
-        swap_datasets=False,
-        shuffle_dataset=False,
-        configuration_of_integration=None,
+            self,
+            args,
+            index_epsilon,
+            datasets=None,
+            swap_datasets=False,
+            shuffle_dataset=False,
+            configuration_of_integration=None,
     ):
         if not args.dataset:
             # calculate Rössler coupled oscilators
@@ -119,14 +119,14 @@ class RoesslerOscillatorDataPlugin(GenericFilePlugin):
                 if args.skip_real_t:
                     indices = np.where(sol.t >= args.skip)
                     if len(indices) > 0:
-                        filtrated_solution = sol.y[:, indices[0] :]
+                        filtrated_solution = sol.y[:, indices[0]:]
                     else:
                         logging.error(
                             "Skipping is too large and no data were selected for processing"
                         )
                         raise AssertionError("No data selected")
                 else:
-                    filtrated_solution = sol.y[:, args.skip :]
+                    filtrated_solution = sol.y[:, args.skip:]
 
             print(
                 f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Shape of solution: {filtrated_solution.shape}",
@@ -137,11 +137,11 @@ class RoesslerOscillatorDataPlugin(GenericFilePlugin):
                 marginal_solution_2 = filtrated_solution[3:6, :].T
             else:
                 marginal_solution_1 = filtrated_solution[
-                    args.dimension_x : 1 + args.dimension_x, :
-                ].T
+                                      args.dimension_x: 1 + args.dimension_x, :
+                                      ].T
                 marginal_solution_2 = filtrated_solution[
-                    args.dimension_y : 1 + args.dimension_y, :
-                ].T
+                                      args.dimension_y: 1 + args.dimension_y, :
+                                      ].T
         else:
             filtrated_solution = datasets[index_epsilon][1].T
 

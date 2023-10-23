@@ -140,10 +140,10 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
         for row in dataset_data_rows:
             row_dict = row[0].__dict__
             if (
-                (start_date and end_date and start_date <= row_dict["date"] <= end_date)
-                or (start_date and not end_date and start_date <= row_dict["date"])
-                or (not start_date and end_date and row_dict["date"] <= end_date)
-                or (not start_date and not end_date)
+                    (start_date and end_date and start_date <= row_dict["date"] <= end_date)
+                    or (start_date and not end_date and start_date <= row_dict["date"])
+                    or (not start_date and end_date and row_dict["date"] <= end_date)
+                    or (not start_date and not end_date)
             ):
                 if dataset_metadata["type"] == DatasetType.TIMESERIES_OHLC:
                     dataset_data[row_dict["date"]] = (
@@ -154,7 +154,7 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
                     )
                 elif dataset_metadata["type"] == DatasetType.TIMESERIES_PRICE:
                     dataset_data[row_dict["date"]] = (
-                        row_dict["value"] / price_multiplicator
+                            row_dict["value"] / price_multiplicator
                     )
                 elif dataset_metadata["type"] == DatasetType.TIMESERIES_ASK_BID:
                     dataset_data[row_dict["date"]] = (
@@ -165,7 +165,7 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
         return dataset_data, dataset_metadata
 
     def add_start_of_calculation(
-        self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
+            self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
     ):
         sql_statement = insert(RenyiEntropyCalculation).values(
             dataset_1_fk=dataset_1_fk,
@@ -180,7 +180,7 @@ class FinanceDatabasePlugin(GenericDatabasePlugin):
         return dataset_infos.inserted_primary_key[0]
 
     def update_state_of_calculation(
-        self, id: int, status=CalculationStatusType.FINISHED, json_data={}
+            self, id: int, status=CalculationStatusType.FINISHED, json_data={}
     ):
         sql_statement = (
             update(RenyiEntropyCalculation)
@@ -309,11 +309,11 @@ def setup_database(financial_plugin):
         if not inspect(financial_plugin.engine).has_table(Parameters.__tablename__):
             Parameters.metadata.create_all(financial_plugin.engine)
         if not inspect(financial_plugin.engine).has_table(
-            TimeseriesBidAsk.__tablename__
+                TimeseriesBidAsk.__tablename__
         ):
             TimeseriesBidAsk.metadata.create_all(financial_plugin.engine)
         if not inspect(financial_plugin.engine).has_table(
-            TimeseriesPrice.__tablename__
+                TimeseriesPrice.__tablename__
         ):
             TimeseriesPrice.metadata.create_all(financial_plugin.engine)
         if not inspect(financial_plugin.engine).has_table(TimeseriesOHLC.__tablename__):
@@ -321,7 +321,7 @@ def setup_database(financial_plugin):
         if not inspect(financial_plugin.engine).has_table(Timeseries.__tablename__):
             Timeseries.metadata.create_all(financial_plugin.engine)
         if not inspect(financial_plugin.engine).has_table(
-            RenyiEntropyCalculation.__tablename__
+                RenyiEntropyCalculation.__tablename__
         ):
             RenyiEntropyCalculation.metadata.create_all(financial_plugin.engine)
 
@@ -391,8 +391,8 @@ if __name__ == "__main__":
                 new_records = []
                 start_of_chunk = size_of_chunk * chunk_number
                 for date, record in raw_dataset[
-                    start_of_chunk : start_of_chunk + size_of_chunk
-                ]:
+                                    start_of_chunk: start_of_chunk + size_of_chunk
+                                    ]:
                     if metadata["type"] == "aggregated":
                         new_records.append(
                             TimeseriesOHLC(

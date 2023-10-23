@@ -23,7 +23,7 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
     conditional_information_transfer_name = "conditional_information_transfer"
 
     def __init__(
-        self, database_url, database_table_name, username="admin", password="admin"
+            self, database_url, database_table_name, username="admin", password="admin"
     ):
         mongo_uri = (
             f"mongodb://{quote_plus(username)}:{quote_plus(password)}@{database_url}/"
@@ -70,7 +70,7 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
             print(f"PID:{pid} {timestamp} Disconnecting from Mongo DB")
 
     def reconnect(
-        self, connect_timeout_ms=600000, socket_timeout_ms=300000, timeout_ms=150000
+            self, connect_timeout_ms=600000, socket_timeout_ms=300000, timeout_ms=150000
     ):
         print(
             f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Connecting to {self.database_url}"
@@ -85,7 +85,7 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         self.gridfs_client = GridFS(self.database)
 
     def add_start_of_calculation(
-        self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
+            self, dataset_1_fk: int, dataset_2_fk: int, json_data={}
     ):
         # unimplemented method
         pass
@@ -143,8 +143,8 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         dataset_raw_complete = {}
         for dataset_document in dataset_documents:
             if not (
-                (end_date and end_date < dataset_document["start_date_time"])
-                or (start_date and dataset_document["end_date_time"] < start_date)
+                    (end_date and end_date < dataset_document["start_date_time"])
+                    or (start_date and dataset_document["end_date_time"] < start_date)
             ):
                 pickled_dataset_raw = self.download_from_gridfs(
                     dataset_document["dataset_id"]
@@ -161,10 +161,10 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
 def select_data_from_dataset(dataset_raw, start_date, end_date, dataset_raw_complete):
     for row_data in dataset_raw:
         if (
-            (start_date and end_date and start_date <= row_data[0] <= end_date)
-            or (start_date and not end_date and start_date <= row_data[0])
-            or (not start_date and end_date and row_data[0] <= end_date)
-            or (not start_date and not end_date)
+                (start_date and end_date and start_date <= row_data[0] <= end_date)
+                or (start_date and not end_date and start_date <= row_data[0])
+                or (not start_date and end_date and row_data[0] <= end_date)
+                or (not start_date and not end_date)
         ):
             dataset_raw_complete[row_data[0]] = row_data[1]
 

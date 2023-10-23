@@ -13,9 +13,9 @@ import src.mathematical_models.random_samples
 
 
 def prepare_dataset(
-    size,
-    swap_datasets=False,
-    shuffle_dataset=False,
+        size,
+        swap_datasets=False,
+        shuffle_dataset=False,
 ):
     # provide random numbers
     t0 = time.process_time()

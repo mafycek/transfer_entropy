@@ -12,16 +12,16 @@ from scipy.interpolate import griddata
 
 
 def figures3d_TE(
-    dataset,
-    selector,
-    title,
-    xlabel,
-    ylabel,
-    zlabel,
-    filename,
-    suffix,
-    view=(50, -20),
-    dpi=300,
+        dataset,
+        selector,
+        title,
+        xlabel,
+        ylabel,
+        zlabel,
+        filename,
+        suffix,
+        view=(50, -20),
+        dpi=300,
 ):
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1, projection="3d")
@@ -65,17 +65,17 @@ def figures3d_TE(
 
 
 def figures3d_surface_TE(
-    dataset,
-    selector,
-    title,
-    xlabel,
-    ylabel,
-    zlabel,
-    filename,
-    suffix,
-    cmap="magma",
-    view=(50, -20),
-    dpi=300,
+        dataset,
+        selector,
+        title,
+        xlabel,
+        ylabel,
+        zlabel,
+        filename,
+        suffix,
+        cmap="magma",
+        view=(50, -20),
+        dpi=300,
 ):
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1, projection="3d")
@@ -127,7 +127,7 @@ def minimal_difference(target):
 
 
 def figures2d_imshow(
-    dataset, selector, title, xlabel, ylabel, filename, suffix, cmap="magma", dpi=300
+        dataset, selector, title, xlabel, ylabel, filename, suffix, cmap="magma", dpi=300
 ):
     color_map = matplotlib.cm.get_cmap(cmap)
 
@@ -185,16 +185,16 @@ def figures2d_imshow(
 
 
 def figures2d_TE_alpha(
-    dataset,
-    selector,
-    title,
-    xlabel,
-    ylabel,
-    filename,
-    suffix,
-    cmap="rainbow",
-    dpi=300,
-    fontsize=10,
+        dataset,
+        selector,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
 ):
     matplotlib.style.use("seaborn")
     fig = plt.figure(figsize=(13, 8))
@@ -260,18 +260,18 @@ def figures2d_TE_alpha(
 
 
 def figures2d_TE_alpha_errorbar(
-    dataset,
-    selector,
-    error_selector,
-    title,
-    xlabel,
-    ylabel,
-    filename,
-    suffix,
-    view=(70, 120),
-    cmap="rainbow",
-    dpi=300,
-    fontsize=15,
+        dataset,
+        selector,
+        error_selector,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        view=(70, 120),
+        cmap="rainbow",
+        dpi=300,
+        fontsize=15,
 ):
     matplotlib.style.use("seaborn")
 
@@ -351,16 +351,16 @@ def figures2d_TE_alpha_errorbar(
 
 
 def figures2d_TE(
-    dataset,
-    selector,
-    title,
-    xlabel,
-    ylabel,
-    filename,
-    suffix,
-    cmap="rainbow",
-    dpi=300,
-    fontsize=15,
+        dataset,
+        selector,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=15,
 ):
     matplotlib.style.use("seaborn")
 
@@ -392,7 +392,7 @@ def figures2d_TE(
         zs = subselection[[selector]]
 
         trasform = lambda alpha: (alpha - min(subselected_alphas)) / (
-            max(subselected_alphas) - min(subselected_alphas)
+                max(subselected_alphas) - min(subselected_alphas)
         )
         color = color_map(trasform(alpha))
         row_size = 100
@@ -417,18 +417,18 @@ def figures2d_TE(
 
 
 def figures2d_TE_errorbar(
-    dataset,
-    selector,
-    error_selector,
-    title,
-    xlabel,
-    ylabel,
-    filename,
-    suffix,
-    view=(70, 120),
-    cmap="rainbow",
-    dpi=300,
-    fontsize=15,
+        dataset,
+        selector,
+        error_selector,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        view=(70, 120),
+        cmap="rainbow",
+        dpi=300,
+        fontsize=15,
 ):
     matplotlib.style.use("seaborn")
 
@@ -464,7 +464,7 @@ def figures2d_TE_errorbar(
         errors = error_bar.copy().T.to_numpy()
 
         trasform = lambda alpha: (alpha - min(subselected_alphas)) / (
-            max(subselected_alphas) - min(subselected_alphas)
+                max(subselected_alphas) - min(subselected_alphas)
         )
         color = color_map(trasform(alpha))
         row_size = 100
@@ -493,7 +493,7 @@ def figures2d_TE_errorbar(
 
 
 def figures2d_samples_TE(
-    dataset, selector, title, ylabel, filename, suffix, cmap="rainbow", dpi=300
+        dataset, selector, title, ylabel, filename, suffix, cmap="rainbow", dpi=300
 ):
     matplotlib.style.use("seaborn")
 
@@ -507,7 +507,7 @@ def figures2d_samples_TE(
     number_of_samples = len(subselection[[selector]].values[0, 0])
     mean = int(len(alphas) / 2)
     neghborhood = 5
-    subselected_alphas = alphas[mean - neghborhood : mean + neghborhood]
+    subselected_alphas = alphas[mean - neghborhood: mean + neghborhood]
 
     for sample in range(number_of_samples):
         fig = plt.figure(figsize=(13, 8))
@@ -527,7 +527,7 @@ def figures2d_samples_TE(
             zs = subselection[[selector]]
 
             trasform = lambda alpha: (alpha - min(subselected_alphas)) / (
-                max(subselected_alphas) - min(subselected_alphas)
+                    max(subselected_alphas) - min(subselected_alphas)
             )
             color = color_map(trasform(alpha))
             row_size = 100
@@ -554,16 +554,16 @@ def figures2d_samples_TE(
 
 
 def figures2d_fixed_epsilon(
-    dataset,
-    selector,
-    title,
-    xlabel,
-    ylabel,
-    filename,
-    suffix,
-    cmap="rainbow",
-    dpi=300,
-    fontsize=15,
+        dataset,
+        selector,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=15,
 ):
     matplotlib.style.use("seaborn")
 
@@ -589,10 +589,10 @@ def figures2d_fixed_epsilon(
     for alpha in subselected_alphas:
         subselection = dataset.loc[dataset["alpha"] == alpha]
         constant = (
-            subselection.loc[dataset["epsilon"] == fixed_epsilon][[selector]].values[0][
-                0
-            ]
-            - 1.1
+                subselection.loc[dataset["epsilon"] == fixed_epsilon][[selector]].values[0][
+                    0
+                ]
+                - 1.1
         )
         constants.append(constant)
 
@@ -625,7 +625,7 @@ def figures2d_fixed_epsilon(
 
 
 def escort_distribution(
-    datasets, columns, title, xlabel, ylabel, filename, suffix, cmap="rainbow", dpi=300
+        datasets, columns, title, xlabel, ylabel, filename, suffix, cmap="rainbow", dpi=300
 ):
     matplotlib.style.use("seaborn")
 
@@ -672,16 +672,16 @@ def escort_distribution(
 
 
 def granger_function_plot(
-    dataset,
-    title,
-    xlabel,
-    ylabel,
-    zlabel,
-    filename,
-    suffix,
-    cmap="rainbow",
-    view=(50, -20),
-    dpi=300,
+        dataset,
+        title,
+        xlabel,
+        ylabel,
+        zlabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        view=(50, -20),
+        dpi=300,
 ):
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1, projection="3d")
@@ -720,16 +720,16 @@ def granger_function_plot(
 
 
 def lyapunov_exponent_plot(
-    dataset,
-    title,
-    xlabel,
-    ylabels,
-    labels,
-    filename,
-    suffix,
-    cmap="rainbow",
-    dpi=300,
-    fontsize=17,
+        dataset,
+        title,
+        xlabel,
+        ylabels,
+        labels,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=17,
 ):
     matplotlib.style.use("seaborn")
 
@@ -762,16 +762,16 @@ def lyapunov_exponent_plot(
 
 
 def qgauss_plot(
-    dataset,
-    title,
-    xlabel,
-    ylabels,
-    labels,
-    filename,
-    suffix,
-    cmap="rainbow",
-    dpi=300,
-    fontsize=17,
+        dataset,
+        title,
+        xlabel,
+        ylabels,
+        labels,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=17,
 ):
     matplotlib.style.use("seaborn")
 
@@ -825,16 +825,16 @@ def qgauss_plot(
 
 
 def process_datasets(
-    processed_datasets,
-    result_dataset,
-    result_raw_dataset,
-    new_columns_base_name="transfer_entropy",
-    take_k_th_nearest_neighbor=5,
-    converter_epsilon=lambda file: float(
-        "-" + file.split("--")[1].split(".b")[0]
-        if "--" in file
-        else file.split("-")[1].split(".b")[0]
-    ),
+        processed_datasets,
+        result_dataset,
+        result_raw_dataset,
+        new_columns_base_name="transfer_entropy",
+        take_k_th_nearest_neighbor=5,
+        converter_epsilon=lambda file: float(
+            "-" + file.split("--")[1].split(".b")[0]
+            if "--" in file
+            else file.split("-")[1].split(".b")[0]
+        ),
 ):
     # taking only some nn data to assure that it converge in theory
     files = glob.glob(processed_datasets)
@@ -919,7 +919,7 @@ def process_datasets(
             item
             for item in frame.columns.tolist()
             if item[bool_column] is False
-            and not ("entropy" in str(item[0]) or "information" in str(item[0]))
+               and not ("entropy" in str(item[0]) or "information" in str(item[0]))
         ]
         for item in column_to_use:
             mean_column_name = f"effective_{new_columns_base_name}_{item[1]}_{item[2]}"
@@ -932,7 +932,7 @@ def process_datasets(
                             np.array(row[item][take_k_th_nearest_neighbor:])
                             - np.array(
                                 row[item[0], item[1], item[2], not item[3], item[4]][
-                                    take_k_th_nearest_neighbor:
+                                take_k_th_nearest_neighbor:
                                 ]
                             )
                         )
@@ -946,7 +946,7 @@ def process_datasets(
                             np.array(row[item][take_k_th_nearest_neighbor:])
                             - np.array(
                                 row[item[0], item[1], item[2], not item[3], item[4]][
-                                    take_k_th_nearest_neighbor:
+                                take_k_th_nearest_neighbor:
                                 ]
                             )
                         )
@@ -964,7 +964,7 @@ def process_datasets(
                             np.array(row[item][take_k_th_nearest_neighbor:])
                             - np.array(
                                 row[item[0], item[1], item[2], item[3], not item[4]][
-                                    take_k_th_nearest_neighbor:
+                                take_k_th_nearest_neighbor:
                                 ]
                             )
                         )
@@ -978,7 +978,7 @@ def process_datasets(
                             np.array(row[item][take_k_th_nearest_neighbor:])
                             - np.array(
                                 row[item[0], item[1], item[2], item[3], not item[4]][
-                                    take_k_th_nearest_neighbor:
+                                take_k_th_nearest_neighbor:
                                 ]
                             )
                         )
@@ -992,8 +992,8 @@ def process_datasets(
             item
             for item in frame.columns.tolist()
             if not bool(item[4])
-            and "information" not in str(item[0])
-            and "epsilon" not in str(item[0])
+               and "information" not in str(item[0])
+               and "epsilon" not in str(item[0])
         ]
         for item in balance_names:
             mean_column_name = f"balance_{new_columns_base_name}_{item[1]}_{item[2]}"
@@ -1005,7 +1005,7 @@ def process_datasets(
                         np.array(row[item][take_k_th_nearest_neighbor:])
                         - np.array(
                             row[item[0], item[1], item[2], item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                     )
@@ -1019,7 +1019,7 @@ def process_datasets(
                         np.array(row[item][take_k_th_nearest_neighbor:])
                         - np.array(
                             row[item[0], item[1], item[2], item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                     )
@@ -1033,9 +1033,9 @@ def process_datasets(
             item
             for item in frame.columns.tolist()
             if not bool(item[4])
-            and not bool(item[3])
-            and "information" not in str(item[0])
-            and "epsilon" not in str(item[0])
+               and not bool(item[3])
+               and "information" not in str(item[0])
+               and "epsilon" not in str(item[0])
         ]
         for item in balance_names:
             mean_column_name = (
@@ -1051,17 +1051,17 @@ def process_datasets(
                         np.array(row[item][take_k_th_nearest_neighbor:])
                         - np.array(
                             row[item[0], item[1], item[2], not item[3], item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                         - np.array(
                             row[item[0], item[1], item[2], item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                         + np.array(
                             row[item[0], item[1], item[2], not item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                     )
@@ -1075,17 +1075,17 @@ def process_datasets(
                         np.array(row[item][take_k_th_nearest_neighbor:])
                         - np.array(
                             row[item[0], item[1], item[2], not item[3], item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                         - np.array(
                             row[item[0], item[1], item[2], item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                         + np.array(
                             row[item[0], item[1], item[2], not item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
+                            take_k_th_nearest_neighbor:
                             ]
                         )
                     )
@@ -1122,9 +1122,9 @@ def process_datasets(
             item
             for item in frame.columns.tolist()
             if "mean" in str(item[1])
-            or "std" in str(item[1])
-            or "alpha" in str(item[0])
-            or "epsilon" in str(item[0])
+               or "std" in str(item[1])
+               or "alpha" in str(item[0])
+               or "epsilon" in str(item[0])
         ]
         frame_with_processed_results = frame[columns]
 
@@ -1132,8 +1132,8 @@ def process_datasets(
             item
             for item in frame.columns.tolist()
             if isinstance(item[0], float)
-            or "alpha" in str(item[0])
-            or "epsilon" in str(item[0])
+               or "alpha" in str(item[0])
+               or "epsilon" in str(item[0])
         ]
         frame_with_raw_results = frame[columns]
         # print(frame)

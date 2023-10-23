@@ -20,11 +20,11 @@ class GenericDataPlugin(ABC):
 
     @staticmethod
     def prepare_dataset(
-        datasets=None,
-        swap_datasets=False,
-        shuffle_dataset=False,
-        selection1=1,
-        selection2=1,
+            datasets=None,
+            swap_datasets=False,
+            shuffle_dataset=False,
+            selection1=1,
+            selection2=1,
     ):
         filtrated_solution = datasets
 
@@ -34,8 +34,8 @@ class GenericDataPlugin(ABC):
         )
         marginal_solution_1 = filtrated_solution[:, 0:selection1]
         marginal_solution_2 = filtrated_solution[
-            :, selection1 : selection1 + selection2
-        ]
+                              :, selection1: selection1 + selection2
+                              ]
 
         if swap_datasets:
             marginal_solution_1, marginal_solution_2 = (

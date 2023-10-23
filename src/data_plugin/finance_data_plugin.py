@@ -39,7 +39,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             print(f"Problem detected: {self.file_pickled}")
 
     def load_tick_data(self, frame, actual_dataset, actual_metadata):
-        price_multiplicator = 10**4
+        price_multiplicator = 10 ** 4
         previous_ask = None
         previous_bid = None
         previous_date = None
@@ -111,7 +111,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         actual_metadata["type"] = "tick"
 
     def load_monthly_tick_data(self, frame, actual_dataset, actual_metadata):
-        price_multiplicator = 10**6
+        price_multiplicator = 10 ** 6
         previous_ask = None
         previous_bid = None
         previous_date = None
@@ -182,7 +182,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         actual_metadata["type"] = "tick"
 
     def load_minute_data(self, frame, actual_dataset, actual_metadata):
-        price_multiplicator = 10**6
+        price_multiplicator = 10 ** 6
         separator = ";"
 
         for row in frame:
@@ -221,7 +221,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         actual_metadata["type"] = "minute_simplified"
 
     def load_stock_with_index_data(self, frame, actual_dataset, actual_metadata):
-        price_multiplicator = 10**6
+        price_multiplicator = 10 ** 6
         previous_sp500_index = None
         difference_sp500_index = 0
         log_return_sp500_index = 0
@@ -257,7 +257,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             previous_stock_price = stock_price
             if previous_sp500_index_without_stock:
                 difference_sp500_index_without_stock = (
-                    sp500_without_stock - previous_sp500_index_without_stock
+                        sp500_without_stock - previous_sp500_index_without_stock
                 )
                 log_return_sp500_index_without_stock = np.log(
                     sp500_without_stock / previous_sp500_index_without_stock
@@ -309,7 +309,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         actual_metadata["type"] = "stock_with_index"
 
     def load_aggregated_data(self, frame, actual_dataset, actual_metadata):
-        price_multiplicator = 10**4
+        price_multiplicator = 10 ** 4
         previous_open_price = None
         difference_open_price = 0
         log_return_open_price = 0
@@ -421,7 +421,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         difference_price = 0
         log_return_price = 0
         difference_date = 0
-        price_multiplicator = 10**5
+        price_multiplicator = 10 ** 5
 
         for row in frame:
             datetime_str = row[0]
@@ -611,14 +611,14 @@ class FinanceDataPlugin(GenericFilePlugin):
                 filtered_dataset = {}
                 for row_data in dataset.items():
                     if (
-                        (
-                            start_date
-                            and end_date
-                            and start_date <= row_data[0] <= end_date
-                        )
-                        or (start_date and not end_date and start_date <= row_data[0])
-                        or (not start_date and end_date and row_data[0] <= end_date)
-                        or (not start_date and not end_date)
+                            (
+                                    start_date
+                                    and end_date
+                                    and start_date <= row_data[0] <= end_date
+                            )
+                            or (start_date and not end_date and start_date <= row_data[0])
+                            or (not start_date and end_date and row_data[0] <= end_date)
+                            or (not start_date and not end_date)
                     ):
                         filtered_dataset[row_data[0]] = row_data[1]
 
@@ -769,13 +769,13 @@ class FinanceDataPlugin(GenericFilePlugin):
         plt.close()
 
     def interpolation(
-        self,
-        data_x,
-        data_y,
-        func=lambda x, a, b: a * x + b,
-        selector=lambda x: x < -100,
-        multiplicator=-1,
-        p0=(-1, 11),
+            self,
+            data_x,
+            data_y,
+            func=lambda x, a, b: a * x + b,
+            selector=lambda x: x < -100,
+            multiplicator=-1,
+            p0=(-1, 11),
     ):
         selector_data = [
             (np.log(multiplicator * item[0]), np.log(item[1]))
@@ -815,7 +815,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         shape = hist.argmax()
         dataset_dict = {
             "x": (bins[: shape + 1] * (-1), bins[shape:], -interp_bin1, interp_bin2),
-            "y": (hist[: shape + 1], hist[shape - 1 :], interp_values1, interp_values2),
+            "y": (hist[: shape + 1], hist[shape - 1:], interp_values1, interp_values2),
             "label": (
                 "-",
                 "+",
@@ -904,10 +904,10 @@ class FinanceDataPlugin(GenericFilePlugin):
 
     @staticmethod
     def time_join_dataset(
-        dataset1: Dict[Any, Tuple],
-        dataset2: Dict[Any, Tuple],
-        select_columns1: Tuple,
-        select_columns2: Tuple,
+            dataset1: Dict[Any, Tuple],
+            dataset2: Dict[Any, Tuple],
+            select_columns1: Tuple,
+            select_columns2: Tuple,
     ):
         dataset = []
         set_keys = set()
@@ -1050,7 +1050,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                     bins_bid_open[: shape_open + 1] * (-1),
                     bins_bid_open[shape_open:],
                 ),
-                "y": (hist_open[: shape_open + 1], hist_open[shape_open - 1 :]),
+                "y": (hist_open[: shape_open + 1], hist_open[shape_open - 1:]),
                 "label": ["-", "+"],
                 "title": "open",
                 "xscale": "log",
@@ -1058,7 +1058,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             },
             (1, 0): {
                 "x": (bins_bid_max[: shape_max + 1] * (-1), bins_bid_max[shape_max:]),
-                "y": (hist_max[: shape_max + 1], hist_max[shape_max - 1 :]),
+                "y": (hist_max[: shape_max + 1], hist_max[shape_max - 1:]),
                 "label": ["-", "+"],
                 "title": "max",
                 "xscale": "log",
@@ -1066,7 +1066,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             },
             (0, 1): {
                 "x": (bins_bid_min[: shape_min + 1] * (-1), bins_bid_min[shape_min:]),
-                "y": (hist_min[: shape_min + 1], hist_min[shape_min - 1 :]),
+                "y": (hist_min[: shape_min + 1], hist_min[shape_min - 1:]),
                 "label": ["-", "+"],
                 "title": "min",
                 "xscale": "log",
@@ -1077,7 +1077,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                     bins_bid_close[: shape_close + 1] * (-1),
                     bins_bid_close[shape_close:],
                 ),
-                "y": (hist_close[: shape_close + 1], hist_close[shape_close - 1 :]),
+                "y": (hist_close[: shape_close + 1], hist_close[shape_close - 1:]),
                 "label": ["-", "+"],
                 "title": "close",
                 "xscale": "log",
@@ -1118,7 +1118,7 @@ class FinanceDataPlugin(GenericFilePlugin):
                 dataset = datasets[(row, column)]
                 if isinstance(dataset["x"], (tuple, list)):
                     for item_x, item_y, label in zip(
-                        dataset["x"], dataset["y"], dataset.get("label", [])
+                            dataset["x"], dataset["y"], dataset.get("label", [])
                     ):
                         axs[row, column].plot(item_x, item_y, label=label)
                 else:
@@ -1134,7 +1134,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         if "x" in dataset:
             if isinstance(dataset["x"], (tuple, list)):
                 for item_x, item_y, label in zip(
-                    dataset["x"], dataset["y"], dataset.get("label", [])
+                        dataset["x"], dataset["y"], dataset.get("label", [])
                 ):
                     plt.plot(item_x, item_y, label=label)
             else:
