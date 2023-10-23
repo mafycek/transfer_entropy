@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-import MySQLdb
+import pymysql
 
 
 def onUpdate(value):
@@ -31,8 +31,12 @@ def onConnect():
 
 if __name__ == "__main__":
     load_dotenv()
-    dbconnect = MySQLdb.connect(os.getenv("MYSQL_FOREX_URL"), os.getenv("MYSQL_FOREX_USERNAME"),
-                                os.getenv("MYSQL_FOREX_PASSWORD"), os.getenv("MYSQL_FOREX_TABLE"))
+    dbconnect = pymysql.connect(
+        os.getenv("MYSQL_FOREX_URL"),
+        os.getenv("MYSQL_FOREX_USERNAME"),
+        os.getenv("MYSQL_FOREX_PASSWORD"),
+        os.getenv("MYSQL_FOREX_TABLE"),
+    )
     try:
         cursor = dbconnect.cursor()
         cursor.execute("SELECT VERSION()")

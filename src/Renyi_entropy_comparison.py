@@ -25,7 +25,7 @@ def process_base_datafiles(
 ):
     datasets = []
     for item_of_folder in pathlib.Path(data_directory).iterdir():
-        if item_of_folder.is_file() and item_of_folder.name[-3:] == "txt":
+        if item_of_folder.is_file() and item_of_folder.endswith("txt"):  # .name[-3:]
             print(item_of_folder)
             parameter1 = float(item_of_folder.name.split("_")[-2])
             parameter2 = int(item_of_folder.name.split("_")[-1].split(".")[0])
