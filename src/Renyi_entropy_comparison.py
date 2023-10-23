@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import random_samples
-from random_samples import *
+from mathematical_models.random_samples import *
 
 matplotlib.rcParams["text.usetex"] = True
 
@@ -21,7 +20,7 @@ plt.rc("font", family="serif")
 
 
 def process_base_datafiles(
-        data_directory, output_file="join_dataset.pickle", show=False
+    data_directory, output_file="join_dataset.pickle", show=False
 ):
     datasets = []
     for item_of_folder in pathlib.Path(data_directory).iterdir():
@@ -55,16 +54,16 @@ def load_dataset(output_file):
 
 
 def figure(
-        dataset,
-        x_column,
-        comparison_columns,
-        columns,
-        title,
-        xlabel,
-        ylabel,
-        filename,
-        suffix="eps",
-        dpi=300,
+    dataset,
+    x_column,
+    comparison_columns,
+    columns,
+    title,
+    xlabel,
+    ylabel,
+    filename,
+    suffix="eps",
+    dpi=300,
 ):
     matplotlib.style.use("seaborn")
 
@@ -169,9 +168,9 @@ def sigma_and_determinant_for_models(dimension, correlation, correlation_type):
         determinant = 1.0
     elif correlation_type in correlation_types[1]:
         sigma_skeleton = (
-                np.identity(dimension)
-                + correlation * np.eye(dimension, k=1)
-                + correlation * np.eye(dimension, k=-1)
+            np.identity(dimension)
+            + correlation * np.eye(dimension, k=1)
+            + correlation * np.eye(dimension, k=-1)
         )
         determinant = tridiagonal_matrix_determinant(dimension, correlation)
     elif correlation_type in correlation_types[2]:
@@ -211,7 +210,6 @@ if __name__ == "__main__":
         },
     }
 
-
     def line_processing(line):
         output = sigma_and_determinant_for_models(
             int(line["dimension"]), line["correlation"], correlation_type
@@ -221,7 +219,6 @@ if __name__ == "__main__":
         )
         print(f"{np.linalg.det(output[0])} {output[1]}")
         return prediction
-
 
     # results["theoretical value"] = results.apply(lambda line: line_processing(line), axis=1)
 

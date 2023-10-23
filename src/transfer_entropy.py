@@ -11,6 +11,7 @@ import collections
 import numpy as np
 from numpy import random
 from sklearn.neighbors import KDTree
+
 # from scipy.spatial import cKDTree
 import scipy.special as scipyspecial
 
@@ -481,7 +482,9 @@ def renyi_entropy(*args, **kwargs):
         else:
             # special treatment of negative values in argument of logarithm
             if "base_of_logarithm" in kwargs:
-                kwargs["logarithm"] = lambda x: np.log(x, kwargs["base_of_logarithm"]) if x > 0 else 0.0
+                kwargs["logarithm"] = (
+                    lambda x: np.log(x, kwargs["base_of_logarithm"]) if x > 0 else 0.0
+                )
             else:
                 kwargs["logarithm"] = lambda x: np.log(x) if x > 0 else 0.0
                 # if x > 0 else 0

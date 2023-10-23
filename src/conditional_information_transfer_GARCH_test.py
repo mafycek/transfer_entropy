@@ -164,7 +164,10 @@ if __name__ == "__main__":
                 }
 
                 # prepare dataset that is been processed
-                marginal_solution_1, marginal_solution_2 = GARCHDataPlugin.prepare_dataset(
+                (
+                    marginal_solution_1,
+                    marginal_solution_2,
+                ) = GARCHDataPlugin.prepare_dataset(
                     args,
                     index_epsilon=index_epsilon,
                     datasets=datasets,

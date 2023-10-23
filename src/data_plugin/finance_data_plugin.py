@@ -4,11 +4,12 @@
 import os
 import pickle
 import csv
-import numpy as np
 import datetime
 from typing import Tuple, Dict, Any
 from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy import signal
 from scipy.optimize import curve_fit
 
@@ -220,7 +221,7 @@ class FinanceDataPlugin(GenericFilePlugin):
         actual_metadata["type"] = "minute_simplified"
 
     def load_stock_with_index_data(self, frame, actual_dataset, actual_metadata):
-        price_multiplicator = 10 ** 6
+        price_multiplicator = 10**6
         previous_sp500_index = None
         difference_sp500_index = 0
         log_return_sp500_index = 0
@@ -256,7 +257,7 @@ class FinanceDataPlugin(GenericFilePlugin):
             previous_stock_price = stock_price
             if previous_sp500_index_without_stock:
                 difference_sp500_index_without_stock = (
-                        sp500_without_stock - previous_sp500_index_without_stock
+                    sp500_without_stock - previous_sp500_index_without_stock
                 )
                 log_return_sp500_index_without_stock = np.log(
                     sp500_without_stock / previous_sp500_index_without_stock
@@ -610,14 +611,14 @@ class FinanceDataPlugin(GenericFilePlugin):
                 filtered_dataset = {}
                 for row_data in dataset.items():
                     if (
-                            (
-                                    start_date
-                                    and end_date
-                                    and start_date <= row_data[0] <= end_date
-                            )
-                            or (start_date and not end_date and start_date <= row_data[0])
-                            or (not start_date and end_date and row_data[0] <= end_date)
-                            or (not start_date and not end_date)
+                        (
+                            start_date
+                            and end_date
+                            and start_date <= row_data[0] <= end_date
+                        )
+                        or (start_date and not end_date and start_date <= row_data[0])
+                        or (not start_date and end_date and row_data[0] <= end_date)
+                        or (not start_date and not end_date)
                     ):
                         filtered_dataset[row_data[0]] = row_data[1]
 

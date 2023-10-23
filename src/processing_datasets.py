@@ -185,16 +185,16 @@ def figures2d_imshow(
 
 
 def figures2d_TE_alpha(
-        dataset,
-        selector,
-        title,
-        xlabel,
-        ylabel,
-        filename,
-        suffix,
-        cmap="rainbow",
-        dpi=300,
-        fontsize=10,
+    dataset,
+    selector,
+    title,
+    xlabel,
+    ylabel,
+    filename,
+    suffix,
+    cmap="rainbow",
+    dpi=300,
+    fontsize=10,
 ):
     matplotlib.style.use("seaborn")
     fig = plt.figure(figsize=(13, 8))
@@ -589,10 +589,10 @@ def figures2d_fixed_epsilon(
     for alpha in subselected_alphas:
         subselection = dataset.loc[dataset["alpha"] == alpha]
         constant = (
-                subselection.loc[dataset["epsilon"] == fixed_epsilon][[selector]].values[0][
-                    0
-                ]
-                - 1.1
+            subselection.loc[dataset["epsilon"] == fixed_epsilon][[selector]].values[0][
+                0
+            ]
+            - 1.1
         )
         constants.append(constant)
 
@@ -825,16 +825,16 @@ def qgauss_plot(
 
 
 def process_datasets(
-        processed_datasets,
-        result_dataset,
-        result_raw_dataset,
-        new_columns_base_name="transfer_entropy",
-        take_k_th_nearest_neighbor=5,
-        converter_epsilon=lambda file: float(
-            "-" + file.split("--")[1].split(".b")[0]
-            if "--" in file
-            else file.split("-")[1].split(".b")[0]
-        ),
+    processed_datasets,
+    result_dataset,
+    result_raw_dataset,
+    new_columns_base_name="transfer_entropy",
+    take_k_th_nearest_neighbor=5,
+    converter_epsilon=lambda file: float(
+        "-" + file.split("--")[1].split(".b")[0]
+        if "--" in file
+        else file.split("-")[1].split(".b")[0]
+    ),
 ):
     # taking only some nn data to assure that it converge in theory
     files = glob.glob(processed_datasets)
@@ -919,7 +919,7 @@ def process_datasets(
             item
             for item in frame.columns.tolist()
             if item[bool_column] is False
-               and not ("entropy" in str(item[0]) or "information" in str(item[0]))
+            and not ("entropy" in str(item[0]) or "information" in str(item[0]))
         ]
         for item in column_to_use:
             mean_column_name = f"effective_{new_columns_base_name}_{item[1]}_{item[2]}"
