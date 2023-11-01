@@ -182,11 +182,11 @@ def preparation_dataset_for_transfer_entropy(
     samples_marginal_2 = samples_from_arrays(marginal_solution_2_selected, **kwargs)
 
     if "future_index_x" in kwargs:
-        y_fut = samples_marginal_1[: shape[0] * len(future_index_x), :]
-        y_history = samples_marginal_1[shape[0] * len(future_index_x):, :]
+        y_fut = samples_marginal_1[shape[0] * len(history_index_x):, :]
+        y_history = samples_marginal_1[: shape[0] * len(history_index_x), :]
     else:
-        y_fut = samples_marginal_1[: shape[0], :]
-        y_history = samples_marginal_1[shape[0]:, :]
+        y_fut = samples_marginal_1[shape[0]:, :]
+        y_history = samples_marginal_1[:shape[0], :]
 
     if postselection_y_fut:
         y_fut = y_fut[postselection_y_fut, :]
@@ -194,11 +194,11 @@ def preparation_dataset_for_transfer_entropy(
     if postselection_y_hist:
         y_history = y_history[postselection_y_hist, :]
 
-    z = samples_marginal_2
+    x_hist = samples_marginal_2
     if postselection_z_hist:
-        z = samples_marginal_2[postselection_z_hist, :]
+        x_hist = samples_marginal_2[postselection_z_hist, :]
 
-    return (y_fut, y_history, z)
+    return (y_fut, y_history, x_hist)
 
 
 def check_timesteps(data):

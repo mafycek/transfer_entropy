@@ -297,7 +297,7 @@ if __name__ == "__main__":
 
     for swap_datasets in [False, True]:
         # loop over shuffling
-        for shuffle_dataset in [True, False]:
+        for shuffle_dataset in [False, True]:
             # prepare dataset that is being processed
 
             (
@@ -339,7 +339,7 @@ if __name__ == "__main__":
                             y_hist,
                             z_hist,
                         ) = preparation_dataset_for_transfer_entropy(
-                            marginal_solution_2, marginal_solution_1, **configuration
+                            marginal_solution_1, marginal_solution_2, **configuration
                         )
                         t1 = time.process_time()
                         duration = t1 - t0
