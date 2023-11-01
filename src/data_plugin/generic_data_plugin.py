@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 import abc
 from abc import ABC, abstractmethod
 import os
 import datetime
-from data_plugin.sample_generator import shuffle_sample
 
+from data_plugin.sample_generator import shuffle_sample
 
 class GenericDataPlugin(ABC):
     def __init__(self):
@@ -32,6 +33,7 @@ class GenericDataPlugin(ABC):
             f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Shape of solution: {filtrated_solution.shape}",
             flush=True,
         )
+
         marginal_solution_1 = filtrated_solution[:, 0:selection1]
         marginal_solution_2 = filtrated_solution[
                               :, selection1: selection1 + selection2

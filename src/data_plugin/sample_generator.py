@@ -6,7 +6,7 @@ import random
 import numpy as np
 
 from mathematical_models.roessler_system import roessler_oscillator
-
+from random_samples import sample_normal_distribution
 
 def shuffle_sample(data):
     shape = data.shape
@@ -133,6 +133,9 @@ def preparation_dataset_for_transfer_entropy(
     else:
         postselection_y_hist = False
 
+    if "random_source" in kwargs:
+        random_source = kwargs["random_source"]
+
     shape = marginal_solution_1.shape
     marginal_solution_1_selected = (
         marginal_solution_1[:, skip_last:]
@@ -187,6 +190,13 @@ def preparation_dataset_for_transfer_entropy(
     else:
         y_fut = samples_marginal_1[shape[0]:, :]
         y_history = samples_marginal_1[:shape[0], :]
+
+    if random_source:
+        # add random data to history of X
+        solution_shape = y_history.shape
+        random_sample = sample_normal_distribution(sigma=np.diag(random_source), size_sample=solution_shape[1])
+        random_sample = random_sample.T
+        y_history = np.append(y_history, random_sample, axis=0)
 
     if postselection_y_fut:
         y_fut = y_fut[postselection_y_fut, :]

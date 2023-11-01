@@ -140,6 +140,14 @@ if __name__ == "__main__":
         help="Postselector of history Y",
     )
     parser.add_argument(
+        "--random_source",
+        metavar="XXX",
+        type=float,
+        default=None,
+        nargs="+",
+        help="Random sources added to X",
+    )
+    parser.add_argument(
         "--alpha_params",
         metavar="XXX",
         type=str,
@@ -218,6 +226,7 @@ if __name__ == "__main__":
     arbitrary_precision_decimal_numbers = args.arbitrary_precision_decimal_numbers
     dataset_1_selector = args.dataset_1_selector
     dataset_2_selector = args.dataset_2_selector
+    random_source = args.random_source
 
     print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Load datasets")
     if args.database:
@@ -330,6 +339,7 @@ if __name__ == "__main__":
                             "postselection_y_fut": postselection_X_future,
                             "postselection_z_hist": postselection_Y_history,
                             "postselection_y_hist": postselection_X_history,
+                            "random_source": random_source,
                         }
 
                         # prepare samples to be used to calculate transfer entropy
