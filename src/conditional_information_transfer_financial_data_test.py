@@ -292,6 +292,10 @@ if __name__ == "__main__":
         "collection": FinanceMongoDatabasePlugin.conditional_information_transfer_name,
         "start_timestamp": datetime.datetime.now(),
         "comment": args.comment,
+        "postselection_X_history": postselection_X_history,
+        "postselection_Y_history": postselection_Y_history,
+        "postselection_X_future": postselection_X_future,
+        "random_source": random_source,
     }
 
     if args.database and "id" in metadata1 and "id" in metadata2:
