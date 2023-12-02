@@ -5,6 +5,7 @@ import datetime
 import enum
 import json
 import pickle
+import os
 import pprint
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy import (
@@ -27,6 +28,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from dotenv import load_dotenv
 
 from data_plugin.generic_database_plugin import GenericDatabasePlugin
 from data_plugin.finance_data_plugin import FinanceDataPlugin
@@ -327,8 +329,14 @@ def setup_database(financial_plugin):
 
 
 if __name__ == "__main__":
+    load_dotenv()
+    url = os.getenv("URL")
+    table = os.getenv("NOSQL_TABLE")
+    username = os.getenv("NOSQL_USERNAME")
+    password = os.getenv("NOSQL_PASSWORD")
+
     dataPlugin = FinanceDataPlugin(
-        "/home/hynek/work/skola/prog/python/transfer_entropy/data"
+        "/home/hynek/work/skola/prog/python/transfer_entropy/data/1Q23_sp_stocks"
     )
     old_data = False
     if old_data:
@@ -338,7 +346,10 @@ if __name__ == "__main__":
         datasets_generator = dataPlugin.new_load_datasets()
 
     financial_plugin = FinanceDatabasePlugin(
-        "ashley.fjfi.cvut.cz", "postgres", "postgresrenyi", "postgresrenyi"
+        url,
+        table,
+        username,
+        password,
     )
     setup_database(financial_plugin)
     updated_row = financial_plugin.add_start_of_calculation(1, 2, {"ABC": "CDE"})
