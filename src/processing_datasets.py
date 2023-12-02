@@ -196,7 +196,7 @@ def figures2d_TE_alpha(
         dpi=300,
         fontsize=10,
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use("seaborn-v0_8")
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1)
 
@@ -273,7 +273,7 @@ def figures2d_TE_alpha_errorbar(
         dpi=300,
         fontsize=15,
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use("seaborn-v0_8")
 
     color_map = matplotlib.cm.get_cmap(cmap)
 
