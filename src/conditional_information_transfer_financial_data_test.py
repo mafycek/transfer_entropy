@@ -204,6 +204,8 @@ if __name__ == "__main__":
     else:
         histories_seconds = range(2, 25)
 
+    future_history_joint = zip(future_firsts, histories_firsts, histories_seconds)
+
     if args.alpha_params:
         alpha_params = (
             float(args.alpha_params[0]),
@@ -324,95 +326,96 @@ if __name__ == "__main__":
                 selection2=len(dataset_2_selector),
             )
 
-            for future_first in future_firsts:
-                for histories_first in histories_firsts:
-                    for histories_second in histories_seconds:
-                        print(
-                            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} History first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} is processed",
-                            flush=True,
-                        )
-
-                        # preparation of the configuration dictionary
-                        # additional +1 is there for separation
-                        configuration = {
-                            "transpose": True,
-                            "blockwise": args.blockwise,
-                            "history_index_x": histories_first,
-                            "history_index_y": histories_second,
-                            "future_index_x": future_first,
-                            "postselection_y_fut": postselection_X_future,
-                            "postselection_z_hist": postselection_Y_history,
-                            "postselection_y_hist": postselection_X_history,
-                            "random_source": random_source,
-                        }
-
-                        # prepare samples to be used to calculate transfer entropy
-                        t0 = time.process_time()
-                        (
-                            y_fut,
-                            y_hist,
-                            z_hist,
-                        ) = preparation_dataset_for_transfer_entropy(
-                            marginal_solution_1, marginal_solution_2, **configuration
-                        )
-                        t1 = time.process_time()
-                        duration = t1 - t0
-                        print(
-                            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Preparation of datasets [s]: {duration}",
-                            flush=True,
-                        )
-
-                        # create range of indices that will be used for calculation
-                        indices_to_use = list(range(1, args.maximal_neighborhood + 1))
-                        configuration = {
-                            "transpose": True,
-                            "axis_to_join": 0,
-                            "method": "LeonenkoProzanto",
-                            "alphas": alphas,
-                            "enhanced_calculation": True,
-                            "indices_to_use": indices_to_use,
-                            "arbitrary_precision": arbitrary_precision,
-                            "arbitrary_precision_decimal_numbers": arbitrary_precision_decimal_numbers,
-                        }
-
-                        # calculation of transfer entropy
-                        print(
-                            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is calculated",
-                            flush=True,
-                        )
-                        t0 = time.process_time()
-                        transfer_entropy = renyi_conditional_information_transfer(
-                            y_fut, y_hist, z_hist, **configuration
-                        )
-                        t1 = time.process_time()
-                        duration = t1 - t0
-                        print(
-                            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Duration of calculation of transfer entropy [s]: {duration}",
-                            flush=True,
-                        )
-                        # print(f" * Transfer Renyi entropy with {history} {epsilon}: {transfer_entropy}", flush=True)
-
-                        # store transfer entropy to the result structure
-                        string_histories_first = ",".join(
-                            str(x) for x in histories_first
-                        )
-                        string_future_first = ",".join(str(x) for x in future_first)
-                        string_histories_second = ",".join(
-                            str(x) for x in histories_second
-                        )
-                        results[
-                            (
-                                symbol,
-                                f"{string_histories_first}_{string_future_first}",
-                                string_histories_second,
-                                shuffle_dataset,
-                                swap_datasets,
+            for future_firsts, histories_firsts, histories_seconds in future_history_joint:
+                for future_first in future_firsts:
+                    for histories_first in histories_firsts:
+                        for histories_second in histories_seconds:
+                            print(
+                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} History first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} is processed",
+                                flush=True,
                             )
-                        ] = transfer_entropy
-                        print(
-                            f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy calculation for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol}, shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is finished",
-                            flush=True,
-                        )
+
+                            # preparation of the configuration dictionary
+                            # additional +1 is there for separation
+                            configuration = {
+                                "transpose": True,
+                                "blockwise": args.blockwise,
+                                "history_index_x": histories_first,
+                                "history_index_y": histories_second,
+                                "future_index_x": future_first,
+                                "postselection_y_fut": postselection_X_future,
+                                "postselection_z_hist": postselection_Y_history,
+                                "postselection_y_hist": postselection_X_history,
+                                "random_source": random_source,
+                            }
+
+                            # prepare samples to be used to calculate transfer entropy
+                            t0 = time.process_time()
+                            (
+                                y_fut,
+                                y_hist,
+                                z_hist,
+                            ) = preparation_dataset_for_transfer_entropy(
+                                marginal_solution_1, marginal_solution_2, **configuration
+                            )
+                            t1 = time.process_time()
+                            duration = t1 - t0
+                            print(
+                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Preparation of datasets [s]: {duration}",
+                                flush=True,
+                            )
+
+                            # create range of indices that will be used for calculation
+                            indices_to_use = list(range(1, args.maximal_neighborhood + 1))
+                            configuration = {
+                                "transpose": True,
+                                "axis_to_join": 0,
+                                "method": "LeonenkoProzanto",
+                                "alphas": alphas,
+                                "enhanced_calculation": True,
+                                "indices_to_use": indices_to_use,
+                                "arbitrary_precision": arbitrary_precision,
+                                "arbitrary_precision_decimal_numbers": arbitrary_precision_decimal_numbers,
+                            }
+
+                            # calculation of transfer entropy
+                            print(
+                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is calculated",
+                                flush=True,
+                            )
+                            t0 = time.process_time()
+                            transfer_entropy = renyi_conditional_information_transfer(
+                                y_fut, y_hist, z_hist, **configuration
+                            )
+                            t1 = time.process_time()
+                            duration = t1 - t0
+                            print(
+                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Duration of calculation of transfer entropy [s]: {duration}",
+                                flush=True,
+                            )
+                            # print(f" * Transfer Renyi entropy with {history} {epsilon}: {transfer_entropy}", flush=True)
+
+                            # store transfer entropy to the result structure
+                            string_histories_first = ",".join(
+                                str(x) for x in histories_first
+                            )
+                            string_future_first = ",".join(str(x) for x in future_first)
+                            string_histories_second = ",".join(
+                                str(x) for x in histories_second
+                            )
+                            results[
+                                (
+                                    symbol,
+                                    f"{string_histories_first}_{string_future_first}",
+                                    string_histories_second,
+                                    shuffle_dataset,
+                                    swap_datasets,
+                                )
+                            ] = transfer_entropy
+                            print(
+                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy calculation for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol}, shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is finished",
+                                flush=True,
+                            )
 
     if args.database:
         dataset_handler.reconnect()
