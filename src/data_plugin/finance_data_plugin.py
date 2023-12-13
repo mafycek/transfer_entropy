@@ -43,8 +43,8 @@ class FinanceDataPlugin(GenericFilePlugin):
         previous_ask = None
         previous_bid = None
         previous_date = None
-        difference_bid = 0
-        difference_ask = 0
+        #        difference_bid = 0
+        #        difference_ask = 0
         log_return_bid = 0
         log_return_ask = 0
         difference_date = 0
@@ -78,8 +78,8 @@ class FinanceDataPlugin(GenericFilePlugin):
                     bid,
                     ask,
                     difference_date,
-                    difference_bid / bid,
-                    difference_ask / ask,
+                    #                    difference_bid / bid,
+                    #                    difference_ask / ask,
                     log_return_bid,
                     log_return_ask,
                 ]
@@ -91,8 +91,8 @@ class FinanceDataPlugin(GenericFilePlugin):
                             bid,
                             ask,
                             difference_date,
-                            difference_bid / bid,
-                            difference_ask / ask,
+                            #                           difference_bid / bid,
+                            #                           difference_ask / ask,
                             log_return_bid,
                             log_return_ask,
                         ],
@@ -102,8 +102,8 @@ class FinanceDataPlugin(GenericFilePlugin):
             "bid",
             "ask",
             "difference_date",
-            "return_bid",
-            "return_ask",
+            #            "return_bid",
+            #            "return_ask",
             "log_return_bid",
             "log_return_ask",
         ]
@@ -115,8 +115,8 @@ class FinanceDataPlugin(GenericFilePlugin):
         previous_ask = None
         previous_bid = None
         previous_date = None
-        difference_bid = 0
-        difference_ask = 0
+        #        difference_bid = 0
+        #        difference_ask = 0
         difference_date = 0
         log_return_bid = 0
         log_return_ask = 0
@@ -149,8 +149,8 @@ class FinanceDataPlugin(GenericFilePlugin):
                     bid,
                     ask,
                     difference_date,
-                    difference_bid / bid,
-                    difference_ask / ask,
+                    #                    difference_bid / bid,
+                    #                    difference_ask / ask,
                     log_return_bid,
                     log_return_ask,
                 ]
@@ -162,8 +162,8 @@ class FinanceDataPlugin(GenericFilePlugin):
                             bid,
                             ask,
                             difference_date,
-                            difference_bid / bid,
-                            difference_ask / ask,
+                            #                            difference_bid / bid,
+                            #                            difference_ask / ask,
                             log_return_bid,
                             log_return_ask,
                         ],
@@ -174,7 +174,8 @@ class FinanceDataPlugin(GenericFilePlugin):
             "ask",
             "return_bid",
             "difference_date",
-            "return_ask",
+            #           "return_bid",
+            #           "return_ask",
             "log_return_bid",
             "log_return_ask",
         ]
