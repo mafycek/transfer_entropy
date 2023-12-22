@@ -178,9 +178,9 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--test",
-        type=str,
+        action="store_true",
+        default=False,
         help="Performs test run without calculation",
-        default=None,
     )
 
     args = parser.parse_args()
