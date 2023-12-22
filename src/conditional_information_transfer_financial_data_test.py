@@ -176,6 +176,13 @@ if __name__ == "__main__":
         default=None,
     )
 
+    parser.add_argument(
+        "--test",
+        type=str,
+        help="Performs test run without calculation",
+        default=None,
+    )
+
     args = parser.parse_args()
 
     postselection_X_future = args.postselection_X_future
@@ -188,6 +195,12 @@ if __name__ == "__main__":
     args.end_datetime = (
         datetime.datetime.fromisoformat(args.end_date) if args.end_date else None
     )
+
+    if args.test:
+        test_run = True
+    else:
+        test_run = False
+
 
     if args.history_first:
         histories_firsts = process_CLI_arguments(args.history_first)
@@ -384,16 +397,17 @@ if __name__ == "__main__":
                                 flush=True,
                             )
                             t0 = time.process_time()
-                            transfer_entropy = renyi_conditional_information_transfer(
-                                y_fut, y_hist, z_hist, **configuration
-                            )
+                            if not test_run:
+                                transfer_entropy = renyi_conditional_information_transfer(
+                                    y_fut, y_hist, z_hist, **configuration
+                                )
+
                             t1 = time.process_time()
                             duration = t1 - t0
                             print(
                                 f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Duration of calculation of transfer entropy [s]: {duration}",
                                 flush=True,
                             )
-                            # print(f" * Transfer Renyi entropy with {history} {epsilon}: {transfer_entropy}", flush=True)
 
                             # store transfer entropy to the result structure
                             string_histories_first = ",".join(
@@ -417,7 +431,7 @@ if __name__ == "__main__":
                                 flush=True,
                             )
 
-    if args.database:
+    if args.database and not test_run:
         dataset_handler.reconnect()
 
         # save to database
