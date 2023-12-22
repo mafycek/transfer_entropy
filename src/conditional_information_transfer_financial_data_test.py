@@ -310,23 +310,23 @@ if __name__ == "__main__":
     # create structure for results
     results = {}
 
-    for swap_datasets in [False, True]:
-        # loop over shuffling
-        for shuffle_dataset in [False, True]:
-            # prepare dataset that is being processed
+    for future_firsts, histories_firsts, histories_seconds in future_history_joint:
+        for swap_datasets in [False, True]:
+            # loop over shuffling
+            for shuffle_dataset in [False, True]:
+                # prepare dataset that is being processed
 
-            (
-                marginal_solution_1,
-                marginal_solution_2,
-            ) = GenericDataPlugin.prepare_dataset(
-                datasets=joint_dataset,
-                swap_datasets=swap_datasets,
-                shuffle_dataset=shuffle_dataset,
-                selection1=len(dataset_1_selector),
-                selection2=len(dataset_2_selector),
-            )
+                (
+                    marginal_solution_1,
+                    marginal_solution_2,
+                ) = GenericDataPlugin.prepare_dataset(
+                    datasets=joint_dataset,
+                    swap_datasets=swap_datasets,
+                    shuffle_dataset=shuffle_dataset,
+                    selection1=len(dataset_1_selector),
+                    selection2=len(dataset_2_selector),
+                )
 
-            for future_firsts, histories_firsts, histories_seconds in future_history_joint:
                 for future_first in future_firsts:
                     for histories_first in histories_firsts:
                         for histories_second in histories_seconds:
