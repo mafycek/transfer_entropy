@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "PyClits"
+name = "Transfer entropy"
 version = "1.0.0"
 description = "Analyzer of nonlinear data"
-authors = ["Nikola Jajcay, Hynek Lavicka"]
+authors = ["Hynek Lavicka"]
 
 [tool.poetry.dependencies]
 python = ">= 3.9, < 4.0"
