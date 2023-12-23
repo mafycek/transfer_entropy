@@ -401,6 +401,8 @@ if __name__ == "__main__":
                                 transfer_entropy = renyi_conditional_information_transfer(
                                     y_fut, y_hist, z_hist, **configuration
                                 )
+                            else:
+                                transfer_entropy = 0
 
                             t1 = time.process_time()
                             duration = t1 - t0
