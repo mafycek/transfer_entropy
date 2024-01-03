@@ -3,12 +3,95 @@
 
 import glob
 import sys
+import math
 import numpy as np
 import pandas as pd
 import matplotlib
 from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
+
+title_map = {
+    (False, False): r"{\alpha: X\rightarrow Y}",
+    (True, False): r"{\alpha: X_{shuffled}\rightarrow Y}",
+    (False, True): r"{\alpha: Y\rightarrow X}",
+    (True, True): r"{\alpha: Y_{shuffled}\rightarrow X}",
+}
+
+names = {
+    "balance_effective_conditional_information_transfer": 5,
+    "balance_conditional_information_transfer": 4,
+    "effective_conditional_information_transfer": 4,
+    "conditional_information_transfer": 3,
+}
+
+
+def max_divisor(number):
+    limit = math.ceil(math.sqrt(number))
+    for divisor in range(limit, 1, -1):
+        if number % divisor == 0:
+            return (divisor, number // divisor)
+    return (1, number)
+
+
+def generate_label_from_name_of_column_TE(column_multiindex, name_of_title):
+    column_name = column_multiindex[0]
+    shift = 0
+    for key, value in names.items():
+        if key in column_name:
+            shift = value
+            break
+
+    column_name = column_name.replace(
+        "conditional_information_transfer", "transfer_entropy"
+    )
+
+    shift = shift - 1
+    try:
+        future_first_TS = column_name.split("_")[shift + 2]
+    except IndexError as err:
+        future_first_TS = None
+    balance = "balance" in name_of_title
+    shuffled_calculation = column_multiindex[3]
+    swapped_datasets = column_multiindex[4]
+    history_first_TS = column_name.split("_")[shift]
+    history_second_TS = column_name.split("_")[shift + 1]
+    standard_filename = "figure"
+
+    if future_first_TS is not None:
+        if balance:
+            label = (
+                """T^{}_{} (\\{{{}\\}},\\{{{}\\}},\\{{{}\\}})""".format(
+                    "{(R, effective, balance)}"
+                    if "effective" in column_name
+                    else "{(R, balance)}",
+                    title_map[(shuffled_calculation, swapped_datasets)],
+                    history_first_TS,
+                    history_second_TS,
+                    future_first_TS,
+                )
+            )
+            # + "-" + "$T^{}_{} ([{}],[{}],[{}])$".format("{(R, eff)}" if "effective" in column_name else "{(R)}", title_map[(shuffled_calculation, not swapped_datasets)], history_first_TS, history_second_TS, future_first_TS)
+        else:
+            label = (
+                """T^{}_{} (\\{{{}\\}},\\{{{}\\}},\\{{{}\\}})""".format(
+                    "{(R, eff)}"
+                    if "effective" in column_name
+                    else "{(R)}",
+                    title_map[(shuffled_calculation, swapped_datasets)],
+                    history_first_TS,
+                    history_second_TS,
+                    future_first_TS,
+                )
+            )
+    else:
+        label = "T^{}_{} ([{}],[{}])".format(
+            "{(R, eff)}" if "effective" in column_name else "{(R)}",
+            title_map[(shuffled_calculation, swapped_datasets)],
+            history_first_TS,
+            history_second_TS,
+        )
+    return label
 
 
 def figures3d_TE(
@@ -195,8 +278,9 @@ def figures2d_TE_alpha(
         cmap="rainbow",
         dpi=300,
         fontsize=10,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn-v0_8")
+    matplotlib.style.use(style)
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1)
 
@@ -259,6 +343,192 @@ def figures2d_TE_alpha(
     del fig
 
 
+def figures2d_TE_overview_alpha(
+        dataset,
+        selectors,
+        title,
+        xlabel,
+        y_label_params,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
+        style="seaborn-v0_8",
+):
+    matplotlib.style.use(style)
+    number_rows, number_columns = max_divisor(len(selectors))
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+
+    color_map = matplotlib.cm.get_cmap(cmap)
+
+    fig.suptitle(title)
+    name_of_title, latex_overview_label_size = y_label_params
+
+    for row in range(number_rows):
+        for column in range(number_columns):
+            index_of_selector = column + number_columns * row
+            selector = selectors[index_of_selector]
+
+            ylabel = generate_label_from_name_of_column_TE(selector, name_of_title)
+            ylabel_latex = latex_overview_label_size + f"${ylabel}$"
+
+            axs[row, column].set_xlabel(xlabel)
+            axs[row, column].set_ylabel(ylabel_latex)
+
+            codes = dataset["epsilon"].unique()
+            list_selector = list(selector)
+            list_selector[4] = not selector[4]
+            selector_not = tuple(list_selector)
+            columns = list(dataset.columns.values)
+            if selector_not in columns:
+                number_of_datasets = float(2 * len(codes)) - 1
+            else:
+                number_of_datasets = float(len(codes)) - 1
+
+            order_of_dataset = 0
+            for code in codes:
+                subselection = dataset.loc[dataset["epsilon"] == code]
+
+                for swap in [True, False]:
+                    list_selector = list(selector)
+                    list_selector[4] = swap
+                    selector = tuple(list_selector)
+                    if selector in columns:
+                        label = code.replace("_", "-")
+                        if swap:
+                            label_split = label.split("-")
+                            if len(label_split) >= 2:
+                                label = f"${{ \\scriptstyle {label_split[1]}-{label_split[0]}, Y->X }}$"
+                            else:
+                                label = f"${label}, Y->X$"
+                        else:
+                            label = f"${{ \\scriptstyle {label}, X->Y }}$"
+
+                        ys = subselection[["alpha"]]
+                        zs = subselection[[selector]]
+
+                        try:
+                            if number_of_datasets != 0.0:
+                                map_position = order_of_dataset / number_of_datasets
+                            else:
+                                map_position = 0
+                            color = color_map(map_position)
+                            axs[row, column].plot(ys.values, zs.values, linewidth=3, label=label, color=color)
+                        except Exception as exc:
+                            print(f"{exc}: Problem D=")
+
+                        order_of_dataset += 1
+
+            plt.legend(loc=0, ncol=2, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+
+    plt.savefig(filename + "." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    del fig
+
+
+def figures2d_TE_overview_alpha_errorbar(
+        dataset,
+        selectors,
+        error_selectors,
+        title,
+        xlabel,
+        y_label_params,
+        filename,
+        suffix,
+        view=(70, 120),
+        cmap="rainbow",
+        dpi=300,
+        fontsize=15,
+        style="seaborn-v0_8",
+):
+    matplotlib.style.use(style)
+    number_rows, number_columns = max_divisor(len(selectors))
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+
+    color_map = matplotlib.cm.get_cmap(cmap)
+
+    fig.suptitle(title)
+    name_of_title, latex_overview_label_size = y_label_params
+
+    for row in range(number_rows):
+        for column in range(number_columns):
+            index_of_selector = column + number_columns * row
+            selector = selectors[index_of_selector]
+            error_selector = error_selectors[index_of_selector]
+
+            ylabel = generate_label_from_name_of_column_TE(selector, name_of_title)
+            ylabel_latex = latex_overview_label_size + f"${ylabel}$"
+
+            axs[row, column].set_xlabel(xlabel)
+            axs[row, column].set_ylabel(ylabel_latex)
+
+            codes = dataset["epsilon"].unique()
+            list_selector = list(selector)
+            list_selector[4] = not selector[4]
+            selector_not = tuple(list_selector)
+            columns = list(dataset.columns.values)
+            if selector_not in columns:
+                number_of_datasets = float(2 * len(codes)) - 1
+            else:
+                number_of_datasets = float(len(codes)) - 1
+
+            order_of_dataset = 0
+            for code in codes:
+                subselection = dataset.loc[dataset["epsilon"] == code]
+
+                for swap in [True, False]:
+                    list_selector = list(selector)
+                    list_selector[4] = swap
+                    selector = tuple(list_selector)
+                    if selector in columns:
+                        label = code.replace("_", "-")
+                        if swap:
+                            label_split = label.split("-")
+                            if len(label_split) >= 2:
+                                label = f"${label_split[1]}-{label_split[0]}, Y->X$"
+                            else:
+                                label = f"${label}, Y->X$"
+                        else:
+                            label = f"${label}, X->Y$"
+
+                        ys = subselection[["alpha"]]
+                        zs = subselection[[selector]]
+                        error_bar = subselection[[error_selector]].copy()
+
+                        error_selector_negative_std = list(error_selector)
+                        error_selector_negative_std[1] = "-std"
+                        # error_bar[tuple(error_selector_negative_std)] = error_bar.apply(lambda x: -x, axis=1, raw=True)
+                        errors = error_bar.copy().T.to_numpy()
+
+                        try:
+                            map_position = order_of_dataset / number_of_datasets
+                            color = color_map(map_position)
+                            lims = np.array([True] * ys.size, dtype=bool)
+                            axs[row, column].errorbar(
+                                ys.values.flatten(),
+                                zs.values.flatten(),
+                                yerr=errors.flatten(),
+                                linewidth=3,
+                                label=label,
+                                color=color,
+                                ls="dotted",
+                            )
+                        except Exception as exc:
+                            print(f"{exc}: {errors.shape}")
+                        order_of_dataset += 1
+
+            plt.legend(loc=0, ncol=2, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+
+    plt.savefig(filename + "." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    del fig
+
+
 def figures2d_TE_alpha_errorbar(
         dataset,
         selector,
@@ -272,8 +542,9 @@ def figures2d_TE_alpha_errorbar(
         cmap="rainbow",
         dpi=300,
         fontsize=15,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn-v0_8")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
 
@@ -361,8 +632,9 @@ def figures2d_TE(
         cmap="rainbow",
         dpi=300,
         fontsize=15,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
 
@@ -429,8 +701,9 @@ def figures2d_TE_errorbar(
         cmap="rainbow",
         dpi=300,
         fontsize=15,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
 
@@ -564,8 +837,9 @@ def figures2d_fixed_epsilon(
         cmap="rainbow",
         dpi=300,
         fontsize=15,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
 
@@ -625,9 +899,10 @@ def figures2d_fixed_epsilon(
 
 
 def escort_distribution(
-        datasets, columns, title, xlabel, ylabel, filename, suffix, cmap="rainbow", dpi=300
+        datasets, columns, title, xlabel, ylabel, filename, suffix, cmap="rainbow", dpi=300,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
 
@@ -730,8 +1005,9 @@ def lyapunov_exponent_plot(
         cmap="rainbow",
         dpi=300,
         fontsize=17,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
     fig = plt.figure(figsize=(13, 8))
@@ -772,8 +1048,9 @@ def qgauss_plot(
         cmap="rainbow",
         dpi=300,
         fontsize=17,
+        style="seaborn-v0_8",
 ):
-    matplotlib.style.use("seaborn")
+    matplotlib.style.use(style)
 
     color_map = matplotlib.cm.get_cmap(cmap)
     fig = plt.figure(figsize=(13, 8))

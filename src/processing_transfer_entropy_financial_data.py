@@ -36,13 +36,17 @@ if __name__ == "__main__":
     output = "png"
     latex_title_size = "\\Huge"
     latex_label_size = "\\huge"
+    latex_overview_label_size = "\\small"
+
     directories = [
         # "conditional_information_transfer",
         # "conditional_information_transfer_3",
         # "financial_transfer_entropy"
         # , "financial_transfer_entropy_2", "financial_transfer_entropy_1", "financial_transfer_entropy"
-        "test",
+        "indices/short_memory_random=0.001",
     ]
+
+    print(plt.style.available)
 
     for directory in directories:
         name_of_title = "conditional_information_transfer"
@@ -51,8 +55,7 @@ if __name__ == "__main__":
         files = glob.glob(processed_dataset)
         if len(files) == 0:
             TE, TE_column_names, TE_raw = process_datasets(
-                processed_datasets=directory
-                                   + "/Conditional_information_transfer-*.bin*",
+                processed_datasets=directory + "/conditional_information_transfer-*.bin",
                 result_dataset=processed_dataset,
                 result_raw_dataset=processed_raw_dataset,
                 take_k_th_nearest_neighbor=5,
@@ -77,46 +80,118 @@ if __name__ == "__main__":
         symbols = list(set_symbols)
         print(f"{symbols}")
 
-        names = {
-            "balance_effective_conditional_information_transfer": 5,
-            "balance_conditional_information_transfer": 4,
-            "effective_conditional_information_transfer": 4,
-            "conditional_information_transfer": 3,
-        }
-
         TE_nonswapped_columns = [item for item in TE_column_names if item[4] == False]
-        # TE_nonswapped_columns = TE_column_names
+        TE_cathegories = []
+        TE_cathegories_std = []
+        for name in names.keys():
+            for shuffled in [True, False]:
+                TE_cathegory_names = [
+                    item for item in TE_column_names if
+                    item[0].startswith(name) and item[3] == shuffled and item[4] == False
+                ]
+                TE_cathegory_names_std = [
+                    (item[0], "std", item[2], item[3], item[4]) for item in TE_column_names if
+                    item[0].startswith(name) and item[3] == shuffled and item[4] == False
+                ]
+
+                if TE_cathegory_names:
+                    TE_cathegories.append(TE_cathegory_names)
+                    TE_cathegories_std.append(TE_cathegory_names_std)
 
         for symbol in symbols:
             TE_selected = TE.loc[
                 (TE["symbol_1"] == symbol) | (TE["symbol_2"] == symbol)
                 ]
 
+            for item, item_std in zip(TE_cathegories, TE_cathegories_std):
+                complete_column_name = item[0]
+                column_name = item[0][0]
+                label = generate_label_from_name_of_column_TE(item[0], name_of_title)
+
+                column_name = column_name.replace(
+                    "conditional_information_transfer", "transfer_entropy"
+                )
+                name_of_title = column_name.split("y_")[0] + "y"
+                base_filename = column_name.split("y_")[0] + "y"
+                balance = "balance" in name_of_title
+                if balance:
+                    name_of_title = "Balance of" + name_of_title.split("balance")[1]
+                pure_title = name_of_title.capitalize().replace("_", " ") + f" of {symbol}"
+                latex_title = latex_title_size + f"""{{{pure_title}}}"""
+                latex_alpha_label = latex_overview_label_size + r"$\alpha$"
+                shuffled_calculation = complete_column_name[3]
+                swapped_datasets = complete_column_name[4]
+
+                standard_filename = (
+                        directory
+                        + f"/{base_filename}_{symbol}"
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_2d"
+                )
+                std_filename = (
+                        directory
+                        + f"/{base_filename}_{symbol}"
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_2d_std"
+                )
+                errorbar_filename = (
+                        directory
+                        + f"/{base_filename}_{symbol}"
+                        + ("_shuffled" if shuffled_calculation else "")
+                        + "_2d_bars"
+                )
+
+                figures2d_TE_overview_alpha_errorbar(
+                    TE_selected,
+                    item,
+                    item_std,
+                    latex_title,
+                    latex_alpha_label,
+                    (name_of_title, latex_overview_label_size),
+                    errorbar_filename,
+                    output,
+                    dpi=dpi,
+                    fontsize=fontsize,
+                )
+
+                figures2d_TE_overview_alpha(
+                    TE_selected,
+                    item,
+                    latex_title,
+                    latex_alpha_label,
+                    (name_of_title, latex_overview_label_size),
+                    standard_filename,
+                    output,
+                    dpi=dpi,
+                    fontsize=fontsize,
+                )
+
+                figures2d_TE_overview_alpha(
+                    TE_selected,
+                    item_std,
+                    latex_title,
+                    latex_alpha_label,
+                    (name_of_title, latex_overview_label_size),
+                    std_filename,
+                    output,
+                    dpi=dpi,
+                    fontsize=fontsize,
+                )
+
             for item in TE_nonswapped_columns:
                 try:
-                    shift = 0
-                    for key, value in names.items():
-                        if key in item[0]:
-                            shift = value
-                            break
+                    label = generate_label_from_name_of_column_TE(item, name_of_title)
 
                     complete_column_name = list(item)
                     column_name = item[0]
                     column_name = column_name.replace(
                         "conditional_information_transfer", "transfer_entropy"
                     )
-                    shift = shift - 1
-                    shuffled_calculation = item[3]
+
+                    shuffled_calculation = complete_column_name[3]
                     swapped_datasets = complete_column_name[4]
                     complete_column_name_std = complete_column_name.copy()
                     complete_column_name_std[1] = "std"
-
-                    history_first_TS = column_name.split("_")[shift]
-                    history_second_TS = column_name.split("_")[shift + 1]
-                    try:
-                        future_first_TS = column_name.split("_")[shift + 2]
-                    except IndexError as err:
-                        future_first_TS = None
 
                     name_of_title = column_name.split("y_")[0] + "y"
                     balance = "balance" in name_of_title
@@ -134,46 +209,7 @@ if __name__ == "__main__":
                         "conditional_information_transfer": r"$\Huge\rm{Conditional\ information\ transfer}$",
                     }
                     filename_direction = {True: "Y->X", False: "X->Y"}
-                    title_map = {
-                        (False, False): r"{\alpha: X\rightarrow Y}",
-                        (True, False): r"{\alpha: X_{shuffled}\rightarrow Y}",
-                        (False, True): r"{\alpha: Y\rightarrow X}",
-                        (True, True): r"{\alpha: Y_{shuffled}\rightarrow X}",
-                    }
 
-                    if future_first_TS is not None:
-                        if balance:
-                            label = (
-                                """T^{}_{} (\\{{{}\\}},\\{{{}\\}},\\{{{}\\}})""".format(
-                                    "{(R, effective, balance)}"
-                                    if "effective" in column_name
-                                    else "{(R, balance)}",
-                                    title_map[(shuffled_calculation, swapped_datasets)],
-                                    history_first_TS,
-                                    history_second_TS,
-                                    future_first_TS,
-                                )
-                            )
-                            # + "-" + "$T^{}_{} ([{}],[{}],[{}])$".format("{(R, eff)}" if "effective" in column_name else "{(R)}", title_map[(shuffled_calculation, not swapped_datasets)], history_first_TS, history_second_TS, future_first_TS)
-                        else:
-                            label = (
-                                """T^{}_{} (\\{{{}\\}},\\{{{}\\}},\\{{{}\\}})""".format(
-                                    "{(R, eff)}"
-                                    if "effective" in column_name
-                                    else "{(R)}",
-                                    title_map[(shuffled_calculation, swapped_datasets)],
-                                    history_first_TS,
-                                    history_second_TS,
-                                    future_first_TS,
-                                )
-                            )
-                    else:
-                        label = "T^{}_{} ([{}],[{}])".format(
-                            "{(R, eff)}" if "effective" in column_name else "{(R)}",
-                            title_map[(shuffled_calculation, swapped_datasets)],
-                            history_first_TS,
-                            history_second_TS,
-                        )
                     label_latex_std = latex_label_size + f"""$\\sigma_{{{label}}}$"""
                     label = latex_label_size + f"${label}$"
                     latex_alpha_label = latex_label_size + r"$\alpha$"
