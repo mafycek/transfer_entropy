@@ -7,6 +7,7 @@ import os
 import datetime
 from urllib.parse import quote_plus
 import pymongo
+from dotenv import load_dotenv
 from gridfs import GridFS
 from pymongo.errors import ConnectionFailure
 
@@ -135,6 +136,15 @@ class FinanceMongoDatabasePlugin(GenericDatabasePlugin):
         collection = self.database[collection]
         return collection.find(querry)
 
+    def get_dataset_with_filename(self, file):
+        dataset_cursor = self.get_all_documents(
+            FinanceMongoDatabasePlugin.dataset_collection_name, {"file": file}
+        )
+        output_documents = []
+        for dataset_document in dataset_cursor:
+            output_documents.append(dataset_document)
+        return output_documents
+
     def select_dataset_with_code(self, code, start_date=None, end_date=None):
         dataset_documents = self.get_all_documents(
             FinanceMongoDatabasePlugin.dataset_collection_name, {"code": code}
@@ -178,30 +188,31 @@ def setup_database(database_plugin):
 
 
 if __name__ == "__main__":
-    URL = "ashley.fjfi.cvut.cz:27017"
-    DATABASE = "test"
-    USERNAME = "mongo"
-    PASSWORD = "mongo"
+    load_dotenv()
+    URL = os.getenv("URL")
+    DATABASE = os.getenv("NOSQL_TABLE")
+    USERNAME = os.getenv("NOSQL_USERNAME")
+    PASSWORD = os.getenv("NOSQL_PASSWORD")
     mongo_uri = f"mongodb://{quote_plus(USERNAME)}:{quote_plus(PASSWORD)}@ashley.fjfi.cvut.cz:27017/"
 
     mongo_engine = FinanceMongoDatabasePlugin(URL, DATABASE, USERNAME, PASSWORD)
 
-    dataset = mongo_engine.select_dataset_with_code("APD")
+    # dataset = mongo_engine.select_dataset_with_code("APD")
+    # results = mongo_engine.get_all_documents(
+    #    "conditional_information_transfer", {"symbol": "APD_BAC"}
+    # )
 
-    results = mongo_engine.get_all_documents(
-        "conditional_information_transfer", {"symbol": "APD_BAC"}
-    )
-
-    for result in results:
-        decoded_result = mongo_engine.download_from_gridfs(result["document_id"])
-        variable = pickle.loads(decoded_result, encoding="base64")
-        print(variable)
+    # for result in results:
+    #    decoded_result = mongo_engine.download_from_gridfs(result["document_id"])
+    #    variable = pickle.loads(decoded_result, encoding="base64")
+    #    print(variable)
 
     # post_structure = posts.find_one({"_id": ObjectId(str(post_id))})
     # print(post_structure)
 
     dataPlugin = FinanceDataPlugin(
-        "/home/hynek/work/skola/prog/python/transfer_entropy/data"
+        "/home/hynek/work/skola/prog/python/transfer_entropy/data/1Q23_sp_stocks/"
+        #"/home/hynek/work/skola/prog/python/transfer_entropy/data"
     )
     old_data = False
     if old_data:
@@ -220,12 +231,16 @@ if __name__ == "__main__":
         raw_dataset = dataset["dataset"]
         pickled_raw_dataset = pickle.dumps(raw_dataset)
 
-        gridfs_raw_dataset_id = mongo_engine.upload_to_gridfs(
-            str(metadata["full_filename"]), pickled_raw_dataset
-        )
-        metadata["dataset_id"] = gridfs_raw_dataset_id
-        metadata["start_date_time"] = raw_dataset[0][0]
-        metadata["end_date_time"] = raw_dataset[-1][0]
-        mongo_engine.insert_document(
-            FinanceMongoDatabasePlugin.dataset_collection_name, metadata
-        )
+        metadata_in_database = mongo_engine.get_dataset_with_filename(metadata["file"])
+        if len(metadata_in_database) == 0:
+            gridfs_raw_dataset_id = mongo_engine.upload_to_gridfs(
+                str(metadata["full_filename"]), pickled_raw_dataset
+            )
+            metadata["dataset_id"] = gridfs_raw_dataset_id
+            metadata["start_date_time"] = raw_dataset[0][0]
+            metadata["end_date_time"] = raw_dataset[-1][0]
+            mongo_engine.insert_document(
+                FinanceMongoDatabasePlugin.dataset_collection_name, metadata
+            )
+        else:
+            print(f"Attepmpt to insert duplicated dataset with medatada: {metadata}")
