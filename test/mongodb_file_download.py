@@ -29,25 +29,38 @@ if __name__ == "__main__":
     #    variable = pickle.loads(decoded_result, encoding="base64")
     #    print(variable)
 
-    symbol = "BATRK_XONE"
-    result = dbHandler.database.command("dbstats")
-    collection = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
-    document_cursor = collection.find({"symbol": symbol})
-    for metadata_transfer_entropy in document_cursor:
-        document_id = metadata_transfer_entropy["document_id"]
+    symbols = ["tesla_tesla", "amazon_amazon", "microsoft_microsoft", "exxon_exxon", "apple_apple", "johnson_johnson",
+               "visa_visa"]
 
-        dataset_pickled = dbHandler.download_from_gridfs(document_id)
-        dataset = pickle.loads(dataset_pickled)
+    for symbol in symbols:
+        result = dbHandler.database.command("dbstats")
+        collection = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
+        document_cursor = collection.find(
+            {"symbol": symbol, "end_timestamp": {"$gt": datetime.fromisoformat("2024-01-01T00:00:01.879Z")}})
+        for metadata_transfer_entropy in document_cursor:
+            random_source = False if metadata_transfer_entropy["random_source"] is None else True
+            index = False if metadata_transfer_entropy["postselection_X_future"] is None else True
+            if random_source or index:
+                appendix = "_" + ("" if index is False else "i") + ("" if random_source is False else "r")
+            else:
+                appendix = ""
 
-        with open(f"Conditional_information_transfer-{symbol}.bin", "wb") as fh:
-            fh.write(dataset_pickled)
+            document_id = metadata_transfer_entropy["document_id"]
+
+            dataset_pickled = dbHandler.download_from_gridfs(document_id)
+            dataset = pickle.loads(dataset_pickled)
+
+            symbol_in_file = symbol
+
+            with open(f"conditional_information_transfer-{symbol_in_file}{appendix}.bin", "wb") as fh:
+                fh.write(dataset_pickled)
 
     collection_handler = dbHandler.database[
         FinanceMongoDatabasePlugin.conditional_information_transfer_name
     ]
     code = "BATRK"
     cursor_find = collection_handler.find(
-        {"end_timestamp": {"$gt": datetime.fromisoformat("2023-07-30T00:00:01.879Z")}}
+        {"end_timestamp": {"$gt": datetime.fromisoformat("2023-11-08T12:00:01.879Z")}}
     )
 
     for cursor in cursor_find:
@@ -60,6 +73,7 @@ if __name__ == "__main__":
             fh.write(document_pickle)
 
     if False:
+        # remove data from database
         dbHandler.DATABASE.get_collection(
             FinanceMongoDatabasePlugin.conditional_information_transfer_name
         ).delete_many({})
