@@ -4,6 +4,7 @@
 import argparse
 import datetime
 import os
+import sys
 import pickle
 import time
 from pathlib import Path
@@ -201,7 +202,6 @@ if __name__ == "__main__":
     else:
         test_run = False
 
-
     if args.history_first:
         histories_firsts = process_CLI_arguments(args.history_first)
     else:
@@ -311,6 +311,7 @@ if __name__ == "__main__":
         "postselection_Y_history": postselection_Y_history,
         "postselection_X_future": postselection_X_future,
         "random_source": random_source,
+        "command": sys.argv,
     }
 
     if args.database and "id" in metadata1 and "id" in metadata2:
