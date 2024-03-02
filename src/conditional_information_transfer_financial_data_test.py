@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -169,20 +169,25 @@ if __name__ == "__main__":
         help="End date of joint timeseries",
         default=None,
     )
-
+    parser.add_argument(
+        "--number_of_samples",
+        type=int,
+        default=1,
+        help="Number of sample to execute",
+    )
     parser.add_argument(
         "--comment",
         type=str,
         help="Comment that is added to database",
         default=None,
     )
-
     parser.add_argument(
         "--test",
         action="store_true",
         default=False,
         help="Performs test run without calculation",
     )
+
 
     args = parser.parse_args()
 
@@ -242,6 +247,7 @@ if __name__ == "__main__":
     dataset_1_selector = args.dataset_1_selector
     dataset_2_selector = args.dataset_2_selector
     random_source = args.random_source
+    number_of_samples = args.number_of_samples
 
     print(f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} Load datasets")
     if args.database:
@@ -311,6 +317,7 @@ if __name__ == "__main__":
         "postselection_Y_history": postselection_Y_history,
         "postselection_X_future": postselection_X_future,
         "random_source": random_source,
+        "number_of_samples": number_of_samples,
         "command": sys.argv,
     }
 
@@ -328,111 +335,117 @@ if __name__ == "__main__":
         for swap_datasets in [False, True]:
             # loop over shuffling
             for shuffle_dataset in [False, True]:
+                # sample are reasonable only for shuffled datasets
+                actual_number_of_samples = number_of_samples if shuffle_dataset == True else 1
+
                 # prepare dataset that is being processed
+                for sample_number in range(actual_number_of_samples):
 
-                (
-                    marginal_solution_1,
-                    marginal_solution_2,
-                ) = GenericDataPlugin.prepare_dataset(
-                    datasets=joint_dataset,
-                    swap_datasets=swap_datasets,
-                    shuffle_dataset=shuffle_dataset,
-                    selection1=len(dataset_1_selector),
-                    selection2=len(dataset_2_selector),
-                )
+                    (
+                        marginal_solution_1,
+                        marginal_solution_2,
+                    ) = GenericDataPlugin.prepare_dataset(
+                        datasets=joint_dataset,
+                        swap_datasets=swap_datasets,
+                        shuffle_dataset=shuffle_dataset,
+                        selection1=len(dataset_1_selector),
+                        selection2=len(dataset_2_selector),
+                    )
 
-                for future_first in future_firsts:
-                    for histories_first in histories_firsts:
-                        for histories_second in histories_seconds:
-                            print(
-                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} History first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} is processed",
-                                flush=True,
-                            )
-
-                            # preparation of the configuration dictionary
-                            # additional +1 is there for separation
-                            configuration = {
-                                "transpose": True,
-                                "blockwise": args.blockwise,
-                                "history_index_x": histories_first,
-                                "history_index_y": histories_second,
-                                "future_index_x": future_first,
-                                "postselection_y_fut": postselection_X_future,
-                                "postselection_z_hist": postselection_Y_history,
-                                "postselection_y_hist": postselection_X_history,
-                                "random_source": random_source,
-                            }
-
-                            # prepare samples to be used to calculate transfer entropy
-                            t0 = time.process_time()
-                            (
-                                y_fut,
-                                y_hist,
-                                z_hist,
-                            ) = preparation_dataset_for_transfer_entropy(
-                                marginal_solution_1, marginal_solution_2, **configuration
-                            )
-                            t1 = time.process_time()
-                            duration = t1 - t0
-                            print(
-                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Preparation of datasets [s]: {duration}",
-                                flush=True,
-                            )
-
-                            # create range of indices that will be used for calculation
-                            indices_to_use = list(range(1, args.maximal_neighborhood + 1))
-                            configuration = {
-                                "transpose": True,
-                                "axis_to_join": 0,
-                                "method": "LeonenkoProzanto",
-                                "alphas": alphas,
-                                "enhanced_calculation": True,
-                                "indices_to_use": indices_to_use,
-                                "arbitrary_precision": arbitrary_precision,
-                                "arbitrary_precision_decimal_numbers": arbitrary_precision_decimal_numbers,
-                            }
-
-                            # calculation of transfer entropy
-                            print(
-                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is calculated",
-                                flush=True,
-                            )
-                            t0 = time.process_time()
-                            if not test_run:
-                                transfer_entropy = renyi_conditional_information_transfer(
-                                    y_fut, y_hist, z_hist, **configuration
+                    for future_first in future_firsts:
+                        for histories_first in histories_firsts:
+                            for histories_second in histories_seconds:
+                                print(
+                                    f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} History first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} is processed",
+                                    flush=True,
                                 )
-                            else:
-                                transfer_entropy = 0
 
-                            t1 = time.process_time()
-                            duration = t1 - t0
-                            print(
-                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Duration of calculation of transfer entropy [s]: {duration}",
-                                flush=True,
-                            )
+                                # preparation of the configuration dictionary
+                                # additional +1 is there for separation
+                                configuration = {
+                                    "transpose": True,
+                                    "blockwise": args.blockwise,
+                                    "history_index_x": histories_first,
+                                    "history_index_y": histories_second,
+                                    "future_index_x": future_first,
+                                    "postselection_y_fut": postselection_X_future,
+                                    "postselection_z_hist": postselection_Y_history,
+                                    "postselection_y_hist": postselection_X_history,
+                                    "random_source": random_source,
+                                }
 
-                            # store transfer entropy to the result structure
-                            string_histories_first = ",".join(
-                                str(x) for x in histories_first
-                            )
-                            string_future_first = ",".join(str(x) for x in future_first)
-                            string_histories_second = ",".join(
-                                str(x) for x in histories_second
-                            )
-                            results[
+                                # prepare samples to be used to calculate transfer entropy
+                                t0 = time.process_time()
                                 (
-                                    symbol,
-                                    f"{string_histories_first}_{string_future_first}",
-                                    string_histories_second,
-                                    shuffle_dataset,
-                                    swap_datasets,
+                                    y_fut,
+                                    y_hist,
+                                    z_hist,
+                                ) = preparation_dataset_for_transfer_entropy(
+                                    marginal_solution_1, marginal_solution_2, **configuration
                                 )
-                            ] = transfer_entropy
-                            print(
-                                f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy calculation for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol}, shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is finished",
-                                flush=True,
-                            )
+                                t1 = time.process_time()
+                                duration = t1 - t0
+                                print(
+                                    f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Preparation of datasets [s]: {duration}",
+                                    flush=True,
+                                )
+
+                                # create range of indices that will be used for calculation
+                                indices_to_use = list(range(1, args.maximal_neighborhood + 1))
+                                configuration = {
+                                    "transpose": True,
+                                    "axis_to_join": 0,
+                                    "method": "LeonenkoProzanto",
+                                    "alphas": alphas,
+                                    "enhanced_calculation": True,
+                                    "indices_to_use": indices_to_use,
+                                    "arbitrary_precision": arbitrary_precision,
+                                    "arbitrary_precision_decimal_numbers": arbitrary_precision_decimal_numbers,
+                                }
+
+                                # calculation of transfer entropy
+                                print(
+                                    f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol} shuffling: {shuffle_dataset} and swapped dataset {swap_datasets} is calculated",
+                                    flush=True,
+                                )
+                                t0 = time.process_time()
+                                if not test_run:
+                                    transfer_entropy = renyi_conditional_information_transfer(
+                                        y_fut, y_hist, z_hist, **configuration
+                                    )
+                                else:
+                                    transfer_entropy = 0
+
+                                t1 = time.process_time()
+                                duration = t1 - t0
+                                print(
+                                    f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Duration of calculation of transfer entropy [s]: {duration}",
+                                    flush=True,
+                                )
+
+                                # store transfer entropy to the result structure
+                                string_histories_first = ",".join(
+                                    str(x) for x in histories_first
+                                )
+                                string_future_first = ",".join(str(x) for x in future_first)
+                                string_histories_second = ",".join(
+                                    str(x) for x in histories_second
+                                )
+                                results[
+                                    (
+                                        symbol,
+                                        string_histories_first,
+                                        string_future_first,
+                                        string_histories_second,
+                                        shuffle_dataset,
+                                        swap_datasets,
+                                        sample_number,
+                                    )
+                                ] = transfer_entropy
+                                print(
+                                    f"PID:{os.getpid()} {datetime.datetime.now().isoformat()} * Transfer entropy calculation for history first: {histories_first}, future first: {future_first}, history second: {histories_second} and symbol: {symbol}, shuffling: {shuffle_dataset}, sample number: {sample_number} and swapped dataset {swap_datasets} is finished",
+                                    flush=True,
+                                )
 
     if args.database and not test_run:
         dataset_handler.reconnect()

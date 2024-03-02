@@ -14,6 +14,7 @@ if __name__ == "__main__":
     table = os.getenv("NOSQL_TABLE")
     username = os.getenv("NOSQL_USERNAME")
     password = os.getenv("NOSQL_PASSWORD")
+    download_folder = "test"
 
     dbHandler = FinanceMongoDatabasePlugin(
         url,
@@ -30,13 +31,13 @@ if __name__ == "__main__":
     #    print(variable)
 
     symbols = ["tesla_tesla", "amazon_amazon", "microsoft_microsoft", "exxon_exxon", "apple_apple", "johnson_johnson",
-               "visa_visa"]
+               "visa_visa", "united_united"]
 
     for symbol in symbols:
         result = dbHandler.database.command("dbstats")
         collection = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
         document_cursor = collection.find(
-            {"symbol": symbol, "end_timestamp": {"$gt": datetime.fromisoformat("2024-01-01T00:00:01.879Z")}})
+            {"symbol": symbol, "end_timestamp": {"$gt": datetime.fromisoformat("2024-02-25T00:00:01.879Z")}})
         for metadata_transfer_entropy in document_cursor:
             random_source = False if metadata_transfer_entropy["random_source"] is None else True
             index = False if metadata_transfer_entropy["postselection_X_future"] is None else True
@@ -52,7 +53,7 @@ if __name__ == "__main__":
 
             symbol_in_file = symbol
 
-            with open(f"conditional_information_transfer-{symbol_in_file}{appendix}.bin", "wb") as fh:
+            with open(f"{download_folder}/conditional_information_transfer-{symbol_in_file}{appendix}.bin", "wb") as fh:
                 fh.write(dataset_pickled)
 
     collection_handler = dbHandler.database[
