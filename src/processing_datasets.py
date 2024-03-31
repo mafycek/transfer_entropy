@@ -4,6 +4,8 @@
 import glob
 import sys
 import math
+import datetime
+import traceback
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -35,6 +37,9 @@ def max_divisor(number):
 
 
 def generate_label_from_name_of_column_TE(column_multiindex, name_of_title):
+    swap_column_number = 5
+    shuffled_column_number = 4
+
     column_name = column_multiindex[0]
     shift = 0
     for key, value in names.items():
@@ -52,8 +57,9 @@ def generate_label_from_name_of_column_TE(column_multiindex, name_of_title):
     except IndexError as err:
         future_first_TS = None
     balance = "balance" in name_of_title
-    shuffled_calculation = column_multiindex[3]
-    swapped_datasets = column_multiindex[4]
+
+    shuffled_calculation = column_multiindex[shuffled_column_number]
+    swapped_datasets = column_multiindex[swap_column_number]
     history_first_TS = column_name.split("_")[shift]
     history_second_TS = column_name.split("_")[shift + 1]
     standard_filename = "figure"
@@ -373,8 +379,15 @@ def figures2d_TE_overview_alpha(
             ylabel = generate_label_from_name_of_column_TE(selector, name_of_title)
             ylabel_latex = latex_overview_label_size + f"${ylabel}$"
 
-            axs[row, column].set_xlabel(xlabel)
-            axs[row, column].set_ylabel(ylabel_latex)
+            if (number_rows == 1):
+                axs[column].set_xlabel(xlabel)
+                axs[column].set_ylabel(ylabel_latex)
+            elif number_columns == 1:
+                axs[row].set_xlabel(xlabel)
+                axs[row].set_ylabel(ylabel_latex)
+            else:
+                axs[row, column].set_xlabel(xlabel)
+                axs[row, column].set_ylabel(ylabel_latex)
 
             codes = dataset["epsilon"].unique()
             list_selector = list(selector)
@@ -414,11 +427,120 @@ def figures2d_TE_overview_alpha(
                             else:
                                 map_position = 0
                             color = color_map(map_position)
-                            axs[row, column].plot(ys.values, zs.values, linewidth=3, label=label, color=color)
+                            if number_rows == 1:
+                                axs[column].plot(ys.values, zs.values, linewidth=3, label=label, color=color)
+                            elif number_columns == 1:
+                                axs[row].plot(ys.values, zs.values, linewidth=3, label=label, color=color)
+                            else:
+                                axs[row, column].plot(ys.values, zs.values, linewidth=3, label=label, color=color)
                         except Exception as exc:
                             print(f"{exc}: Problem D=")
 
                         order_of_dataset += 1
+
+            plt.legend(loc=0, ncol=2, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+
+    plt.savefig(filename + "." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    del fig
+
+
+def figures2d_TE_overview_alpha_order_statistics(
+        dataset,
+        number_selectors,
+        selectors,
+        title,
+        xlabel,
+        y_label_params,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
+        style="seaborn-v0_8",
+):
+    matplotlib.style.use(style)
+    number_rows, number_columns = max_divisor(number_selectors)
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+
+    color_map = matplotlib.cm.get_cmap(cmap)
+
+    fig.suptitle(title)
+    name_of_title, latex_overview_label_size = y_label_params
+
+    for row in range(number_rows):
+        for column in range(number_columns):
+            index_of_dataset = column + number_columns * row
+
+            ylabel = "AA"  # + generate_label_from_name_of_column_TE(selector, name_of_title)
+            ylabel_latex = latex_overview_label_size + f"${ylabel}$"
+
+            if number_rows == 1 and number_columns == 1:
+                axs.set_xlabel(xlabel)
+                axs.set_ylabel(ylabel_latex)
+            elif number_rows == 1:
+                axs[column].set_xlabel(xlabel)
+                axs[column].set_ylabel(ylabel_latex)
+            elif number_columns == 1:
+                axs[row].set_xlabel(xlabel)
+                axs[row].set_ylabel(ylabel_latex)
+            else:
+                axs[row, column].set_xlabel(xlabel)
+                if (row == number_rows // 2) and (column == 0):
+                    axs[row, column].set_ylabel(ylabel_latex)
+
+            order_of_dataset = 0
+            for selector_item in selectors:
+                try:
+                    # subselection = [dataset[item] for item in selector_item["selector"]]
+                    subselection = [dataset.xs(item, level='Statistical value', axis=1) for item in
+                                    selector_item["selector"]]
+
+                    label = selector_item["label"]
+                    ys = subselection[0].index.to_list()
+                    zs = []
+                    for index in range(len(subselection)):
+                        # for item in ys:
+                        #    print(subselection[index].loc[item], subselection[index].loc[item].values[0][index_of_order], len(subselection[index].loc[item].values.shape))
+                        if selector_item["aggregation"] == "sample":
+                            zs.append(np.array(
+                                [subselection[index][index_of_dataset].loc[key] for index_key_selection, key in
+                                 enumerate(ys)]
+                            ))
+                        elif selector_item["aggregation"] == "neighborhood":
+                            zs.append(np.array(
+                                [subselection[index].loc[key].values[0][index_of_dataset] for index_key_selection, key
+                                 in enumerate(ys)]
+                            ))  # [index_of_order]
+
+                    color = selector_item["color"]
+                    actual_axes = None
+                    if number_rows == 1 and number_columns == 1:
+                        actual_axes = axs
+                    elif number_rows == 1:
+                        actual_axes = axs[column]
+                    elif number_columns == 1:
+                        actual_axes = axs[row]
+                    else:
+                        actual_axes = axs[row, column]
+
+                    if len(subselection) == 2 and selector_item["style"] == "quantile band":
+                        actual_axes.fill_between(ys, zs[0], zs[1], linewidth=1, label=label, color=color)
+                    elif len(subselection) == 1 and selector_item["style"] == "line":
+                        actual_axes.plot(ys, zs[0], linewidth=1, label=label, color=color)
+                    elif len(subselection) == 2 and selector_item["style"] == "yerrorbar":
+                        lower_band = zs[0] - zs[1]
+                        upper_band = zs[0] + zs[1]
+                        actual_axes.fill_between(ys, lower_band, upper_band, linewidth=1, label=label, color=color)
+                    else:
+                        print("problem")
+
+                except Exception as exc:
+                    print(traceback.format_exc(), selector_item, selectors)
+
+                order_of_dataset += 1
 
             plt.legend(loc=0, ncol=2, fontsize=fontsize)
             plt.xticks(fontsize=fontsize)
@@ -449,7 +571,6 @@ def figures2d_TE_overview_alpha_errorbar(
     fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
 
     color_map = matplotlib.cm.get_cmap(cmap)
-
     fig.suptitle(title)
     name_of_title, latex_overview_label_size = y_label_params
 
@@ -462,8 +583,15 @@ def figures2d_TE_overview_alpha_errorbar(
             ylabel = generate_label_from_name_of_column_TE(selector, name_of_title)
             ylabel_latex = latex_overview_label_size + f"${ylabel}$"
 
-            axs[row, column].set_xlabel(xlabel)
-            axs[row, column].set_ylabel(ylabel_latex)
+            if number_rows == 1:
+                axs[column].set_xlabel(xlabel)
+                axs[column].set_ylabel(ylabel_latex)
+            elif number_columns == 1:
+                axs[row].set_xlabel(xlabel)
+                axs[row].set_ylabel(ylabel_latex)
+            else:
+                axs[row, column].set_xlabel(xlabel)
+                axs[row, column].set_ylabel(ylabel_latex)
 
             codes = dataset["epsilon"].unique()
             list_selector = list(selector)
@@ -473,7 +601,7 @@ def figures2d_TE_overview_alpha_errorbar(
             if selector_not in columns:
                 number_of_datasets = float(2 * len(codes)) - 1
             else:
-                number_of_datasets = float(len(codes)) - 1
+                number_of_datasets = float(2 * len(codes)) - 1
 
             order_of_dataset = 0
             for code in codes:
@@ -507,15 +635,36 @@ def figures2d_TE_overview_alpha_errorbar(
                             map_position = order_of_dataset / number_of_datasets
                             color = color_map(map_position)
                             lims = np.array([True] * ys.size, dtype=bool)
-                            axs[row, column].errorbar(
-                                ys.values.flatten(),
-                                zs.values.flatten(),
-                                yerr=errors.flatten(),
-                                linewidth=3,
-                                label=label,
-                                color=color,
-                                ls="dotted",
-                            )
+                            if (number_rows == 1):
+                                axs[column].errorbar(
+                                    ys.values.flatten(),
+                                    zs.values.flatten(),
+                                    yerr=errors.flatten(),
+                                    linewidth=3,
+                                    label=label,
+                                    color=color,
+                                    ls="dotted",
+                                )
+                            elif number_columns == 1:
+                                axs[row].errorbar(
+                                    ys.values.flatten(),
+                                    zs.values.flatten(),
+                                    yerr=errors.flatten(),
+                                    linewidth=3,
+                                    label=label,
+                                    color=color,
+                                    ls="dotted",
+                                )
+                            else:
+                                axs[row, column].errorbar(
+                                    ys.values.flatten(),
+                                    zs.values.flatten(),
+                                    yerr=errors.flatten(),
+                                    linewidth=3,
+                                    label=label,
+                                    color=color,
+                                    ls="dotted",
+                                )
                         except Exception as exc:
                             print(f"{exc}: {errors.shape}")
                         order_of_dataset += 1
@@ -815,10 +964,7 @@ def figures2d_samples_TE(
             except Exception as exc:
                 print(f"{exc}: Problem D=")
 
-        # Add a color bar which maps values to colors.
-        # fig.colorbar(surf, shrink=0.5, aspect=5)
         plt.legend(loc=4)
-
         plt.savefig(
             filename.format(sample) + "." + suffix, dpi=dpi, bbox_inches="tight"
         )
@@ -840,7 +986,6 @@ def figures2d_fixed_epsilon(
         style="seaborn-v0_8",
 ):
     matplotlib.style.use(style)
-
     color_map = matplotlib.cm.get_cmap(cmap)
 
     alphas = dataset["alpha"].unique()
@@ -1101,7 +1246,672 @@ def qgauss_plot(
     del fig
 
 
+def fill_column_frame(source_frame, processed_column, take_k_th_nearest_neighbor, unary_operation, destination_frame,
+                      destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    if len(unary_operation) == len(destination_multiindex):
+        for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+            calculation = source_frame.apply(
+                lambda row: actual_unary_operation(row[processed_column][take_k_th_nearest_neighbor:]),
+                axis=1,
+                raw=False,
+            )
+            calculated_frame[actual_destination_multiindex] = calculation
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_sample_statistics(source_frame, processed_columns, unary_operation, destination_frame,
+                                        destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    samples = source_frame[[processed_columns[0]]].iloc[0].values[0].shape[0]
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        for sample in range(samples):
+            sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+            sample_actual_destination_multiindex[7] = sample
+            calculated_frame[[tuple(sample_actual_destination_multiindex)]] = np.NAN
+    for index, row in source_frame.iterrows():
+        process_columns = [np.array(row[[processed_column]]) for processed_column in processed_columns]
+        merged_columns = np.stack(process_columns)
+        for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+            result = actual_unary_operation(merged_columns.tolist())
+            for sample in range(samples):
+                sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+                sample_actual_destination_multiindex[7] = sample
+
+                calculated_frame.at[index, tuple(sample_actual_destination_multiindex)] = result[0][sample]
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_sample_statistics_RTE(source_frame, processed_columns, unary_operation, destination_frame,
+                                            destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    samples = source_frame[[processed_columns[0]]].iloc[0].values[0].shape[0]
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        for sample in range(samples):
+            sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+            sample_actual_destination_multiindex[7] = sample
+            calculated_frame[[tuple(sample_actual_destination_multiindex)]] = np.NAN
+    for index, row in source_frame.iterrows():
+        process_columns = [
+            np.array(row[[
+                (processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                 not processed_column[4], processed_column[5], 0)]])
+            - np.array(row[[processed_column]]) for processed_column in processed_columns
+        ]
+        merged_columns = np.stack(process_columns)
+        for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+            result = actual_unary_operation(merged_columns.tolist())
+            for sample in range(samples):
+                sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+                sample_actual_destination_multiindex[7] = sample
+
+                calculated_frame.at[index, tuple(sample_actual_destination_multiindex)] = np.array(result[0])[sample]
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_sample_statistics_balanced_RTE(source_frame, processed_columns, unary_operation,
+                                                     destination_frame, destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    samples = source_frame[[processed_columns[0]]].iloc[0].values[0].shape[0]
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        for sample in range(samples):
+            sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+            sample_actual_destination_multiindex[7] = sample
+            calculated_frame[[tuple(sample_actual_destination_multiindex)]] = np.NAN
+    for index, row in source_frame.iterrows():
+        process_columns = [
+            np.array(row[[processed_column]])
+            - np.array(row[[(processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                             processed_column[4], not processed_column[5], 0)]])
+            for processed_column in processed_columns
+        ]
+        merged_columns = np.stack(process_columns)
+        for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+            result = actual_unary_operation(merged_columns.tolist())
+            for sample in range(samples):
+                sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+                sample_actual_destination_multiindex[7] = sample
+
+                calculated_frame.at[index, tuple(sample_actual_destination_multiindex)] = np.array(result[0])[sample]
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_sample_statistics_balanced_effective_RTE(source_frame, processed_columns, unary_operation,
+                                                               destination_frame, destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    samples = source_frame[[processed_columns[0]]].iloc[0].values[0].shape[0]
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        for sample in range(samples):
+            sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+            sample_actual_destination_multiindex[7] = sample
+            calculated_frame[[tuple(sample_actual_destination_multiindex)]] = np.NAN
+    for index, row in source_frame.iterrows():
+        process_columns = [
+            np.array(row[[(processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                           not processed_column[4], processed_column[5], 0)]])
+            - np.array(row[[processed_column]])
+            - np.array(row[[(processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                             not processed_column[4], not processed_column[5], 0)]])
+            + np.array(row[[(processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                             processed_column[4], not processed_column[5], processed_column[6])]])
+            for processed_column in processed_columns
+        ]
+        merged_columns = np.stack(process_columns)
+        for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+            result = actual_unary_operation(merged_columns.tolist())
+            for sample in range(samples):
+                sample_actual_destination_multiindex = list(actual_destination_multiindex[:])
+                sample_actual_destination_multiindex[7] = sample
+
+                calculated_frame.at[index, tuple(sample_actual_destination_multiindex)] = np.array(result[0])[sample]
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_sample_statistics_balance_effective_RTE(source_frame, processed_columns, unary_operation,
+                                                              destination_frame, destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        calculated_frame[[actual_destination_multiindex]] = np.NAN
+        calculated_frame[[actual_destination_multiindex]] = calculated_frame[[actual_destination_multiindex]].astype(
+            object)
+    for index, row in source_frame.iterrows():
+        process_columns = [np.array(row[[(processed_column[0], processed_column[1], processed_column[2],
+                                          processed_column[3], processed_column[4], not processed_column[5],
+                                          0)]]) - np.array(row[[processed_column]]) for processed_column in
+                           processed_columns]
+        merged_columns = np.stack(process_columns)
+        for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+            result = actual_unary_operation(merged_columns.tolist())
+            calculated_frame.at[index, actual_destination_multiindex] = np.array(result[0])
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_effective_RTE(source_frame, processed_column, take_k_th_nearest_neighbor, unary_operation,
+                                    destination_frame, destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        calculated_frame[actual_destination_multiindex] = source_frame.apply(
+            lambda row: float(
+                actual_unary_operation(
+                    np.array(row[processed_column[0], processed_column[1], processed_column[2],
+                    processed_column[3], processed_column[4], processed_column[5], processed_column[6]][
+                             take_k_th_nearest_neighbor:])
+                    - np.array(
+                        row[processed_column[0], processed_column[1], processed_column[2], processed_column[3], not
+                        processed_column[4], processed_column[5], 0][take_k_th_nearest_neighbor:]
+                    )
+                )
+            ),
+            axis=1,
+            raw=False,
+        )
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_balance_RTE(source_frame, processed_column, take_k_th_nearest_neighbor, unary_operation,
+                                  destination_frame, destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        calculated_frame[actual_destination_multiindex] = source_frame.apply(
+            lambda row: float(
+                actual_unary_operation(
+                    np.array(row[processed_column][take_k_th_nearest_neighbor:])
+                    - np.array(
+                        row[processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                        processed_column[4], not processed_column[5], processed_column[6]][
+                        take_k_th_nearest_neighbor:
+                        ]
+                    )
+                )
+            ),
+            axis=1,
+            raw=False,
+        )
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def fill_column_frame_balance_effective_RTE(source_frame, processed_column, take_k_th_nearest_neighbor, unary_operation,
+                                            destination_frame, destination_multiindex):
+    if isinstance(unary_operation, list or tuple) and isinstance(destination_multiindex, list or tuple):
+        unary_opertions = unary_operation
+        destination_multiindices = destination_multiindex
+    elif not isinstance(unary_operation, list or tuple) and not isinstance(destination_multiindex, list or tuple):
+        unary_opertions = [unary_operation]
+        destination_multiindices = [destination_multiindex]
+    else:
+        raise RuntimeError("Unary operations and destination multi-indices do not have ")
+
+    calculated_frame = pd.DataFrame(index=destination_frame.index)
+    for actual_unary_operation, actual_destination_multiindex in zip(unary_opertions, destination_multiindices):
+        calculated_frame[actual_destination_multiindex] = source_frame.apply(
+            lambda row: float(
+                actual_unary_operation(
+                    - np.array(row[processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                    processed_column[4], processed_column[5], processed_column[6]][take_k_th_nearest_neighbor:])
+                    + np.array(
+                        row[processed_column[0], processed_column[1], processed_column[2], processed_column[3], not
+                        processed_column[4], processed_column[5], 0][take_k_th_nearest_neighbor:]
+                    )
+                    + np.array(
+                        row[processed_column[0], processed_column[1], processed_column[2], processed_column[3],
+                        processed_column[4], not processed_column[5], processed_column[6]][take_k_th_nearest_neighbor:]
+                    )
+                    - np.array(
+                        row[processed_column[0], processed_column[1], processed_column[2], processed_column[3], not
+                        processed_column[4], not processed_column[5], 0][take_k_th_nearest_neighbor:]
+                    )
+                )
+            ),
+            axis=1,
+            raw=False,
+        )
+    return pd.concat([destination_frame, calculated_frame], axis=1)
+
+
+def refined_process_dataset(input_dataset, processed_dataset):
+    new_columns_base_name = "transfer_entropy"
+    take_k_th_nearest_neighbor = 5
+    index_shuffle_dataset = 4
+    index_swap_dataset = 5
+    converter_epsilon = converter_epsilon = lambda x: x.split("-")[1].split(".b")[0]
+
+    epsilon = converter_epsilon(input_dataset)
+    path = Path(input_dataset)
+    print(f"{datetime.datetime.now().isoformat()} Processing input file {input_dataset}")
+    table = pd.read_pickle(path)
+
+    refined_table_converted_multiindices = {}
+    for key, value in table.items():
+        refined_table_converted_multiindices[key] = {}
+        for key_q, items in value.items():
+            refined_key = key
+            for index, value in enumerate(items):
+                refined_table_converted_multiindices[refined_key][(index, key_q)] = value
+
+    frame_refined = pd.DataFrame.from_dict(refined_table_converted_multiindices)
+    frame_refined.index.set_names(['k', 'q'], inplace=True)
+
+    refined_table_values_arrays = {}
+    for key, value in table.items():
+        for key_q, items in value.items():
+            if key in refined_table_values_arrays:
+                refined_table_values_arrays[key][key_q] = np.array(items)
+            else:
+                refined_table_values_arrays[key] = {key_q: np.array(items)}
+
+    frame = pd.DataFrame.from_dict(refined_table_values_arrays)  # , columns=refined_column
+    frame["epsilon"] = epsilon
+
+    index_dataframe = frame.index
+    names = ['Name of variable', 'History first', 'Future first', 'History second', 'Statistical value', 'Shuffled',
+             'Reversed direction', 'Sample number', 'Remark', 'Sample']
+    refined_column = pd.MultiIndex(levels=[[]] * len(names), codes=[[]] * len(names), names=names)
+    refined_frame = pd.DataFrame(index=index_dataframe, columns=refined_column)
+
+    # preparing columns aggregated using samples
+    multi_sample_columns = {}
+    for item in frame.columns[:-1]:
+        variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+        if not (variable, history_first, future_first, history_second, shuffled_dataset,
+                reversed_order) in multi_sample_columns:
+            multi_sample_columns[
+                (variable, history_first, future_first, history_second, shuffled_dataset, reversed_order)] = [
+                sample_number]
+        else:
+            multi_sample_columns[
+                (variable, history_first, future_first, history_second, shuffled_dataset, reversed_order)].append(
+                sample_number)
+
+    unary_statistical_operations = [
+        lambda x: np.mean(x, axis=0),
+        lambda x: np.std(x, axis=0),
+        lambda x: np.median(x, axis=0),
+        lambda x: np.quantile(x, 0.25, axis=0),
+        lambda x: np.quantile(x, 0.75, axis=0),
+        lambda x: np.quantile(x, 0.1, axis=0),
+        lambda x: np.quantile(x, 0.9, axis=0)
+    ]
+
+    # drop aggregated elements with only single sample
+    for key, samples in multi_sample_columns.items():
+        if len(samples) > 1:  # more sample present
+            variable, history_first, future_first, history_second, shuffled_dataset, reversed_order = key
+            columns = [list(key) + [sample] for sample in samples]
+
+            refined_frame = fill_column_frame_sample_statistics(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (new_columns_base_name, history_first, future_first, history_second, "mean",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "std",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "median",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "quantile 0.25",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "quantile 0.75",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "quantile 0.1",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "quantile 0.9",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                ]
+            )
+
+        if (len(samples) > 1) and shuffled_dataset and not ("entropy" in str(key[0]) or "information" in str(key[0])):
+            effective_columns_base_name = f"effective_{new_columns_base_name}"
+            refined_frame = fill_column_frame_sample_statistics_RTE(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        effective_columns_base_name, history_first, future_first, history_second, "mean",
+                        not shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                        epsilon),
+                    (effective_columns_base_name, history_first, future_first, history_second, "std",
+                     not shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                     epsilon),
+                    (effective_columns_base_name, history_first, future_first, history_second,
+                     "median", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (effective_columns_base_name, history_first, future_first, history_second,
+                     "quantile 0.25", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (effective_columns_base_name, history_first, future_first, history_second,
+                     "quantile 0.75", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (effective_columns_base_name, history_first, future_first, history_second,
+                     "quantile 0.1", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (effective_columns_base_name, history_first, future_first, history_second,
+                     "quantile 0.9", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                ]
+            )
+
+        if (not reversed_order) and "information" not in str(key[0]):
+            balance_column_name = f"balance_{new_columns_base_name}"
+            refined_frame = fill_column_frame_sample_statistics_balanced_RTE(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (balance_column_name, history_first, future_first, history_second, "mean",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                     epsilon),
+                    (balance_column_name, history_first, future_first, history_second, "std",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                     epsilon),
+                    (balance_column_name, history_first, future_first, history_second, "median",
+                     shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                     epsilon),
+                    (balance_column_name, history_first, future_first, history_second,
+                     "quantile 0.25", shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_column_name, history_first, future_first, history_second,
+                     "quantile 0.75", shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (
+                        balance_column_name, history_first, future_first, history_second, "quantile 0.1",
+                        shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                        epsilon),
+                    (
+                        balance_column_name, history_first, future_first, history_second, "quantile 0.9",
+                        shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                        epsilon),
+                ]
+            )
+
+        if (len(samples) > 1) and not reversed_order and shuffled_dataset and "information" not in str(item[0]):
+            balance_effective_column_name = f"balance_effective_{new_columns_base_name}"
+            refined_frame = fill_column_frame_sample_statistics_balanced_effective_RTE(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "mean", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "std", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "median", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "quantile 0.25", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "quantile 0.75", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "quantile 0.1", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                    (balance_effective_column_name, history_first, future_first, history_second,
+                     "quantile 0.9", not shuffled_dataset, reversed_order, 0,
+                     f"Avaraging over sample for each neighbour k", epsilon),
+                ]
+            )
+
+    columns_to_calculate_RTE = frame.columns
+    for item in columns_to_calculate_RTE[:-1]:
+        try:
+            variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+
+            refined_frame = fill_column_frame(
+                frame,
+                item,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (new_columns_base_name, history_first, future_first, history_second, "mean", shuffled_dataset,
+                     reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "std", shuffled_dataset,
+                     reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "median", shuffled_dataset,
+                     reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "0.25 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "0.75 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "0.1 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (new_columns_base_name, history_first, future_first, history_second, "0.9 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                ]
+            )
+
+        except Exception as exc:
+            debug = frame[item]
+            print(f"{exc} {item} {debug}")
+            raise exc
+
+    # effective transfer entropy
+    column_to_calculate_effective_transfer_entropy = [
+        item
+        for item in frame.columns.tolist()
+        if item[index_shuffle_dataset] and not ("entropy" in str(item[0]) or "information" in str(item[0]))
+    ]
+    for item in column_to_calculate_effective_transfer_entropy:
+        variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+
+        refined_frame = fill_column_frame_effective_RTE(
+            frame,
+            item,
+            take_k_th_nearest_neighbor,
+            unary_statistical_operations,
+            refined_frame,
+            [
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "mean",
+                 not shuffled_dataset,
+                 reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "std",
+                 not shuffled_dataset,
+                 reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "median",
+                 not shuffled_dataset,
+                 reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.25 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.75 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.1 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.9 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+            ]
+        )
+
+    # balance of entropy
+    column_to_calculate_balance_transfer_entropy = [
+        item
+        for item in frame.columns.tolist()
+        if not bool(item[index_swap_dataset])
+           and "information" not in str(item[0])
+           and "epsilon" not in str(item[0])
+    ]
+    for item in column_to_calculate_balance_transfer_entropy:
+        variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+
+        refined_frame = fill_column_frame_effective_RTE(
+            frame,
+            item,
+            take_k_th_nearest_neighbor,
+            unary_statistical_operations,
+            refined_frame,
+            [
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "mean",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "std",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "median",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.25 quantile",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.75 quantile",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.1 quantile",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.9 quantile",
+                 shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+            ]
+        )
+
+    # balance of effective entropy
+    balance_effective_names = [
+        item
+        for item in frame.columns.tolist()
+        if not bool(item[index_swap_dataset])
+           and bool(item[index_shuffle_dataset])
+           and "information" not in str(item[0])
+           and "epsilon" not in str(item[0])
+    ]
+    for item in balance_effective_names:
+        variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+
+        refined_frame = fill_column_frame_balance_effective_RTE(
+            frame,
+            item,
+            take_k_th_nearest_neighbor,
+            unary_statistical_operations,
+            refined_frame,
+            [
+                (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second, "mean",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second, "std",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (
+                    f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second, "median",
+                    not shuffled_dataset, reversed_order, sample_number,
+                    f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                 "0.25 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                 "0.75 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                 "0.1 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                 "0.9 quantile",
+                 not shuffled_dataset, reversed_order, sample_number,
+                 f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+            ]
+        )
+
+    # append frame for processing
+    refined_frame.to_pickle(processed_dataset)
+
+
 def process_datasets(
+        directory,
         processed_datasets,
         result_dataset,
         result_raw_dataset,
@@ -1118,170 +1928,423 @@ def process_datasets(
     print(files)
     frames = []
     frames_raw = []
+    frames_refined_statistics = []
+    index_shuffle_dataset = 4
+    index_swap_dataset = 5
+
     for file in files:
         epsilon = converter_epsilon(file)
         path = Path(file)
-
+        print(f"{datetime.datetime.now().isoformat()} {file}")
         table = pd.read_pickle(path)
-        frame = pd.DataFrame(table)
+
+        refined_table_converted_multiindices = {}
+        for key, value in table.items():
+            refined_table_converted_multiindices[key] = {}
+            for key_q, items in value.items():
+                refined_key = key
+                # if refined_key in refined_table:
+                #    refined_table[refined_key][key_q] = np.array(items)
+                # else:
+                #    refined_table[refined_key] = {key_q: np.array(items)}
+                for index, value in enumerate(items):
+                    refined_table_converted_multiindices[refined_key][(index, key_q)] = value
+
+        frame_refined = pd.DataFrame.from_dict(refined_table_converted_multiindices)
+        frame_refined.index.set_names(['k', 'q'], inplace=True)
+
+        refined_table_values_arrays = {}
+        for key, value in table.items():
+            for key_q, items in value.items():
+                if key in refined_table_values_arrays:
+                    refined_table_values_arrays[key][key_q] = np.array(items)
+                else:
+                    refined_table_values_arrays[key] = {key_q: np.array(items)}
+
+        frame = pd.DataFrame.from_dict(refined_table_values_arrays)  # , columns=refined_column
         frame["epsilon"] = epsilon
-        old_columns = frame.columns
 
-        for item in old_columns[:-1]:
+        index_dataframe = frame.index
+        names = ['Name of variable', 'History first', 'Future first', 'History second', 'Statistical value', 'Shuffled',
+                 'Reversed direction', 'Sample number', 'Remark', 'Sample']
+        refined_column = pd.MultiIndex(levels=[[]] * len(names), codes=[[]] * len(names), names=names)
+        refined_frame = pd.DataFrame(index=index_dataframe, columns=refined_column)
+
+        # preparing columns aggregated using samples
+        multi_sample_columns = {}
+        for item in frame.columns[:-1]:
+            variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+            if not (variable, history_first, future_first, history_second, shuffled_dataset,
+                    reversed_order) in multi_sample_columns:
+                multi_sample_columns[
+                    (variable, history_first, future_first, history_second, shuffled_dataset, reversed_order)] = [
+                    sample_number]
+            else:
+                multi_sample_columns[
+                    (variable, history_first, future_first, history_second, shuffled_dataset, reversed_order)].append(
+                    sample_number)
+
+        unary_statistical_operations = [
+            lambda x: np.mean(x, axis=0),
+            lambda x: np.std(x, axis=0),
+            lambda x: np.median(x, axis=0),
+            lambda x: np.quantile(x, 0.25, axis=0),
+            lambda x: np.quantile(x, 0.75, axis=0),
+            lambda x: np.quantile(x, 0.1, axis=0),
+            lambda x: np.quantile(x, 0.9, axis=0)
+        ]
+
+        # drop aggregated elements with only single sample
+        for key, samples in multi_sample_columns.items():
+            if len(samples) > 1:  # more sample present
+                variable, history_first, future_first, history_second, shuffled_dataset, reversed_order = key
+                columns = [list(key) + [sample] for sample in samples]
+
+                refined_frame = fill_column_frame_sample_statistics(
+                    frame,
+                    columns,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (new_columns_base_name, history_first, future_first, history_second, "mean",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "std",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "median",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "quantile 0.25",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "quantile 0.75",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "quantile 0.1",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "quantile 0.9",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k", epsilon),
+                    ]
+                )
+
+            if (len(samples) > 1) and shuffled_dataset and not (
+                    "entropy" in str(key[0]) or "information" in str(key[0])):
+                effective_columns_base_name = f"effective_{new_columns_base_name}"
+                refined_frame = fill_column_frame_sample_statistics_RTE(
+                    frame,
+                    columns,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (
+                            effective_columns_base_name, history_first, future_first, history_second, "mean",
+                            not shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                            epsilon),
+                        (effective_columns_base_name, history_first, future_first, history_second, "std",
+                         not shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                         epsilon),
+                        (effective_columns_base_name, history_first, future_first, history_second,
+                         "median", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (effective_columns_base_name, history_first, future_first, history_second,
+                         "quantile 0.25", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (effective_columns_base_name, history_first, future_first, history_second,
+                         "quantile 0.75", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (effective_columns_base_name, history_first, future_first, history_second,
+                         "quantile 0.1", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (effective_columns_base_name, history_first, future_first, history_second,
+                         "quantile 0.9", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                    ]
+                )
+
+            if (not reversed_order) and "information" not in str(key[0]):
+                balance_column_name = f"balance_{new_columns_base_name}"
+                refined_frame = fill_column_frame_sample_statistics_balanced_RTE(
+                    frame,
+                    columns,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (balance_column_name, history_first, future_first, history_second, "mean",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                         epsilon),
+                        (balance_column_name, history_first, future_first, history_second, "std",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                         epsilon),
+                        (balance_column_name, history_first, future_first, history_second, "median",
+                         shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                         epsilon),
+                        (balance_column_name, history_first, future_first, history_second,
+                         "quantile 0.25", shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_column_name, history_first, future_first, history_second,
+                         "quantile 0.75", shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (
+                            balance_column_name, history_first, future_first, history_second, "quantile 0.1",
+                            shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                            epsilon),
+                        (
+                            balance_column_name, history_first, future_first, history_second, "quantile 0.9",
+                            shuffled_dataset, reversed_order, 0, f"Avaraging over sample for each neighbour k",
+                            epsilon),
+                    ]
+                )
+
+            if (len(samples) > 1) and not reversed_order and shuffled_dataset and "information" not in str(item[0]):
+                balance_effective_column_name = f"balance_effective_{new_columns_base_name}"
+                refined_frame = fill_column_frame_sample_statistics_balanced_effective_RTE(
+                    frame,
+                    columns,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "mean", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "std", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "median", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "quantile 0.25", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "quantile 0.75", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "quantile 0.1", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                        (balance_effective_column_name, history_first, future_first, history_second,
+                         "quantile 0.9", not shuffled_dataset, reversed_order, 0,
+                         f"Avaraging over sample for each neighbour k", epsilon),
+                    ]
+                )
+
+        columns_to_calculate_RTE = frame.columns
+        for item in columns_to_calculate_RTE[:-1]:
             try:
+                variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
                 print(f"Processing {item}")
-                reversed_order = item[4]
-                mean_column_name = f"{new_columns_base_name}_{item[1]}_{item[2]}"
-                std_column_name = f"{new_columns_base_name}_{item[1]}_{item[2]}"
 
-                if isinstance(item[3], bool):
-                    bool_column = 3
-                else:
-                    bool_column = 4
+                refined_frame = fill_column_frame(
+                    frame,
+                    item,
+                    take_k_th_nearest_neighbor,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (new_columns_base_name, history_first, future_first, history_second, "mean", shuffled_dataset,
+                         reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "std", shuffled_dataset,
+                         reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "median", shuffled_dataset,
+                         reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "0.25 quantile",
+                         shuffled_dataset, reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "0.75 quantile",
+                         shuffled_dataset, reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "0.1 quantile",
+                         shuffled_dataset, reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                        (new_columns_base_name, history_first, future_first, history_second, "0.9 quantile",
+                         shuffled_dataset, reversed_order, sample_number,
+                         f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    ]
+                )
 
-                # add mean of entropy
-                debug = frame[item]
-
-                calculation = frame.apply(
-                    lambda row: np.mean(row[item][take_k_th_nearest_neighbor:])
-                    if isinstance(row[item], list)
-                    else np.nan,
+                frame[
+                    f"{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+                    "mean",
+                    "",
+                    "",
+                    shuffled_dataset,
+                    reversed_order,
+                    sample_number,
+                ] = frame.apply(
+                    lambda row: np.mean(row[item][take_k_th_nearest_neighbor:]),
                     axis=1,
                     raw=False,
                 )
-                # calculation = frame.apply(lambda row: if any(row) print(row), axis=1, raw=True)
-                # calculation = frame.apply(lambda row: float(np.mean(row[item])), axis=1, raw=True)
-                if bool_column == 3:
-                    frame[
-                        mean_column_name, "mean", "", item[bool_column], reversed_order
-                    ] = calculation
-                else:
-                    frame[
-                        mean_column_name,
-                        "mean",
-                        "",
-                        "",
-                        item[bool_column],
-                        reversed_order,
-                    ] = calculation
-
-                # add std of entropy
-                calculation = frame.apply(
-                    lambda row: float(np.std(row[item][take_k_th_nearest_neighbor:]))
-                    if isinstance(row[item], list)
-                    else np.nan,
+                frame[
+                    f"{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+                    "std",
+                    "",
+                    "",
+                    shuffled_dataset,
+                    reversed_order,
+                    sample_number,
+                ] = frame.apply(
+                    lambda row: np.std(row[item][take_k_th_nearest_neighbor:]),
                     axis=1,
                     raw=False,
                 )
-                if bool_column == 3:
-                    frame[
-                        std_column_name, "std", "", item[bool_column], reversed_order
-                    ] = calculation
-                else:
-                    frame[
-                        mean_column_name,
-                        "std",
-                        "",
-                        "",
-                        item[bool_column],
-                        reversed_order,
-                    ] = calculation
+
+                # fill_column_frame(frame, item, take_k_th_nearest_neighbor, lambda x: np.std(x, axis=0), refined_frame, (new_columns_base_name, history_first, future_first, history_second, "std", shuffled_dataset, reversed_order, sample_number, f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", variable))
+                # fill_column_frame(frame, item, take_k_th_nearest_neighbor, lambda x: np.median(x, axis=0), refined_frame, (new_columns_base_name, history_first, future_first, history_second, "median", shuffled_dataset, reversed_order, sample_number, f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", variable))
+                # fill_column_frame(frame, item, take_k_th_nearest_neighbor, lambda x: np.quantile(x, 0.25), refined_frame, (new_columns_base_name, history_first, future_first, history_second, "0.25 quantile", shuffled_dataset, reversed_order, sample_number, f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", variable))
+                # fill_column_frame(frame, item, take_k_th_nearest_neighbor, lambda x: np.quantile(x, 0.75), refined_frame, (new_columns_base_name, history_first, future_first, history_second, "0.75 quantile", shuffled_dataset, reversed_order, sample_number, f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", variable))
+                # fill_column_frame(frame, item, take_k_th_nearest_neighbor, lambda x: np.quantile(x, 0.1), refined_frame, (new_columns_base_name, history_first, future_first, history_second, "0.1 quantile", shuffled_dataset, reversed_order, sample_number, f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", variable))
+                #fill_column_frame(frame, item, take_k_th_nearest_neighbor, lambda x: np.quantile(x, 0.9), refined_frame, (new_columns_base_name, history_first, future_first, history_second, "0.9 quantile", shuffled_dataset, reversed_order, sample_number, f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", variable))
 
             except Exception as exc:
+                debug = frame[item]
                 print(f"{exc} {item} {debug}")
                 raise exc
 
         # effective transfer entropy
-        column_to_use = [
+        column_to_calculate_effective_transfer_entropy = [
             item
             for item in frame.columns.tolist()
-            if item[bool_column] is False
-               and not ("entropy" in str(item[0]) or "information" in str(item[0]))
+            if item[index_shuffle_dataset] and not ("entropy" in str(item[0]) or "information" in str(item[0]))
         ]
-        for item in column_to_use:
-            mean_column_name = f"effective_{new_columns_base_name}_{item[1]}_{item[2]}"
-            std_column_name = f"effective_{new_columns_base_name}_{item[1]}_{item[2]}"
+        for item in column_to_calculate_effective_transfer_entropy:
+            variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
 
-            if bool_column == 3:
-                frame[mean_column_name, "mean", "", False, item[4]] = frame.apply(
-                    lambda row: float(
-                        np.mean(
-                            np.array(row[item][take_k_th_nearest_neighbor:])
-                            - np.array(
-                                row[item[0], item[1], item[2], not item[3], item[4]][
-                                take_k_th_nearest_neighbor:
-                                ]
-                            )
+            refined_frame = fill_column_frame_effective_RTE(
+                frame,
+                item,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "mean",
+                     not shuffled_dataset,
+                     reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "std",
+                     not shuffled_dataset,
+                     reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "median",
+                     not shuffled_dataset,
+                     reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.25 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.75 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.1 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"effective_{new_columns_base_name}", history_first, future_first, history_second, "0.9 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                ]
+            )
+
+            frame[f"effective_{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+            "mean",
+            "",
+            "",
+            not shuffled_dataset,
+            reversed_order,
+            sample_number,
+            ] = frame.apply(
+                lambda row: float(
+                    np.mean(
+                        np.array(
+                            row[item[
+                                0], history_first, future_first, history_second, not shuffled_dataset, reversed_order, 0][
+                            take_k_th_nearest_neighbor:
+                            ]
                         )
-                    ),
-                    axis=1,
-                    raw=False,
-                )
-                frame[std_column_name, "std", "", False, item[4]] = frame.apply(
-                    lambda row: float(
-                        np.std(
-                            np.array(row[item][take_k_th_nearest_neighbor:])
-                            - np.array(
-                                row[item[0], item[1], item[2], not item[3], item[4]][
-                                take_k_th_nearest_neighbor:
-                                ]
-                            )
+                        -
+                        np.array(row[item][take_k_th_nearest_neighbor:])
+                    )
+                ),
+                axis=1,
+                raw=False,
+            )
+            frame[f"effective_{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+            "std",
+            "",
+            "",
+            not shuffled_dataset,
+            reversed_order,
+            sample_number,
+            ] = frame.apply(
+                lambda row: float(
+                    np.std(
+                        np.array(
+                            row[item[
+                                0], history_first, future_first, history_second, not shuffled_dataset, reversed_order, 0][
+                            take_k_th_nearest_neighbor:
+                            ]
                         )
-                    ),
-                    axis=1,
-                    raw=False,
-                )
-            # lambda row: float(
-            #        np.std(row[item][take_k_th_nearest_neighbor:])
-            #        + np.std(row[item[0], item[1], item[2], not item[3], item[4]][take_k_th_nearest_neighbor:]))
-            else:
-                frame[mean_column_name, "mean", "", False, item[4]] = frame.apply(
-                    lambda row: float(
-                        np.mean(
-                            np.array(row[item][take_k_th_nearest_neighbor:])
-                            - np.array(
-                                row[item[0], item[1], item[2], item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
-                                ]
-                            )
-                        )
-                    ),
-                    axis=1,
-                    raw=False,
-                )
-                frame[std_column_name, "std", "", False, item[4]] = frame.apply(
-                    lambda row: float(
-                        np.std(
-                            np.array(row[item][take_k_th_nearest_neighbor:])
-                            - np.array(
-                                row[item[0], item[1], item[2], item[3], not item[4]][
-                                take_k_th_nearest_neighbor:
-                                ]
-                            )
-                        )
-                    ),
-                    axis=1,
-                    raw=False,
-                )
+                        -
+                        np.array(row[item][take_k_th_nearest_neighbor:])
+                    )
+                ),
+                axis=1,
+                raw=False,
+            )
 
         # balance of entropy
-        balance_names = [
+        column_to_calculate_balance_transfer_entropy = [
             item
             for item in frame.columns.tolist()
-            if not bool(item[4])
+            if not bool(item[index_swap_dataset])
                and "information" not in str(item[0])
                and "epsilon" not in str(item[0])
         ]
-        for item in balance_names:
-            mean_column_name = f"balance_{new_columns_base_name}_{item[1]}_{item[2]}"
-            std_column_name = f"balance_{new_columns_base_name}_{item[1]}_{item[2]}"
+        for item in column_to_calculate_balance_transfer_entropy:
+            variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
 
-            frame[mean_column_name, "mean", "", item[3], False] = frame.apply(
+            refined_frame = fill_column_frame_effective_RTE(
+                frame,
+                item,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "mean",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "std",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "median",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.25 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.75 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.1 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_{new_columns_base_name}", history_first, future_first, history_second, "0.9 quantile",
+                     shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                ]
+            )
+
+            frame[f"balance_{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+            "mean",
+            "",
+            "",
+            shuffled_dataset,
+            reversed_order,
+            sample_number,
+            ] = frame.apply(
                 lambda row: float(
                     np.mean(
                         np.array(row[item][take_k_th_nearest_neighbor:])
                         - np.array(
-                            row[item[0], item[1], item[2], item[3], not item[4]][
+                            row[item[
+                                0], history_first, future_first, history_second, shuffled_dataset, not reversed_order, sample_number][
                             take_k_th_nearest_neighbor:
                             ]
                         )
@@ -1290,12 +2353,20 @@ def process_datasets(
                 axis=1,
                 raw=False,
             )
-            frame[std_column_name, "std", "", item[3], False] = frame.apply(
+            frame[f"balance_{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+            "std",
+            "",
+            "",
+            shuffled_dataset,
+            reversed_order,
+            sample_number,
+            ] = frame.apply(
                 lambda row: float(
                     np.std(
                         np.array(row[item][take_k_th_nearest_neighbor:])
                         - np.array(
-                            row[item[0], item[1], item[2], item[3], not item[4]][
+                            row[item[
+                                0], history_first, future_first, history_second, shuffled_dataset, not reversed_order, sample_number][
                             take_k_th_nearest_neighbor:
                             ]
                         )
@@ -1304,40 +2375,84 @@ def process_datasets(
                 axis=1,
                 raw=False,
             )
+
+        print(f"Number of columns {len(refined_frame.columns)}")
 
         # balance of effective entropy
-        balance_names = [
+        balance_effective_names = [
             item
             for item in frame.columns.tolist()
-            if not bool(item[4])
-               and not bool(item[3])
+            if not bool(item[index_swap_dataset])
+               and bool(item[index_shuffle_dataset])
                and "information" not in str(item[0])
                and "epsilon" not in str(item[0])
         ]
-        for item in balance_names:
-            mean_column_name = (
-                f"balance_effective_{new_columns_base_name}_{item[1]}_{item[2]}"
-            )
-            std_column_name = (
-                f"balance_effective_{new_columns_base_name}_{item[1]}_{item[2]}"
+        for item in balance_effective_names:
+            variable, history_first, future_first, history_second, shuffled_dataset, reversed_order, sample_number = item
+
+            refined_frame = fill_column_frame_balance_effective_RTE(
+                frame,
+                item,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second, "mean",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second, "std",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (
+                        f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                        "median",
+                        not shuffled_dataset, reversed_order, sample_number,
+                        f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                     "0.25 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                     "0.75 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                     "0.1 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                    (f"balance_effective_{new_columns_base_name}", history_first, future_first, history_second,
+                     "0.9 quantile",
+                     not shuffled_dataset, reversed_order, sample_number,
+                     f"Avaraging over nearest neighbours starting from {take_k_th_nearest_neighbor}", epsilon),
+                ]
             )
 
-            frame[mean_column_name, "mean", "", item[3], False] = frame.apply(
+            frame[f"balance_effective_{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+            "mean",
+            "",
+            "",
+            not shuffled_dataset,
+            reversed_order,
+            sample_number,
+            ] = frame.apply(
                 lambda row: float(
                     np.mean(
-                        np.array(row[item][take_k_th_nearest_neighbor:])
-                        - np.array(
-                            row[item[0], item[1], item[2], not item[3], item[4]][
-                            take_k_th_nearest_neighbor:
-                            ]
-                        )
-                        - np.array(
-                            row[item[0], item[1], item[2], item[3], not item[4]][
+                        - np.array(row[item][take_k_th_nearest_neighbor:])
+                        + np.array(
+                            row[item[
+                                0], history_first, future_first, history_second, not shuffled_dataset, reversed_order, 0][
                             take_k_th_nearest_neighbor:
                             ]
                         )
                         + np.array(
-                            row[item[0], item[1], item[2], not item[3], not item[4]][
+                            row[item[
+                                0], history_first, future_first, history_second, shuffled_dataset, not reversed_order, sample_number][
+                            take_k_th_nearest_neighbor:
+                            ]
+                        )
+                        - np.array(
+                            row[item[
+                                0], history_first, future_first, history_second, not shuffled_dataset, not reversed_order, 0][
                             take_k_th_nearest_neighbor:
                             ]
                         )
@@ -1346,22 +2461,32 @@ def process_datasets(
                 axis=1,
                 raw=False,
             )
-            frame[std_column_name, "std", "", item[3], False] = frame.apply(
+            frame[f"balance_effective_{new_columns_base_name}_{history_first}_{future_first}_{history_second}",
+            "std",
+            "",
+            "",
+            not shuffled_dataset,
+            reversed_order,
+            sample_number,
+            ] = frame.apply(
                 lambda row: float(
                     np.std(
-                        np.array(row[item][take_k_th_nearest_neighbor:])
-                        - np.array(
-                            row[item[0], item[1], item[2], not item[3], item[4]][
-                            take_k_th_nearest_neighbor:
-                            ]
-                        )
-                        - np.array(
-                            row[item[0], item[1], item[2], item[3], not item[4]][
+                        - np.array(row[item][take_k_th_nearest_neighbor:])
+                        + np.array(
+                            row[item[
+                                0], history_first, future_first, history_second, not shuffled_dataset, reversed_order, 0][
                             take_k_th_nearest_neighbor:
                             ]
                         )
                         + np.array(
-                            row[item[0], item[1], item[2], not item[3], not item[4]][
+                            row[item[
+                                0], history_first, future_first, history_second, shuffled_dataset, not reversed_order, sample_number][
+                            take_k_th_nearest_neighbor:
+                            ]
+                        )
+                        - np.array(
+                            row[item[
+                                0], history_first, future_first, history_second, not shuffled_dataset, not reversed_order, 0][
                             take_k_th_nearest_neighbor:
                             ]
                         )
@@ -1375,24 +2500,16 @@ def process_datasets(
         frame = frame.reset_index()
 
         column = [
-            ("alpha", "", "") if "index" == item[0] else item
+            ("alpha", "", "", "", "", "", "") if "index" == item[0] else item
             for item in frame.columns.tolist()
         ]
         new_columns = pd.MultiIndex.from_tuples(
             [
-                ("alpha", "", "", "", "") if "index" == item[0] else item
+                ("alpha", "", "", "", "", "", "") if "index" == item[0] else item
                 for item in frame.columns
             ]
         )
         frame.columns = new_columns
-
-        # give names to the columns
-        # new_columns = [f"{new_columns_base_name}_{item[1]}_{item[2]}" for item in old_columns[:-1]]
-        # column_names = ["alpha"]
-        # column_names.extend(new_columns)
-        # column_names.append("epsilon")
-        # .append(["epsilon"])
-        # frame.columns = column_names
 
         # selection of columns
         columns = [
@@ -1426,9 +2543,11 @@ def process_datasets(
         # append frame for processing
         frames.append(frame_with_processed_results)
         frames_raw.append(frame_with_raw_results)
+        frames_refined_statistics.append(refined_frame)
 
     # join the table
     join_table = pd.concat(frames, ignore_index=True)
+    join_table_refined_statistics = pd.concat(frames_refined_statistics)
     try:
         join_table_raw = pd.concat(frames_raw, ignore_index=True)
     except:
@@ -1450,18 +2569,18 @@ def process_datasets(
     print(join_table_raw)
     index_alpha = join_table_raw.columns.tolist()
     pivot_table_raw = join_table_raw.set_index([index_alpha[0], index_alpha[-1]])
-    # pd.pivot_table(join_table_raw, index=[index_alpha[0], index_alpha[1]])
     print(pivot_table_raw)
 
-    # print(pivot_table[["transfer_entropy_15_5_mean"]])
     TE = pivot_table.reset_index()
     TE_raw = pivot_table_raw.reset_index()
 
     TE.to_pickle(result_dataset)
     TE_raw.to_pickle(result_raw_dataset)
 
+    join_table_refined_statistics.to_pickle(f"{directory}/refined_statistics.bin")
+
     return (
         TE,
         [item for item in join_table.columns.tolist() if "mean" in str(item[1])],
-        TE_raw,
+        TE_raw, join_table_refined_statistics
     )
