@@ -21,7 +21,7 @@ if __name__ == "__main__":
         processed_dataset = f"{directory}/refined_{name_of_title}-*.bin"
         merged_dataset = f"{directory}/merged_{name_of_title}.bin"
         merged_files = glob.glob(merged_dataset)
-        if (len(merged_files) == 0):
+        if len(merged_files) == 0:
             files = glob.glob(processed_dataset)
             print(f"Number of inputs: {len(files)}, files: {files}")
 
@@ -29,8 +29,17 @@ if __name__ == "__main__":
             for file in files:
                 table = pd.read_pickle(Path(file))
                 table.columns.names = names = [
-                    'Name of variable', 'History first', 'Future first', 'History second', 'Statistical value',
-                    'Shuffled', 'Reversed direction', 'Sample number', 'Remark', 'Sample']
+                    "Name of variable",
+                    "History first",
+                    "Future first",
+                    "History second",
+                    "Statistical value",
+                    "Shuffled",
+                    "Reversed direction",
+                    "Sample number",
+                    "Remark",
+                    "Sample",
+                ]
                 files_to_merge.append(table)
 
             refined_frame = pd.concat(files_to_merge, axis=1)

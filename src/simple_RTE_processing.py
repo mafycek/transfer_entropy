@@ -37,4 +37,6 @@ if __name__ == "__main__":
             input_dataset = f"{directory}/{name_of_title}-{symbol}.bin"
             files = glob.glob(processed_dataset)
 
-            processing_datasets.refined_process_dataset(input_dataset, processed_dataset)
+            processing_datasets.refined_process_dataset(
+                input_dataset, processed_dataset
+            )

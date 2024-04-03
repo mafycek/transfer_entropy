@@ -3,6 +3,7 @@
 
 import pickle
 import os
+import glob
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -37,7 +38,7 @@ if __name__ == "__main__":
         result = dbHandler.database.command("dbstats")
         collection = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
         document_cursor = collection.find(
-            {"symbol": symbol, "end_timestamp": {"$gt": datetime.fromisoformat("2024-02-25T00:00:01.879Z")}})
+            {"symbol": symbol, "end_timestamp": {"$gt": datetime.fromisoformat("2024-03-15T00:00:01.879Z")}})
         for metadata_transfer_entropy in document_cursor:
             random_source = False if metadata_transfer_entropy["random_source"] is None else True
             index = False if metadata_transfer_entropy["postselection_X_future"] is None else True
@@ -47,14 +48,15 @@ if __name__ == "__main__":
                 appendix = ""
 
             document_id = metadata_transfer_entropy["document_id"]
-
-            dataset_pickled = dbHandler.download_from_gridfs(document_id)
-            dataset = pickle.loads(dataset_pickled)
-
             symbol_in_file = symbol
+            filename = f"{download_folder}/conditional_information_transfer-{symbol_in_file}{appendix}.bin"
+            files = glob.glob(filename)
+            if len(files) == 0:
+                dataset_pickled = dbHandler.download_from_gridfs(document_id)
+                dataset = pickle.loads(dataset_pickled)
 
-            with open(f"{download_folder}/conditional_information_transfer-{symbol_in_file}{appendix}.bin", "wb") as fh:
-                fh.write(dataset_pickled)
+                with open(filename, "wb") as fh:
+                    fh.write(dataset_pickled)
 
     collection_handler = dbHandler.database[
         FinanceMongoDatabasePlugin.conditional_information_transfer_name
