@@ -28,7 +28,7 @@ if __name__ == "__main__":
         FinanceMongoDatabasePlugin.dataset_collection_name
     )
     dataset_cursor = collection_handler.find({})
-    maximal_neighborhood = 100
+    maximal_neighborhood = 50
 
     update_dicts = [
         {
@@ -49,14 +49,14 @@ if __name__ == "__main__":
             "dataset_X_selector": "6",
             "filename_template": "script_{}_r.sh",
             "postselection_X_future": None,
-            "random_source": 0.001,
+            "random_source": 0.1,
             "comment": "Stock with random source",
         },
         {
             "dataset_X_selector": "6 8",
             "filename_template": "script_{}_ri.sh",
             "postselection_X_future": "0",
-            "random_source": 0.001,
+            "random_source": 0.1,
             "comment": "Stock with index excluding stock and randomness",
         },
     ]
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     pprint.pprint(f"{list_of_codes}")
 
     for update_dict in update_dicts:
+        number_of_samples = 30
         history_first = "0, 0 1 , 0 1 2 3"
         history_first = "0 1 2 , 0 1 2 3 , 0 1 2 3 4"
         history_second = "0 , 0 1 , 0 1 2 3"
@@ -102,7 +103,7 @@ if __name__ == "__main__":
             #        for code in list_of_codes[count + 1: len(list_of_codes)]:
             with open(directory + update_dict["filename_template"].format(base_code), "wt") as fh:
                 print(
-                    f'./calculations/transfer_entropy.sif --database=True --database_nosql_url={url} --database_sql_url={url} --database_sql_username={sql_username} --database_sql_password={sql_password} --database_sql_table={sql_database} --database_nosql_username={username} --database_nosql_password={password} --database_nosql_table={table} --dataset_1_code={base_code} --dataset_2_code={base_code} --dataset_1_selector {dataset_X_selector} --dataset_2_selector {dataset_Y_selector} --alpha_params {alpha_params} --history_first {history_first} --history_second {history_second} --maximal_neighborhood {maximal_neighborhood} --comment "{comment}"' + (
+                    f'./calculations/transfer_entropy.sif --database=True --database_nosql_url={url} --database_sql_url={url} --database_sql_username={sql_username} --database_sql_password={sql_password} --database_sql_table={sql_database} --database_nosql_username={username} --database_nosql_password={password} --database_nosql_table={table} --dataset_1_code={base_code} --dataset_2_code={base_code} --dataset_1_selector {dataset_X_selector} --dataset_2_selector {dataset_Y_selector} --alpha_params {alpha_params} --history_first {history_first} --history_second {history_second} --number_of_samples {number_of_samples} --maximal_neighborhood {maximal_neighborhood} --comment "{comment}"' + (
                         "" if not random_source else f" --random_source {random_source}") + (
                         "" if not postselection_X_future else f" --postselection_X_future {postselection_X_future}") + (
                         "" if not postselection_X_history else f" --postselection_X_history {postselection_X_history}") + (

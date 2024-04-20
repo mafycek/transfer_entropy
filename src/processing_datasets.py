@@ -6,10 +6,11 @@ import sys
 import math
 import datetime
 import traceback
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import matplotlib
-from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 
@@ -21,10 +22,10 @@ title_map = {
 }
 
 names = {
-    "balance_effective_conditional_information_transfer": 5,
-    "balance_conditional_information_transfer": 4,
-    "effective_conditional_information_transfer": 4,
-    "conditional_information_transfer": 3,
+    "balance_effective_transfer_entropy": 5,
+    "balance_transfer_entropy": 4,
+    "effective_transfer_entropy": 4,
+    "transfer_entropy": 3,
 }
 
 
@@ -94,6 +95,31 @@ def generate_label_from_name_of_column_TE(column_multiindex, name_of_title):
             history_second_TS,
         )
     return label
+
+
+def translate_to_label_TE(column_name):
+    timeseries_name, history_first_TS, future_first_TS, history_second_TS, swapped_datasets, shuffled_calculation = column_name
+    balance = "balance" in timeseries_name
+    effective = "effective" in timeseries_name
+    standard_filename = "figure"
+
+    type_of_TE = None
+    if effective and balance:
+        type_of_TE = "{(R, effective, balance)}"
+    elif not effective and balance:
+        type_of_TE = "{(R, balance)}"
+    elif effective and not balance:
+        type_of_TE = "{(R, effective)}"
+    else:
+        type_of_TE = "{(R)}"
+
+    return """T^{}_{} (\\{{{}\\}},\\{{{}\\}},\\{{{}\\}})""".format(
+        type_of_TE,
+        title_map[(shuffled_calculation, swapped_datasets)],
+        history_first_TS,
+        history_second_TS,
+        future_first_TS,
+    )
 
 
 def figures3d_TE(
@@ -543,6 +569,136 @@ def figures2d_TE_overview_alpha_order_statistics(
                                 )
                             )  # [index_of_order]
 
+                    color = selector_item["color"]
+                    actual_axes = None
+                    if number_rows == 1 and number_columns == 1:
+                        actual_axes = axs
+                    elif number_rows == 1:
+                        actual_axes = axs[column]
+                    elif number_columns == 1:
+                        actual_axes = axs[row]
+                    else:
+                        actual_axes = axs[row, column]
+
+                    if (
+                            len(subselection) == 2
+                            and selector_item["style"] == "quantile band"
+                    ):
+                        actual_axes.fill_between(
+                            ys, zs[0], zs[1], linewidth=1, label=label, color=color
+                        )
+                    elif len(subselection) == 1 and selector_item["style"] == "line":
+                        actual_axes.plot(
+                            ys, zs[0], linewidth=1, label=label, color=color
+                        )
+                    elif (
+                            len(subselection) == 2 and selector_item["style"] == "yerrorbar"
+                    ):
+                        lower_band = zs[0] - zs[1]
+                        upper_band = zs[0] + zs[1]
+                        actual_axes.fill_between(
+                            ys,
+                            lower_band,
+                            upper_band,
+                            linewidth=1,
+                            label=label,
+                            color=color,
+                        )
+                    else:
+                        print("problem")
+
+                except Exception as exc:
+                    print(traceback.format_exc(), selector_item, selectors)
+
+                order_of_dataset += 1
+
+            plt.legend(loc=0, ncol=2, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+
+    plt.savefig(filename + "." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    del fig
+
+
+def figures2d_TE_overview_alpha_timeseries(
+        dataset,
+        timeseries_groups,
+        selectors,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
+        style="seaborn-v0_8",
+):
+    number_selectors = len(timeseries_groups)
+    matplotlib.style.use(style)
+    number_rows, number_columns = max_divisor(number_selectors)
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+    color_map = matplotlib.cm.get_cmap(cmap)
+    fig.suptitle(title)
+
+    for row in range(number_rows):
+        for column in range(number_columns):
+            index_of_dataset = column + number_columns * row
+            subselection_timeseries = dataset.xs(timeseries_groups[index_of_dataset], level="Sample", axis=1)
+
+            if number_rows == 1 and number_columns == 1:
+                axs.set_xlabel(xlabel)
+                axs.set_ylabel(ylabel)
+            elif number_rows == 1:
+                axs[column].set_xlabel(xlabel)
+                axs[column].set_ylabel(ylabel)
+            elif number_columns == 1:
+                axs[row].set_xlabel(xlabel)
+                axs[row].set_ylabel(ylabel)
+            else:
+                axs[row, column].set_title(f"{timeseries_groups[index_of_dataset]}")
+                axs[row, column].set_xlabel(xlabel)
+                if (column == 0):
+                    axs[row, column].set_ylabel(ylabel)
+
+            order_of_dataset = 0
+            for selector_item in selectors:
+                try:
+                    # subselection = [dataset[item] for item in selector_item["selector"]]
+                    subselection = [
+                        subselection_timeseries.xs(item, level="Statistical value", axis=1)
+                        for item in selector_item["selector"]
+                    ]
+
+                    label = selector_item["label"]
+                    ys = subselection[0].index.to_list()
+                    zs = []
+                    for index in range(len(subselection)):
+                        # for item in ys:
+                        #    print(subselection[index].loc[item], subselection[index].loc[item].values[0][index_of_order], len(subselection[index].loc[item].values.shape))
+                        if selector_item["aggregation"] == "sample":
+                            zs.append(
+                                np.array(
+                                    [
+                                        subselection[index][0].loc[key]
+                                        for index_key_selection, key in enumerate(ys)
+                                    ]
+                                )
+                            )
+                        elif selector_item["aggregation"] == "neighborhood":
+                            zs.append(
+                                np.array(
+                                    [
+                                        subselection[index]
+                                        .loc[key]
+                                        .values[0][0]
+                                        for index_key_selection, key in enumerate(ys)
+                                    ]
+                                )
+                            )  # [index_of_order]
+
+                    # prepare visualization
                     color = selector_item["color"]
                     actual_axes = None
                     if number_rows == 1 and number_columns == 1:
@@ -1894,12 +2050,12 @@ def fill_column_frame_sample_statistics_balanced_effective_RTE(
 
 
 def fill_column_frame_effective_RTE(
-        source_frame,
-        processed_column,
-        take_k_th_nearest_neighbor,
-        unary_operation,
-        destination_frame,
-        destination_multiindex,
+        source_frame: object,
+        processed_column: object,
+        take_k_th_nearest_neighbor: object,
+        unary_operation: object,
+        destination_frame: object,
+        destination_multiindex: object,
 ):
     if isinstance(unary_operation, list or tuple) and isinstance(
             destination_multiindex, list or tuple
@@ -2207,20 +2363,21 @@ def refined_process_dataset(input_dataset, processed_dataset):
         lambda x: np.quantile(x, 0.1, axis=0),
         lambda x: np.quantile(x, 0.9, axis=0),
     ]
+    operations_names = ["mean", "std", "median", "quantile 0.25", "quantile 0.75", "quantile 0.1", "quantile 0.9"]
 
     # sample and nearest neighbour statistics
     for key, samples in multi_sample_columns.items():
-        if len(samples) > 1:  # more sample present
-            (
-                variable,
-                history_first,
-                future_first,
-                history_second,
-                shuffled_dataset,
-                reversed_order,
-            ) = key
-            columns = [list(key) + [sample] for sample in samples]
+        (
+            variable,
+            history_first,
+            future_first,
+            history_second,
+            shuffled_dataset,
+            reversed_order,
+        ) = key
+        columns = [list(key) + [sample] for sample in samples]
 
+        if len(samples) > 1:  # more sample present
             refined_frame = fill_column_frame_sample_NN_statistics_RTE(
                 frame,
                 columns,
@@ -2232,85 +2389,13 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         shuffled_dataset,
                         reversed_order,
                         0,
                         averaging_over_samples_and_neighbors,
                         epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
                 take_k_th_nearest_neighbor,
             )
@@ -2327,90 +2412,18 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         shuffled_dataset,
                         reversed_order,
                         0,
                         averaging_over_samples_and_neighbors,
                         epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
                 take_k_th_nearest_neighbor,
             )
 
-        if (len(samples) > 1) and shuffled_dataset and "information" not in str(key[0]):
+        if shuffled_dataset and "information" not in str(key[0]):
             refined_frame = fill_column_frame_sample_NN_statistics_effective_RTE(
                 frame,
                 columns,
@@ -2422,92 +2435,18 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         not shuffled_dataset,
                         reversed_order,
                         0,
                         averaging_over_samples_and_neighbors,
                         epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples_and_neighbors,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
                 take_k_th_nearest_neighbor,
             )
 
-        if (
-                (len(samples) > 1)
-                and not reversed_order
+        if (not reversed_order
                 and shuffled_dataset
                 and "information" not in str(item[0])
         ):
@@ -2523,85 +2462,13 @@ def refined_process_dataset(input_dataset, processed_dataset):
                             history_first,
                             future_first,
                             history_second,
-                            "mean",
+                            operation_name,
                             not shuffled_dataset,
                             reversed_order,
                             0,
                             averaging_over_samples_and_neighbors,
                             epsilon,
-                        ),
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            "std",
-                            not shuffled_dataset,
-                            reversed_order,
-                            0,
-                            averaging_over_samples_and_neighbors,
-                            epsilon,
-                        ),
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            "median",
-                            not shuffled_dataset,
-                            reversed_order,
-                            0,
-                            averaging_over_samples_and_neighbors,
-                            epsilon,
-                        ),
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            "quantile 0.25",
-                            not shuffled_dataset,
-                            reversed_order,
-                            0,
-                            averaging_over_samples_and_neighbors,
-                            epsilon,
-                        ),
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            "quantile 0.75",
-                            not shuffled_dataset,
-                            reversed_order,
-                            0,
-                            averaging_over_samples_and_neighbors,
-                            epsilon,
-                        ),
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            "quantile 0.1",
-                            not shuffled_dataset,
-                            reversed_order,
-                            0,
-                            averaging_over_samples_and_neighbors,
-                            epsilon,
-                        ),
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            "quantile 0.9",
-                            not shuffled_dataset,
-                            reversed_order,
-                            0,
-                            averaging_over_samples_and_neighbors,
-                            epsilon,
-                        ),
+                        ) for operation_name in operations_names
                     ],
                     take_k_th_nearest_neighbor,
                 )
@@ -2611,17 +2478,17 @@ def refined_process_dataset(input_dataset, processed_dataset):
 
     # drop aggregated elements with only single sample
     for key, samples in multi_sample_columns.items():
-        if len(samples) > 1:  # more sample present
-            (
-                variable,
-                history_first,
-                future_first,
-                history_second,
-                shuffled_dataset,
-                reversed_order,
-            ) = key
-            columns = [list(key) + [sample] for sample in samples]
+        (
+            variable,
+            history_first,
+            future_first,
+            history_second,
+            shuffled_dataset,
+            reversed_order,
+        ) = key
+        columns = [list(key) + [sample] for sample in samples]
 
+        if len(samples) > 1:  # more sample present
             refined_frame = fill_column_frame_sample_statistics_RTE(
                 frame,
                 columns,
@@ -2633,85 +2500,13 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         shuffled_dataset,
                         reversed_order,
-                        0,
+                        sample_number,
                         averaging_over_samples,
                         epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
             )
 
@@ -2727,85 +2522,13 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         not shuffled_dataset,
                         reversed_order,
-                        0,
+                        sample_number,
                         averaging_over_samples,
                         epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
             )
 
@@ -2821,85 +2544,13 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         shuffled_dataset,
                         reversed_order,
-                        0,
+                        sample_number,
                         averaging_over_samples,
                         epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
             )
 
@@ -2920,92 +2571,19 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         history_first,
                         future_first,
                         history_second,
-                        "mean",
+                        operation_name,
                         not shuffled_dataset,
                         reversed_order,
-                        0,
+                        sample_number,
                         averaging_over_samples,
                         epsilon,
-                    ),
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.25",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.75",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.1",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "quantile 0.9",
-                        not shuffled_dataset,
-                        reversed_order,
-                        0,
-                        averaging_over_samples,
-                        epsilon,
-                    ),
+                    ) for operation_name in operations_names
                 ],
             )
 
     # nearest neighbour statistics
-
     columns_to_calculate_RTE = frame.columns
-    for item in columns_to_calculate_RTE[:-1]:
+    for key in columns_to_calculate_RTE[:-1]:
         try:
             (
                 variable,
@@ -3015,444 +2593,105 @@ def refined_process_dataset(input_dataset, processed_dataset):
                 shuffled_dataset,
                 reversed_order,
                 sample_number,
-            ) = item
+            ) = key
 
-            refined_frame = fill_column_frame_RTE(
-                frame,
-                item,
-                take_k_th_nearest_neighbor,
-                unary_statistical_operations,
-                refined_frame,
-                [
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "mean",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "std",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "median",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "0.25 quantile",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "0.75 quantile",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "0.1 quantile",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        "0.9 quantile",
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_neighbors,
-                        epsilon,
-                    ),
-                ],
-            )
+            if "information" not in str(item[0]):
+                refined_frame = fill_column_frame_RTE(
+                    frame,
+                    item,
+                    take_k_th_nearest_neighbor,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (
+                            new_columns_base_name,
+                            history_first,
+                            future_first,
+                            history_second,
+                            operation_name,
+                            shuffled_dataset,
+                            reversed_order,
+                            sample_number,
+                            averaging_over_neighbors,
+                            epsilon,
+                        ) for operation_name in operations_names
+                    ],
+                )
+
+            if shuffled_dataset and "information" not in str(item[0]) and "epsilon" not in str(item[0]):
+                refined_frame = fill_column_frame_effective_RTE(
+                    frame,
+                    item,
+                    take_k_th_nearest_neighbor,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (
+                            effective_new_column_name,
+                            history_first,
+                            future_first,
+                            history_second,
+                            operation_name,
+                            not shuffled_dataset,
+                            reversed_order,
+                            sample_number,
+                            averaging_over_neighbors,
+                            epsilon,
+                        ) for operation_name in operations_names
+                    ],
+                )
+
+            if not reversed_order and "information" not in str(item[0]) and "epsilon" not in str(item[0]):
+                refined_frame = fill_column_frame_balance_RTE(
+                    frame,
+                    item,
+                    take_k_th_nearest_neighbor,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (
+                            effective_new_column_name,
+                            history_first,
+                            future_first,
+                            history_second,
+                            operation_name,
+                            shuffled_dataset,
+                            reversed_order,
+                            sample_number,
+                            averaging_over_neighbors,
+                            epsilon,
+                        ) for operation_name in operations_names
+                    ],
+                )
+
+            if not reversed_order and shuffled_dataset and "information" not in str(item[0]) and "epsilon" not in str(
+                    item[0]):
+                refined_frame = fill_column_frame_balance_effective_RTE(
+                    frame,
+                    item,
+                    take_k_th_nearest_neighbor,
+                    unary_statistical_operations,
+                    refined_frame,
+                    [
+                        (
+                            balance_effective_new_column_name,
+                            history_first,
+                            future_first,
+                            history_second,
+                            operation_name,
+                            not shuffled_dataset,
+                            reversed_order,
+                            sample_number,
+                            averaging_over_neighbors,
+                            epsilon,
+                        ) for operation_name in operations_names
+                    ],
+                )
 
         except Exception as exc:
             debug = frame[item]
             print(f"{exc} {item} {debug}")
             raise exc
-
-    # effective transfer entropy
-    column_to_calculate_effective_transfer_entropy = [
-        item
-        for item in frame.columns.tolist()
-        if item[index_shuffle_dataset] and "information" not in str(item[0])
-    ]
-    for item in column_to_calculate_effective_transfer_entropy:
-        (
-            variable,
-            history_first,
-            future_first,
-            history_second,
-            shuffled_dataset,
-            reversed_order,
-            sample_number,
-        ) = item
-
-        refined_frame = fill_column_frame_effective_RTE(
-            frame,
-            item,
-            take_k_th_nearest_neighbor,
-            unary_statistical_operations,
-            refined_frame,
-            [
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "mean",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "std",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "median",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.25 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.75 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.1 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.9 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-            ],
-        )
-
-    # balance of entropy
-    column_to_calculate_balance_transfer_entropy = [
-        item
-        for item in frame.columns.tolist()
-        if not bool(item[index_swap_dataset])
-           and "information" not in str(item[0])
-           and "epsilon" not in str(item[0])
-    ]
-    for item in column_to_calculate_balance_transfer_entropy:
-        (
-            variable,
-            history_first,
-            future_first,
-            history_second,
-            shuffled_dataset,
-            reversed_order,
-            sample_number,
-        ) = item
-
-        refined_frame = fill_column_frame_balance_RTE(
-            frame,
-            item,
-            take_k_th_nearest_neighbor,
-            unary_statistical_operations,
-            refined_frame,
-            [
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "mean",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "std",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "median",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.25 quantile",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.75 quantile",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.1 quantile",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.9 quantile",
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-            ],
-        )
-
-    # balance of effective entropy
-    balance_effective_names = [
-        item
-        for item in frame.columns.tolist()
-        if not bool(item[index_swap_dataset])
-           and bool(item[index_shuffle_dataset])
-           and "information" not in str(item[0])
-           and "epsilon" not in str(item[0])
-    ]
-    for item in balance_effective_names:
-        (
-            variable,
-            history_first,
-            future_first,
-            history_second,
-            shuffled_dataset,
-            reversed_order,
-            sample_number,
-        ) = item
-
-        refined_frame = fill_column_frame_balance_effective_RTE(
-            frame,
-            item,
-            take_k_th_nearest_neighbor,
-            unary_statistical_operations,
-            refined_frame,
-            [
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "mean",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "std",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "median",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.25 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.75 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.1 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-                (
-                    balance_effective_new_column_name,
-                    history_first,
-                    future_first,
-                    history_second,
-                    "0.9 quantile",
-                    not shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    averaging_over_neighbors,
-                    epsilon,
-                ),
-            ],
-        )
 
     # append frame for processing
     refined_frame.to_pickle(processed_dataset)
