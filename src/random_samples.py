@@ -63,10 +63,12 @@ def sample_normal_distribution(sigma, size_sample=10):
 
         # check whether eigenvalues are all positive
         for eigenvalue in eigenvalues:
-            if eigenvalue <= 0:
+            if eigenvalue < 0:
                 raise ArithmeticError(
                     f"All eigenvalues have to be positive. Eigenvalue {eigenvalue} breaks the rule. Sigma: {sigma}"
                 )
+            elif eigenvalue == 0:
+                return np.array(np.array([0] * (size_sample * dimension)).reshape((size_sample, dimension)))
 
         standard_deviations = np.sqrt(eigenvalues)
         identity_sqrt = np.diag(standard_deviations)
@@ -284,7 +286,7 @@ def Renyi_beta_distribution(a, b, alpha):
 
 if __name__ == "__main__":
     sigma = np.array([[1, -0.1], [-0.1, 1]])
-    samples = 2000000
+    samples = 10
     dimension = 4
     correlation = 0.2
     save = True
@@ -294,6 +296,7 @@ if __name__ == "__main__":
             + correlation * np.eye(dimension, k=1)
             + correlation * np.eye(dimension, k=-1)
     )
+    sigma_skeleton = (np.array([0] * 16).reshape((4, 4)))
     normal_samples = sample_normal_distribution(
         sigma=sigma_skeleton, size_sample=samples
     )
