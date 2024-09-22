@@ -27,7 +27,17 @@ if __name__ == "__main__":
         # "financial_transfer_entropy"
         # , "financial_transfer_entropy_2", "financial_transfer_entropy_1", "financial_transfer_entropy"
         # "indices/short_memory_random=0.1",
-        "test"
+        # "test/random/r=0.001",
+        # "test/random/r=0.000001",
+        # "test/random/r=0.0",
+        # "test/random/r=0.000000001",
+        # "test/random/r=0.00000001",
+        # "test/random/r=0.0000001",
+        # "test"
+        # "test/random/r=1e-12",
+        # "test/random/r=1e-15",
+        # "test/random/r=1e-20",
+        "test/random/r=1e-23",
     ]
 
     for directory in directories:
@@ -37,6 +47,7 @@ if __name__ == "__main__":
             input_dataset = f"{directory}/{name_of_title}-{symbol}.bin"
             files = glob.glob(processed_dataset)
 
-            processing_datasets.refined_process_dataset(
-                input_dataset, processed_dataset
-            )
+            if len(files) == 0:
+                processing_datasets.refined_process_dataset(
+                    input_dataset, processed_dataset
+                )

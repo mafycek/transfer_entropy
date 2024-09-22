@@ -117,7 +117,6 @@ def preparation_dataset_for_transfer_entropy(
     if "transpose" in kwargs and kwargs["transpose"]:
         marginal_solution_1 = marginal_solution_1.T
         marginal_solution_2 = marginal_solution_2.T
-
     if "postselection_y_fut" in kwargs:
         postselection_y_fut = kwargs["postselection_y_fut"]
     else:

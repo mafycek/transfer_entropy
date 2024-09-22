@@ -341,13 +341,13 @@ def generate_figures_from_neighborhood_statistics(
                                 actual_reverse_direction,
                                 actual_shuffled_calculation,
                             )
-                            figure_parameters = figure_parameter["profile"]
+                            figure_profile = figure_parameter["profile"]
 
                             rows = len(samples)
                             figures2d_TE_overview_alpha_order_statistics(
                                 time_set_selection_complet,
                                 rows,
-                                figure_parameters,
+                                figure_profile,
                                 latex_title,
                                 latex_alpha_label,
                                 (
@@ -469,14 +469,13 @@ def generate_figures_from_complete_statistics(
                                 actual_reverse_direction,
                                 actual_shuffled_calculation,
                             )
-                            figure_parameters = figure_parameter["profile"]
-
+                            # figure_parameters = figure_parameter["profile"]
                             rows = 1
 
                             figures2d_TE_overview_alpha_order_statistics(
                                 time_set_selection_complet,
                                 rows,
-                                figure_parameters,
+                                figure_parameter["profile"],
                                 latex_title,
                                 latex_alpha_label,
                                 (
@@ -539,7 +538,7 @@ def generate_overview_figures_from_averages(
                 )
                 for actual_reverse_direction in reverse_directions:
                     shuffled_calculations = (
-                        [False, True] if "effective" not in RTE_type else [False]
+                        [False, True] if "effective" not in RTE_type else [False, True]
                     )
                     for actual_shuffled_calculation in shuffled_calculations:
                         history_first, future_first, history_second = time_set
@@ -590,13 +589,14 @@ def generate_overview_figures_from_averages(
                                 + f"""{{{pure_title_std}}}"""
                         )
 
-                        rows = (
-                            (len(samples) if actual_shuffled_calculation else 1)
-                            if isinstance(
-                                time_set_selection_complet.iloc[0].iloc[0], float
-                            )
-                            else time_set_selection_complet.iloc[0].iloc[0].shape[0]
-                        )
+                        rows = len(samples)
+                        #    (
+                        #    (len(samples) if actual_shuffled_calculation else 1)
+                        #    if isinstance(
+                        #        time_set_selection_complet.iloc[0].iloc[0], float
+                        #    )
+                        #    else time_set_selection_complet.iloc[0].iloc[0].shape[0]
+                        # )
 
                         for figure_parameter in figure_generation["figure_generation"]:
                             standard_filename = figure_parameter["filename"](
@@ -608,12 +608,12 @@ def generate_overview_figures_from_averages(
                                 actual_reverse_direction,
                                 actual_shuffled_calculation,
                             )
-                            figure_parameters = figure_parameter["profile"]
+                            figure_profile = figure_parameter["profile"]
 
                             figures2d_TE_overview_alpha_order_statistics(
                                 time_set_selection_complet,
                                 rows,
-                                figure_parameters,
+                                figure_profile,
                                 latex_title,
                                 latex_alpha_label,
                                 (
@@ -627,8 +627,160 @@ def generate_overview_figures_from_averages(
                             )
 
 
-def generate_figures_aggregated_figures(TE_statistics, figure_parameters, figure_generation
-                                        ):
+def generate_overview_figures_within_category(figure_parameters, figure_generation):
+    folder_parameters = figure_generation["folders"][0]
+    profile_of_figure = figure_generation["profile"]
+    folder_name = folder_parameters["name"]
+    filename = figure_generation["merged_dataset"]
+    name_of_title = figure_generation["title"]
+    actual_dataset = f"{folder_name}/{filename}"
+    take_k_th_nearest_neighbor = 5
+    averaging_over_neighbors = f"Avaraging over samples and neighbours k"
+    symbol = "amazon"
+    dpi = figure_parameters["dpi"]
+
+    files = glob.glob(actual_dataset)
+    if len(files) == 0:
+        # create dataset
+        pass
+    else:
+        output_dataset = f"test/random/{figure_generation['collect_dataset']}"
+        files = glob.glob(output_dataset)
+        if len(files) == 0:
+            table = pd.read_pickle(actual_dataset)
+
+            timeserie_names = set()
+            RTE_types = set()
+            time_sets = set()
+            statistics_types = set()
+            samples = set()
+            timeserie_names_categories = set()
+            timeserie_names_groups = {}
+            history_profiles = set()
+
+            for item in table.columns:
+                (
+                    RTE_type,
+                    history_first,
+                    future_first,
+                    history_second,
+                    type_of_statistics,
+                    shuffled_dataset,
+                    reversed_order,
+                    sample_number,
+                    comment,
+                    timeserie_name,
+                ) = item
+                RTE_types.add(RTE_type)
+                history_profiles.add(
+                    ((history_first), (future_first), (history_second))
+                )
+                timeserie_names.add(timeserie_name)
+                timeserie_names_categories.add(timeserie_name.split("_")[0])
+                statistics_types.add(type_of_statistics)
+                samples.add(sample_number)
+                timeserie_base_name = timeserie_name.split("_")[0]
+                if timeserie_base_name not in timeserie_names_groups:
+                    timeserie_names_groups[timeserie_base_name] = set([timeserie_name])
+                else:
+                    timeserie_names_groups[timeserie_base_name].add(timeserie_name)
+
+            print(
+                RTE_types, timeserie_names, timeserie_names_categories, history_profiles
+            )
+            table_list = []
+            iter = 0
+
+            for folder in figure_generation["folders"]:
+                actual_dataset = f"{folder['name']}/{filename}"
+                table = pd.read_pickle(actual_dataset)
+
+                for RTE_type in [
+                    "balance_effective_transfer_entropy",
+                    "effective_transfer_entropy",
+                ]:
+                    for profile in profile_of_figure:
+                        statistic_selector = profile["selector"]
+                        color = profile["color"]
+                        data_style = profile["style"]
+
+                        # for timeserie_name in timeserie_names:
+                        histories_list = list(history_profiles)
+                        for history_profile in histories_list[:1]:
+                            print(folder, profile, history_profile, iter)
+                            iter += 1
+
+                            RTE_type_selection = table.xs(
+                                RTE_type, level="Name of variable", axis=1
+                            )
+                            remark_selection = RTE_type_selection.xs(
+                                averaging_over_neighbors, level="Remark", axis=1
+                            )
+                            history_first_selection = remark_selection.xs(
+                                history_profile[0], level="History first", axis=1
+                            )
+                            future_first_selection = history_first_selection.xs(
+                                history_profile[1], level="Future first", axis=1
+                            )
+                            history_second_selection = future_first_selection.xs(
+                                history_profile[2], level="History second", axis=1
+                            )
+                            # timeseries_selection = history_second_selection.xs(
+                            #    timeserie_name, level="Sample", axis=1
+                            # )
+                            sample_selection = history_second_selection.xs(
+                                0, level="Sample number", axis=1
+                            )
+                            statistical_value_selection = sample_selection.xs(
+                                statistic_selector[0],
+                                level="Statistical value",
+                                axis=1,
+                            )
+
+                            new_column = []
+                            for column in statistical_value_selection.columns:
+                                new_column.append(list(column) + [RTE_type] + [folder["title"]])
+
+                            # print (statistical_value_selection.columns.names)
+                            new_column_names = list(statistical_value_selection.columns.names) + [
+                                "Name of variable"] + ["Randomness"]
+                            transpose_of_column_names = list(map(list, zip(*new_column)))
+                            columns = pd.MultiIndex.from_tuples(new_column, names=new_column_names)
+
+                            statistical_value_selection.columns = columns
+                            table_list.append(statistical_value_selection)
+
+            table_figure = pd.concat(table_list, axis=1)
+            table_figure.to_pickle(output_dataset)
+        else:
+            table_figure = pd.read_pickle(output_dataset)
+
+        print(table_figure.columns.get_level_values(0).unique())
+        timeserie_names = table_figure.columns.values.tolist()
+
+        # groups of timeseries in a figure
+        plots_in_image = set()
+        for item in timeserie_names:
+            plots_in_image.add(item[-1])
+
+        columns_filtered = [
+            item for item in timeserie_names if "effective" in item[2]
+        ]
+
+        pure_title = (
+                name_of_title.capitalize().replace("_", " ")
+                + f" of {symbol} for nearest neighbor"
+        )
+        latex_title = figure_parameters["latex_title_size"] + f"""{{{pure_title}}}"""
+        latex_alpha_label = figure_parameters["latex_overview_label_size"] + r"$\alpha$"
+
+        figures2d_TE_overview_various_parameters(table_figure, list(plots_in_image), [], latex_title, latex_alpha_label,
+                                                 "RTE", filename, "png", dpi=dpi)
+
+
+def generate_figures_aggregated_figures(
+        TE_statistics, figure_parameters, figure_generation
+):
     selection = TE_statistics.xs(
         figure_generation["selector"], level=figure_generation["level"], axis=1
     )
@@ -670,7 +822,9 @@ def generate_figures_aggregated_figures(TE_statistics, figure_parameters, figure
     )
 
     for timeseries_name, timeseries_groups in timeserie_names_groups.items():
-        selected_columns = [item for item in selection.columns if item[8] in timeseries_groups]
+        selected_columns = [
+            item for item in selection.columns if item[8] in timeseries_groups
+        ]
         timeserie_selection = selection[[*selected_columns]]
         symbol = timeseries_name
 
@@ -699,13 +853,19 @@ def generate_figures_aggregated_figures(TE_statistics, figure_parameters, figure
                                 history_second, level="History second", axis=1
                             )
                             time_set_selection_reverse = time_set_selection_hs.xs(
-                                actual_reverse_direction, level="Reversed direction", axis=1
+                                actual_reverse_direction,
+                                level="Reversed direction",
+                                axis=1,
                             )
                             time_set_selection_complet = time_set_selection_reverse.xs(
                                 actual_shuffled_calculation, level="Shuffled", axis=1
                             )
                         except KeyError as exc:
-                            print(time_set_selection_reverse, actual_shuffled_calculation, RTE_type)
+                            print(
+                                time_set_selection_reverse,
+                                actual_shuffled_calculation,
+                                RTE_type,
+                            )
 
                         samples_set = set()
                         for item in time_set_selection_complet.columns:
@@ -726,13 +886,21 @@ def generate_figures_aggregated_figures(TE_statistics, figure_parameters, figure
                         latex_alpha_label = (
                                 figure_parameters["latex_overview_label_size"] + r"$\alpha$"
                         )
-                        ylabel = figure_parameters["latex_overview_label_size"] + r"$" + translate_to_label_TE((
-                            RTE_type,
-                            history_first,
-                            future_first,
-                            history_second,
-                            actual_reverse_direction,
-                            actual_shuffled_calculation)) + r"$"
+                        ylabel = (
+                                figure_parameters["latex_overview_label_size"]
+                                + r"$"
+                                + translate_to_label_TE(
+                            (
+                                RTE_type,
+                                history_first,
+                                future_first,
+                                history_second,
+                                actual_reverse_direction,
+                                actual_shuffled_calculation,
+                            )
+                        )
+                                + r"$"
+                        )
                         pure_title_std = (
                                 "Standard deviation of "
                                 + name_of_title.capitalize().replace("_", " ")
@@ -750,7 +918,9 @@ def generate_figures_aggregated_figures(TE_statistics, figure_parameters, figure
                                 actual_reverse_direction,
                                 actual_shuffled_calculation,
                             )
-                            figure_generation_configuration = figure_parameter["profile"]
+                            figure_generation_configuration = figure_parameter[
+                                "profile"
+                            ]
 
                             figures2d_TE_overview_alpha_timeseries(
                                 time_set_selection_complet,
@@ -764,3 +934,134 @@ def generate_figures_aggregated_figures(TE_statistics, figure_parameters, figure
                                 dpi=figure_parameters["dpi"],
                                 fontsize=figure_parameters["fontsize"],
                             )
+
+
+def generate_figures_aggregated_timeseries_figures(
+        TE_statistics, figure_parameters, figure_generation
+):
+    selection = TE_statistics.xs(
+        figure_generation["selector"], level=figure_generation["level"], axis=1
+    )
+
+    timeserie_names = set()
+    RTE_types = set()
+    time_sets = set()
+    statistics_types = set()
+    samples = set()
+    timeserie_names_categories = set()
+    timeserie_names_groups = {}
+
+    for item in selection.columns:
+        (
+            RTE_type,
+            history_first,
+            future_first,
+            history_second,
+            type_of_statistics,
+            shuffled_dataset,
+            reversed_order,
+            sample_number,
+            timeserie_name,
+        ) = item
+        timeserie_names.add(timeserie_name)
+        statistics_types.add(type_of_statistics)
+        RTE_types.add(RTE_type)
+        time_sets.add((history_first, future_first, history_second))
+
+    print(
+        list(timeserie_names), list(statistics_types), list(RTE_types), list(time_sets)
+    )
+
+    for timeseries_name in timeserie_names:
+        selected_columns = [
+            item for item in selection.columns if item[8] == timeseries_name
+        ]
+        timeserie_selection = selection[[*selected_columns]]
+        symbol = timeseries_name
+
+        for time_set in list(time_sets):
+            try:
+                history_first, future_first, history_second = time_set
+                time_set_selection_hf = timeserie_selection.xs(
+                    history_first, level="History first", axis=1
+                )
+                time_set_selection_ff = time_set_selection_hf.xs(
+                    future_first, level="Future first", axis=1
+                )
+                time_set_selection_sample = time_set_selection_ff.xs(
+                    history_second, level="History second", axis=1
+                )
+                time_set_selection_complet = time_set_selection_sample.xs(
+                    0, level="Sample number", axis=1
+                )
+
+            except KeyError as exc:
+                print(RTE_type)
+
+            samples_set = set()
+            for item in time_set_selection_complet.columns:
+                samples_set.add(item[1])
+            samples = list(samples_set)
+
+            name_of_title = RTE_type.split("y_")[0]
+            base_filename = name_of_title
+
+            pure_title = (
+                    name_of_title.capitalize().replace("_", " ")
+                    + f" of {symbol} for nearest neighbor"
+            )
+            latex_title = (
+                    figure_parameters["latex_title_size"] + f"""{{{pure_title}}}"""
+            )
+            latex_alpha_label = (
+                    figure_parameters["latex_overview_label_size"] + r"$\alpha$"
+            )
+
+            col = [
+                (
+                    item,
+                    figure_parameters["latex_overview_label_size"]
+                    + r"$"
+                    + translate_to_label_TE(
+                        (
+                            item[0],
+                            history_first,
+                            future_first,
+                            history_second,
+                            item[3],
+                            item[2],
+                        )
+                    )
+                    + r"$",
+                )
+                for item in time_set_selection_complet.columns
+                if item[1] == "mean"
+            ]
+
+            pure_title_std = (
+                    "Standard deviation of "
+                    + name_of_title.capitalize().replace("_", " ")
+                    + f" of {symbol} for nearest neighbor"
+            )
+
+            for figure_parameter in figure_generation["figure_generation"]:
+                standard_filename = figure_parameter["filename"](
+                    base_filename,
+                    symbol,
+                    history_first,
+                    future_first,
+                    history_second,
+                )
+                figure_generation_configuration = figure_parameter["profile"]
+
+                figures2d_TE_complet_overview_alpha_timeseries(
+                    time_set_selection_complet,
+                    col,
+                    figure_generation_configuration,
+                    latex_title,
+                    latex_alpha_label,
+                    standard_filename,
+                    figure_parameters["output_format"],
+                    dpi=figure_parameters["dpi"],
+                    fontsize=figure_parameters["fontsize"],
+                )

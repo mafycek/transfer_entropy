@@ -20,7 +20,17 @@ if __name__ == "__main__":
         # "financial_transfer_entropy"
         # , "financial_transfer_entropy_2", "financial_transfer_entropy_1", "financial_transfer_entropy"
         # "indices/short_memory_random=0.1",
-        "test"
+        # "test",
+        # "test/random/r=0.0",
+        # "test/random/r=0.001",
+        # "test/random/r=0.000001",
+        # "test/random/r=0.0000001",
+        # "test/random/r=0.00000001",
+        # "test/random/r=0.000000001",
+        # "test/random/r=1e-12",
+        # "test/random/r=1e-15",
+        # "test/random/r=1e-20",
+        "test/random/r=1e-23",
     ]
 
     print(f"Available plot styles {plt.style.available}")
@@ -62,14 +72,14 @@ if __name__ == "__main__":
                         ),
                         "profile": [
                             {
-                                "selector": ["0.1 quantile", "0.9 quantile"],
+                                "selector": ["quantile 0.1", "quantile 0.9"],
                                 "color": "moccasin",
                                 "style": "quantile band",
                                 "label": "0.1-0.9 quantile band",
                                 "aggregation": "sample",
                             },
                             {
-                                "selector": ["0.25 quantile", "0.75 quantile"],
+                                "selector": ["quantile 0.25", "quantile 0.75"],
                                 "color": "lightcoral",
                                 "style": "quantile band",
                                 "label": "0.25-0.75 quantile band",
@@ -262,9 +272,9 @@ if __name__ == "__main__":
                     },
                 ],
             }
-            # generate_figures_from_complete_statistics(
-            #    table, figure_parameters, figure_generation_NNSA
-            # )
+            generate_figures_from_complete_statistics(
+                table, figure_parameters, figure_generation_NNSA
+            )
 
             figure_generation_aggregation = {
                 "selector": f"Avaraging over samples and neighbours k",
@@ -335,4 +345,71 @@ if __name__ == "__main__":
                     },
                 ],
             }
-            generate_figures_aggregated_figures(table, figure_parameters, figure_generation_aggregation)
+            generate_figures_aggregated_figures(
+                table, figure_parameters, figure_generation_aggregation
+            )
+
+            figure_generation_timeseriers_aggregation = {
+                "selector": f"Avaraging over samples and neighbours k",
+                "level": "Remark",
+                "figure_generation": [
+                    {
+                        "filename": lambda base_filename, symbol, history_first, future_first, history_second:
+                        figure_parameters[
+                            "directory"
+                        ]
+                        + f"/{base_filename}_{symbol}_{history_first}_{future_first}_{history_second}"
+                        + "_quantiles_aggregation_per_timeseries",
+                        "profile": [
+                            {
+                                "selector": ["quantile 0.1", "quantile 0.9"],
+                                "color": "moccasin",
+                                "style": "quantile band",
+                                "label": "0.1-0.9 quantile band",
+                                "aggregation": "sample",
+                            },
+                            {
+                                "selector": ["quantile 0.25", "quantile 0.75"],
+                                "color": "lightcoral",
+                                "style": "quantile band",
+                                "label": "0.25-0.75 quantile band",
+                                "aggregation": "sample",
+                            },
+                            {
+                                "selector": ["median"],
+                                "color": "greenyellow",
+                                "style": "line",
+                                "label": "median",
+                                "aggregation": "sample",
+                            },
+                        ],
+                    },
+                    {
+                        "filename": lambda base_filename, symbol, history_first, future_first, history_second:
+                        figure_parameters[
+                            "directory"
+                        ]
+                        + f"/{base_filename}_{symbol}_{history_first}_{future_first}_{history_second}"
+                        + "_std_aggregation_per_timeseries",
+                        "profile": [
+                            {
+                                "selector": ["mean", "std"],
+                                "color": "moccasin",
+                                "style": "yerrorbar",
+                                "label": "errorbar",
+                                "aggregation": "sample",
+                            },
+                            {
+                                "selector": ["mean"],
+                                "color": "greenyellow",
+                                "style": "line",
+                                "label": "mean",
+                                "aggregation": "sample",
+                            },
+                        ],
+                    },
+                ],
+            }
+            # generate_figures_aggregated_timeseries_figures(
+            #    table, figure_parameters, figure_generation_timeseriers_aggregation
+            # )

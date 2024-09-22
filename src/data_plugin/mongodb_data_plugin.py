@@ -211,8 +211,8 @@ if __name__ == "__main__":
     # print(post_structure)
 
     dataPlugin = FinanceDataPlugin(
-        "/home/hynek/work/skola/prog/python/transfer_entropy/data/1Q23_sp_stocks/"
-        #"/home/hynek/work/skola/prog/python/transfer_entropy/data"
+        # "/home/hynek/work/skola/prog/python/transfer_entropy/data/1Q23_sp_stocks/"
+        "/home/hynek/work/skola/prog/python/transfer_entropy/data/"
     )
     old_data = False
     if old_data:

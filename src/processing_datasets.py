@@ -98,7 +98,14 @@ def generate_label_from_name_of_column_TE(column_multiindex, name_of_title):
 
 
 def translate_to_label_TE(column_name):
-    timeseries_name, history_first_TS, future_first_TS, history_second_TS, swapped_datasets, shuffled_calculation = column_name
+    (
+        timeseries_name,
+        history_first_TS,
+        future_first_TS,
+        history_second_TS,
+        swapped_datasets,
+        shuffled_calculation,
+    ) = column_name
     balance = "balance" in timeseries_name
     effective = "effective" in timeseries_name
     standard_filename = "figure"
@@ -240,7 +247,7 @@ def minimal_difference(target):
 def figures2d_imshow(
         dataset, selector, title, xlabel, ylabel, filename, suffix, cmap="magma", dpi=300
 ):
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     fig, ax = plt.subplots(1, 1, figsize=(13, 8))
 
@@ -312,7 +319,7 @@ def figures2d_TE_alpha(
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1)
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     ax.set_title(title)
     ax.set_xlabel(xlabel)
@@ -388,7 +395,7 @@ def figures2d_TE_overview_alpha(
     number_rows, number_columns = max_divisor(len(selectors))
     fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     fig.suptitle(title)
     name_of_title, latex_overview_label_size = y_label_params
@@ -505,7 +512,7 @@ def figures2d_TE_overview_alpha_order_statistics(
     number_rows, number_columns = max_divisor(number_selectors)
     fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     fig.suptitle(title)
     name_of_title, latex_overview_label_size = y_label_params
@@ -639,13 +646,15 @@ def figures2d_TE_overview_alpha_timeseries(
     matplotlib.style.use(style)
     number_rows, number_columns = max_divisor(number_selectors)
     fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
     fig.suptitle(title)
 
     for row in range(number_rows):
         for column in range(number_columns):
             index_of_dataset = column + number_columns * row
-            subselection_timeseries = dataset.xs(timeseries_groups[index_of_dataset], level="Sample", axis=1)
+            subselection_timeseries = dataset.xs(
+                timeseries_groups[index_of_dataset], level="Sample", axis=1
+            )
 
             if number_rows == 1 and number_columns == 1:
                 axs.set_xlabel(xlabel)
@@ -659,7 +668,7 @@ def figures2d_TE_overview_alpha_timeseries(
             else:
                 axs[row, column].set_title(f"{timeseries_groups[index_of_dataset]}")
                 axs[row, column].set_xlabel(xlabel)
-                if (column == 0):
+                if column == 0:
                     axs[row, column].set_ylabel(ylabel)
 
             order_of_dataset = 0
@@ -667,7 +676,9 @@ def figures2d_TE_overview_alpha_timeseries(
                 try:
                     # subselection = [dataset[item] for item in selector_item["selector"]]
                     subselection = [
-                        subselection_timeseries.xs(item, level="Statistical value", axis=1)
+                        subselection_timeseries.xs(
+                            item, level="Statistical value", axis=1
+                        )
                         for item in selector_item["selector"]
                     ]
 
@@ -690,9 +701,272 @@ def figures2d_TE_overview_alpha_timeseries(
                             zs.append(
                                 np.array(
                                     [
-                                        subselection[index]
-                                        .loc[key]
-                                        .values[0][0]
+                                        subselection[index].loc[key].values[0][0]
+                                        for index_key_selection, key in enumerate(ys)
+                                    ]
+                                )
+                            )  # [index_of_order]
+
+                    # prepare visualization
+                    color = selector_item["color"]
+                    actual_axes = None
+                    if number_rows == 1 and number_columns == 1:
+                        actual_axes = axs
+                    elif number_rows == 1:
+                        actual_axes = axs[column]
+                    elif number_columns == 1:
+                        actual_axes = axs[row]
+                    else:
+                        actual_axes = axs[row, column]
+
+                    if (
+                            len(subselection) == 2
+                            and selector_item["style"] == "quantile band"
+                    ):
+                        actual_axes.fill_between(
+                            ys, zs[0], zs[1], linewidth=1, label=label, color=color
+                        )
+                    elif len(subselection) == 1 and selector_item["style"] == "line":
+                        actual_axes.plot(
+                            ys, zs[0], linewidth=1, label=label, color=color
+                        )
+                    elif (
+                            len(subselection) == 2 and selector_item["style"] == "yerrorbar"
+                    ):
+                        lower_band = zs[0] - zs[1]
+                        upper_band = zs[0] + zs[1]
+                        actual_axes.fill_between(
+                            ys,
+                            lower_band,
+                            upper_band,
+                            linewidth=1,
+                            label=label,
+                            color=color,
+                        )
+                    else:
+                        print("problem")
+
+                except Exception as exc:
+                    print(traceback.format_exc(), selector_item, selectors)
+
+                order_of_dataset += 1
+
+            plt.legend(loc=0, ncol=2, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+
+    plt.savefig(filename + "." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    del fig
+
+
+def figures2d_TE_overview_various_parameters(
+        dataset,
+        timeseries_groups,
+        selectors,
+        title,
+        xlabel,
+        ylabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
+        style="seaborn-v0_8",
+):
+    number_selectors = len(timeseries_groups)
+    matplotlib.style.use(style)
+    number_rows, number_columns = max_divisor(number_selectors)
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+    color_map = matplotlib.colormaps.get_cmap(cmap)
+    fig.suptitle(title)
+
+    for row in range(number_rows):
+        for column in range(number_columns):
+            index_of_dataset = column + number_columns * row
+            subselection_timeseries = dataset.xs(
+                timeseries_groups[index_of_dataset], level="Randomness", axis=1
+            )  # level="Sample"
+
+            if number_rows == 1 and number_columns == 1:
+                axs.set_xlabel(xlabel)
+                axs.set_ylabel(ylabel)
+            elif number_rows == 1:
+                axs[column].set_xlabel(xlabel)
+                axs[column].set_ylabel(ylabel)
+            elif number_columns == 1:
+                axs[row].set_xlabel(xlabel)
+                axs[row].set_ylabel(ylabel)
+            else:
+                axs[row, column].set_title(f"{timeseries_groups[index_of_dataset]}")
+                axs[row, column].set_xlabel(xlabel)
+                if column == 0:
+                    axs[row, column].set_ylabel(ylabel)
+
+            order_of_dataset = 0
+            for selector_item in selectors:
+                try:
+                    # subselection = [dataset[item] for item in selector_item["selector"]]
+                    subselection = [
+                        subselection_timeseries.xs(
+                            item, level="Statistical value", axis=1
+                        )
+                        for item in selector_item["selector"]
+                    ]
+
+                    label = selector_item["label"]
+                    ys = subselection[0].index.to_list()
+                    zs = []
+                    for index in range(len(subselection)):
+                        # for item in ys:
+                        #    print(subselection[index].loc[item], subselection[index].loc[item].values[0][index_of_order], len(subselection[index].loc[item].values.shape))
+                        if selector_item["aggregation"] == "sample":
+                            zs.append(
+                                np.array(
+                                    [
+                                        subselection[index][0].loc[key]
+                                        for index_key_selection, key in enumerate(ys)
+                                    ]
+                                )
+                            )
+                        elif selector_item["aggregation"] == "neighborhood":
+                            zs.append(
+                                np.array(
+                                    [
+                                        subselection[index].loc[key].values[0][0]
+                                        for index_key_selection, key in enumerate(ys)
+                                    ]
+                                )
+                            )  # [index_of_order]
+
+                    # prepare visualization
+                    color = selector_item["color"]
+                    actual_axes = None
+                    if number_rows == 1 and number_columns == 1:
+                        actual_axes = axs
+                    elif number_rows == 1:
+                        actual_axes = axs[column]
+                    elif number_columns == 1:
+                        actual_axes = axs[row]
+                    else:
+                        actual_axes = axs[row, column]
+
+                    if (
+                            len(subselection) == 2
+                            and selector_item["style"] == "quantile band"
+                    ):
+                        actual_axes.fill_between(
+                            ys, zs[0], zs[1], linewidth=1, label=label, color=color
+                        )
+                    elif len(subselection) == 1 and selector_item["style"] == "line":
+                        actual_axes.plot(
+                            ys, zs[0], linewidth=1, label=label, color=color
+                        )
+                    elif (
+                            len(subselection) == 2 and selector_item["style"] == "yerrorbar"
+                    ):
+                        lower_band = zs[0] - zs[1]
+                        upper_band = zs[0] + zs[1]
+                        actual_axes.fill_between(
+                            ys,
+                            lower_band,
+                            upper_band,
+                            linewidth=1,
+                            label=label,
+                            color=color,
+                        )
+                    else:
+                        print("problem")
+
+                except Exception as exc:
+                    print(traceback.format_exc(), selector_item, selectors)
+
+                order_of_dataset += 1
+
+            plt.legend(loc=0, ncol=2, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+
+    plt.savefig(filename + "." + suffix, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    del fig
+
+
+def figures2d_TE_complet_overview_alpha_timeseries(
+        dataset,
+        timeseries_groups,
+        selectors,
+        title,
+        xlabel,
+        filename,
+        suffix,
+        cmap="rainbow",
+        dpi=300,
+        fontsize=10,
+        style="seaborn-v0_8",
+):
+    number_selectors = len(timeseries_groups)
+    matplotlib.style.use(style)
+    number_rows, number_columns = max_divisor(number_selectors)
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+    color_map = matplotlib.colormaps.get_cmap(cmap)
+    fig.suptitle(title)
+
+    for row in range(number_rows):
+        for column in range(number_columns):
+            index_of_dataset = column + number_columns * row
+
+            ylabel = timeseries_groups[index_of_dataset][1]
+            subselection_timeseries = dataset.xs(
+                timeseries_groups[index_of_dataset][0], level="Sample", axis=1
+            )
+
+            if number_rows == 1 and number_columns == 1:
+                axs.set_xlabel(xlabel)
+                axs.set_ylabel(ylabel)
+            elif number_rows == 1:
+                axs[column].set_xlabel(xlabel)
+                axs[column].set_ylabel(ylabel)
+            elif number_columns == 1:
+                axs[row].set_xlabel(xlabel)
+                axs[row].set_ylabel(ylabel)
+            else:
+                axs[row, column].set_title(f"{timeseries_groups[index_of_dataset]}")
+                axs[row, column].set_xlabel(xlabel)
+                if column == 0:
+                    axs[row, column].set_ylabel(ylabel)
+
+            order_of_dataset = 0
+            for selector_item in selectors:
+                try:
+                    # subselection = [dataset[item] for item in selector_item["selector"]]
+                    subselection = [
+                        subselection_timeseries.xs(
+                            item, level="Statistical value", axis=1
+                        )
+                        for item in selector_item["selector"]
+                    ]
+
+                    label = selector_item["label"]
+                    ys = subselection[0].index.to_list()
+                    zs = []
+                    for index in range(len(subselection)):
+                        # for item in ys:
+                        #    print(subselection[index].loc[item], subselection[index].loc[item].values[0][index_of_order], len(subselection[index].loc[item].values.shape))
+                        if selector_item["aggregation"] == "sample":
+                            zs.append(
+                                np.array(
+                                    [
+                                        subselection[index][0].loc[key]
+                                        for index_key_selection, key in enumerate(ys)
+                                    ]
+                                )
+                            )
+                        elif selector_item["aggregation"] == "neighborhood":
+                            zs.append(
+                                np.array(
+                                    [
+                                        subselection[index].loc[key].values[0][0]
                                         for index_key_selection, key in enumerate(ys)
                                     ]
                                 )
@@ -770,7 +1044,7 @@ def figures2d_TE_overview_alpha_errorbar(
     number_rows, number_columns = max_divisor(len(selectors))
     fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
     fig.suptitle(title)
     name_of_title, latex_overview_label_size = y_label_params
 
@@ -985,7 +1259,7 @@ def figures2d_TE(
 ):
     matplotlib.style.use(style)
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1)
@@ -1054,7 +1328,7 @@ def figures2d_TE_errorbar(
 ):
     matplotlib.style.use(style)
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     fig = plt.figure(figsize=(13, 8))
     ax = fig.add_subplot(1, 1, 1)
@@ -1119,7 +1393,7 @@ def figures2d_samples_TE(
 ):
     matplotlib.style.use("seaborn")
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
     alphas = dataset["alpha"].unique()
     epsilons = dataset["epsilon"].unique()
     subselection = dataset.loc[dataset["alpha"] == alphas[0]]
@@ -1186,7 +1460,7 @@ def figures2d_fixed_epsilon(
         style="seaborn-v0_8",
 ):
     matplotlib.style.use(style)
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     alphas = dataset["alpha"].unique()
     fixed_epsilon = 0.07
@@ -1257,7 +1531,7 @@ def escort_distribution(
 ):
     matplotlib.style.use(style)
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
 
     fig = plt.figure(figsize=(13, 8))
     markers = ["b", "^"]
@@ -1362,7 +1636,7 @@ def lyapunov_exponent_plot(
 ):
     matplotlib.style.use(style)
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
     fig = plt.figure(figsize=(13, 8))
 
     x = dataset[[0]].values.flatten().tolist()
@@ -1405,7 +1679,7 @@ def qgauss_plot(
 ):
     matplotlib.style.use(style)
 
-    color_map = matplotlib.cm.get_cmap(cmap)
+    color_map = matplotlib.colormaps.get_cmap(cmap)
     fig = plt.figure(figsize=(13, 8))
 
     selected_datasets = dataset[dataset["X1"] >= 0.001]
@@ -1530,7 +1804,7 @@ def fill_column_frame_sample_statistics_RTE(
         process_columns = [
             np.array(row[[processed_column]]) for processed_column in processed_columns
         ]
-        merged_columns = np.stack(process_columns)
+        merged_columns = np.stack(process_columns, axis=1)
         for actual_unary_operation, actual_destination_multiindex in zip(
                 unary_opertions, destination_multiindices
         ):
@@ -1646,7 +1920,7 @@ def fill_column_frame_sample_statistics_balanced_RTE(
             )
             for processed_column in processed_columns
         ]
-        merged_columns = np.stack(process_columns)
+        merged_columns = np.stack(process_columns, axis=1)
         for actual_unary_operation, actual_destination_multiindex in zip(
                 unary_opertions, destination_multiindices
         ):
@@ -1717,7 +1991,7 @@ def fill_column_frame_sample_statistics_effective_RTE(
             for processed_column in processed_columns
         ]
 
-        merged_columns = np.stack(process_columns)
+        merged_columns = np.stack(process_columns, axis=1)
         for actual_unary_operation, actual_destination_multiindex in zip(
                 unary_opertions, destination_multiindices
         ):
@@ -2032,7 +2306,7 @@ def fill_column_frame_sample_statistics_balanced_effective_RTE(
             )
             for processed_column in processed_columns
         ]
-        merged_columns = np.stack(process_columns)
+        merged_columns = np.stack(process_columns, axis=1)
         for actual_unary_operation, actual_destination_multiindex in zip(
                 unary_opertions, destination_multiindices
         ):
@@ -2250,7 +2524,9 @@ def refined_process_dataset(input_dataset, processed_dataset):
     take_k_th_nearest_neighbor = 5
     index_shuffle_dataset = 4
     index_swap_dataset = 5
-    converter_epsilon = converter_epsilon = lambda x: x.split("-")[1].split(".b")[0]
+    converter_epsilon = converter_epsilon = lambda x: (
+        x.split("-")[2].split(".b")[0] if "1e-" in x else x.split("-")[1].split(".b")[0]
+    )
 
     averaging_over_samples = f"Avaraging over sample for each neighbour k"
     averaging_over_samples_and_neighbors = f"Avaraging over samples and neighbours k"
@@ -2363,7 +2639,228 @@ def refined_process_dataset(input_dataset, processed_dataset):
         lambda x: np.quantile(x, 0.1, axis=0),
         lambda x: np.quantile(x, 0.9, axis=0),
     ]
-    operations_names = ["mean", "std", "median", "quantile 0.25", "quantile 0.75", "quantile 0.1", "quantile 0.9"]
+    operations_names = [
+        "mean",
+        "std",
+        "median",
+        "quantile 0.25",
+        "quantile 0.75",
+        "quantile 0.1",
+        "quantile 0.9",
+    ]
+    del item
+
+    # sample statistics
+    sample_number = 0
+    for key, samples in multi_sample_columns.items():
+        (
+            variable,
+            history_first,
+            future_first,
+            history_second,
+            shuffled_dataset,
+            reversed_order,
+        ) = key
+        columns = [list(key) + [sample] for sample in samples]
+
+        refined_frame = fill_column_frame_sample_statistics_RTE(
+            frame,
+            columns,
+            unary_statistical_operations,
+            refined_frame,
+            [
+                (
+                    new_columns_base_name,
+                    history_first,
+                    future_first,
+                    history_second,
+                    operation_name,
+                    shuffled_dataset,
+                    reversed_order,
+                    sample_number,
+                    averaging_over_samples,
+                    epsilon,
+                )
+                for operation_name in operations_names
+            ],
+        )
+
+        if shuffled_dataset:
+            refined_frame = fill_column_frame_sample_statistics_effective_RTE(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        effective_new_column_name,
+                        history_first,
+                        future_first,
+                        history_second,
+                        operation_name,
+                        not shuffled_dataset,
+                        reversed_order,
+                        sample_number,
+                        averaging_over_samples,
+                        epsilon,
+                    )
+                    for operation_name in operations_names
+                ],
+            )
+
+        if not reversed_order:
+            refined_frame = fill_column_frame_sample_statistics_balanced_RTE(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        balance_new_column_name,
+                        history_first,
+                        future_first,
+                        history_second,
+                        operation_name,
+                        shuffled_dataset,
+                        reversed_order,
+                        sample_number,
+                        averaging_over_samples,
+                        epsilon,
+                    )
+                    for operation_name in operations_names
+                ],
+            )
+
+        if not reversed_order and shuffled_dataset:
+            refined_frame = fill_column_frame_sample_statistics_balanced_effective_RTE(
+                frame,
+                columns,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        balance_effective_new_column_name,
+                        history_first,
+                        future_first,
+                        history_second,
+                        operation_name,
+                        not shuffled_dataset,
+                        reversed_order,
+                        sample_number,
+                        averaging_over_samples,
+                        epsilon,
+                    )
+                    for operation_name in operations_names
+                ],
+            )
+
+    # nearest neighbour statistics
+    columns_to_calculate_RTE = frame.columns
+    for key in columns_to_calculate_RTE[:-1]:
+        (
+            variable,
+            history_first,
+            future_first,
+            history_second,
+            shuffled_dataset,
+            reversed_order,
+            sample_number,
+        ) = key
+
+        refined_frame = fill_column_frame_RTE(
+            frame,
+            key,
+            take_k_th_nearest_neighbor,
+            unary_statistical_operations,
+            refined_frame,
+            [
+                (
+                    new_columns_base_name,
+                    history_first,
+                    future_first,
+                    history_second,
+                    operation_name,
+                    shuffled_dataset,
+                    reversed_order,
+                    sample_number,
+                    averaging_over_neighbors,
+                    epsilon,
+                )
+                for operation_name in operations_names
+            ],
+        )
+
+        if shuffled_dataset:
+            refined_frame = fill_column_frame_effective_RTE(
+                frame,
+                key,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        effective_new_column_name,
+                        history_first,
+                        future_first,
+                        history_second,
+                        operation_name,
+                        not shuffled_dataset,
+                        reversed_order,
+                        sample_number,
+                        averaging_over_neighbors,
+                        epsilon,
+                    )
+                    for operation_name in operations_names
+                ],
+            )
+
+        if not reversed_order:
+            refined_frame = fill_column_frame_balance_RTE(
+                frame,
+                key,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        effective_new_column_name,
+                        history_first,
+                        future_first,
+                        history_second,
+                        operation_name,
+                        shuffled_dataset,
+                        reversed_order,
+                        sample_number,
+                        averaging_over_neighbors,
+                        epsilon,
+                    )
+                    for operation_name in operations_names
+                ],
+            )
+
+        if not reversed_order and shuffled_dataset:
+            refined_frame = fill_column_frame_balance_effective_RTE(
+                frame,
+                key,
+                take_k_th_nearest_neighbor,
+                unary_statistical_operations,
+                refined_frame,
+                [
+                    (
+                        balance_effective_new_column_name,
+                        history_first,
+                        future_first,
+                        history_second,
+                        operation_name,
+                        not shuffled_dataset,
+                        reversed_order,
+                        sample_number,
+                        averaging_over_neighbors,
+                        epsilon,
+                    )
+                    for operation_name in operations_names
+                ],
+            )
 
     # sample and nearest neighbour statistics
     for key, samples in multi_sample_columns.items():
@@ -2377,7 +2874,7 @@ def refined_process_dataset(input_dataset, processed_dataset):
         ) = key
         columns = [list(key) + [sample] for sample in samples]
 
-        if len(samples) > 1:  # more sample present
+        if "information" not in str(key[0]):  # more sample present
             refined_frame = fill_column_frame_sample_NN_statistics_RTE(
                 frame,
                 columns,
@@ -2395,7 +2892,8 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         0,
                         averaging_over_samples_and_neighbors,
                         epsilon,
-                    ) for operation_name in operations_names
+                    )
+                    for operation_name in operations_names
                 ],
                 take_k_th_nearest_neighbor,
             )
@@ -2418,7 +2916,8 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         0,
                         averaging_over_samples_and_neighbors,
                         epsilon,
-                    ) for operation_name in operations_names
+                    )
+                    for operation_name in operations_names
                 ],
                 take_k_th_nearest_neighbor,
             )
@@ -2441,15 +2940,13 @@ def refined_process_dataset(input_dataset, processed_dataset):
                         0,
                         averaging_over_samples_and_neighbors,
                         epsilon,
-                    ) for operation_name in operations_names
+                    )
+                    for operation_name in operations_names
                 ],
                 take_k_th_nearest_neighbor,
             )
 
-        if (not reversed_order
-                and shuffled_dataset
-                and "information" not in str(item[0])
-        ):
+        if not reversed_order and shuffled_dataset and "information" not in str(key[0]):
             refined_frame = (
                 fill_column_frame_sample_NN_statistics_balanced_effective_RTE(
                     frame,
@@ -2468,230 +2965,12 @@ def refined_process_dataset(input_dataset, processed_dataset):
                             0,
                             averaging_over_samples_and_neighbors,
                             epsilon,
-                        ) for operation_name in operations_names
+                        )
+                        for operation_name in operations_names
                     ],
                     take_k_th_nearest_neighbor,
                 )
             )
-
-    # sample statistics
-
-    # drop aggregated elements with only single sample
-    for key, samples in multi_sample_columns.items():
-        (
-            variable,
-            history_first,
-            future_first,
-            history_second,
-            shuffled_dataset,
-            reversed_order,
-        ) = key
-        columns = [list(key) + [sample] for sample in samples]
-
-        if len(samples) > 1:  # more sample present
-            refined_frame = fill_column_frame_sample_statistics_RTE(
-                frame,
-                columns,
-                unary_statistical_operations,
-                refined_frame,
-                [
-                    (
-                        new_columns_base_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        operation_name,
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_samples,
-                        epsilon,
-                    ) for operation_name in operations_names
-                ],
-            )
-
-        if (len(samples) > 1) and shuffled_dataset and "information" not in str(key[0]):
-            refined_frame = fill_column_frame_sample_statistics_effective_RTE(
-                frame,
-                columns,
-                unary_statistical_operations,
-                refined_frame,
-                [
-                    (
-                        effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        operation_name,
-                        not shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_samples,
-                        epsilon,
-                    ) for operation_name in operations_names
-                ],
-            )
-
-        if (not reversed_order) and "information" not in str(key[0]):
-            refined_frame = fill_column_frame_sample_statistics_balanced_RTE(
-                frame,
-                columns,
-                unary_statistical_operations,
-                refined_frame,
-                [
-                    (
-                        balance_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        operation_name,
-                        shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_samples,
-                        epsilon,
-                    ) for operation_name in operations_names
-                ],
-            )
-
-        if (
-                (len(samples) > 1)
-                and not reversed_order
-                and shuffled_dataset
-                and "information" not in str(item[0])
-        ):
-            refined_frame = fill_column_frame_sample_statistics_balanced_effective_RTE(
-                frame,
-                columns,
-                unary_statistical_operations,
-                refined_frame,
-                [
-                    (
-                        balance_effective_new_column_name,
-                        history_first,
-                        future_first,
-                        history_second,
-                        operation_name,
-                        not shuffled_dataset,
-                        reversed_order,
-                        sample_number,
-                        averaging_over_samples,
-                        epsilon,
-                    ) for operation_name in operations_names
-                ],
-            )
-
-    # nearest neighbour statistics
-    columns_to_calculate_RTE = frame.columns
-    for key in columns_to_calculate_RTE[:-1]:
-        try:
-            (
-                variable,
-                history_first,
-                future_first,
-                history_second,
-                shuffled_dataset,
-                reversed_order,
-                sample_number,
-            ) = key
-
-            if "information" not in str(item[0]):
-                refined_frame = fill_column_frame_RTE(
-                    frame,
-                    item,
-                    take_k_th_nearest_neighbor,
-                    unary_statistical_operations,
-                    refined_frame,
-                    [
-                        (
-                            new_columns_base_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            operation_name,
-                            shuffled_dataset,
-                            reversed_order,
-                            sample_number,
-                            averaging_over_neighbors,
-                            epsilon,
-                        ) for operation_name in operations_names
-                    ],
-                )
-
-            if shuffled_dataset and "information" not in str(item[0]) and "epsilon" not in str(item[0]):
-                refined_frame = fill_column_frame_effective_RTE(
-                    frame,
-                    item,
-                    take_k_th_nearest_neighbor,
-                    unary_statistical_operations,
-                    refined_frame,
-                    [
-                        (
-                            effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            operation_name,
-                            not shuffled_dataset,
-                            reversed_order,
-                            sample_number,
-                            averaging_over_neighbors,
-                            epsilon,
-                        ) for operation_name in operations_names
-                    ],
-                )
-
-            if not reversed_order and "information" not in str(item[0]) and "epsilon" not in str(item[0]):
-                refined_frame = fill_column_frame_balance_RTE(
-                    frame,
-                    item,
-                    take_k_th_nearest_neighbor,
-                    unary_statistical_operations,
-                    refined_frame,
-                    [
-                        (
-                            effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            operation_name,
-                            shuffled_dataset,
-                            reversed_order,
-                            sample_number,
-                            averaging_over_neighbors,
-                            epsilon,
-                        ) for operation_name in operations_names
-                    ],
-                )
-
-            if not reversed_order and shuffled_dataset and "information" not in str(item[0]) and "epsilon" not in str(
-                    item[0]):
-                refined_frame = fill_column_frame_balance_effective_RTE(
-                    frame,
-                    item,
-                    take_k_th_nearest_neighbor,
-                    unary_statistical_operations,
-                    refined_frame,
-                    [
-                        (
-                            balance_effective_new_column_name,
-                            history_first,
-                            future_first,
-                            history_second,
-                            operation_name,
-                            not shuffled_dataset,
-                            reversed_order,
-                            sample_number,
-                            averaging_over_neighbors,
-                            epsilon,
-                        ) for operation_name in operations_names
-                    ],
-                )
-
-        except Exception as exc:
-            debug = frame[item]
-            print(f"{exc} {item} {debug}")
-            raise exc
 
     # append frame for processing
     refined_frame.to_pickle(processed_dataset)

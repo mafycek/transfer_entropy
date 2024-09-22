@@ -15,7 +15,7 @@ if __name__ == "__main__":
     table = os.getenv("NOSQL_TABLE")
     username = os.getenv("NOSQL_USERNAME")
     password = os.getenv("NOSQL_PASSWORD")
-    download_folder = "test"
+    download_folder = "test/random"
 
     dbHandler = FinanceMongoDatabasePlugin(
         url,
@@ -31,25 +31,53 @@ if __name__ == "__main__":
     #    variable = pickle.loads(decoded_result, encoding="base64")
     #    print(variable)
 
-    symbols = ["tesla_tesla", "amazon_amazon", "microsoft_microsoft", "exxon_exxon", "apple_apple", "johnson_johnson",
-               "visa_visa", "united_united"]
+    symbols = [
+        "tesla_tesla",
+        "amazon_amazon",
+        "microsoft_microsoft",
+        "exxon_exxon",
+        "apple_apple",
+        "johnson_johnson",
+        "visa_visa",
+        "united_united",
+    ]
 
     for symbol in symbols:
         result = dbHandler.database.command("dbstats")
-        collection = dbHandler.database[FinanceMongoDatabasePlugin.conditional_information_transfer_name]
+        collection = dbHandler.database[
+            FinanceMongoDatabasePlugin.conditional_information_transfer_name
+        ]
         document_cursor = collection.find(
-            {"symbol": symbol, "end_timestamp": {"$gt": datetime.fromisoformat("2024-03-15T00:00:01.879Z")}})
+            {
+                "symbol": symbol,
+                "end_timestamp": {
+                    "$gt": datetime.fromisoformat("2024-05-30T00:00:01.879Z")
+                },
+            }
+        )
         for metadata_transfer_entropy in document_cursor:
-            random_source = False if metadata_transfer_entropy["random_source"] is None else True
-            index = False if metadata_transfer_entropy["postselection_X_future"] is None else True
+            random_source = (
+                False if metadata_transfer_entropy["random_source"] is None else True
+            )
+            index = (
+                False
+                if metadata_transfer_entropy["postselection_X_future"] is None
+                else True
+            )
             if random_source or index:
-                appendix = "_" + ("" if index is False else "i") + ("" if random_source is False else "r")
+                appendix = (
+                        "_"
+                        + ("" if index is False else "i")
+                        + ("" if random_source is False else "r")
+                )
             else:
                 appendix = ""
 
             document_id = metadata_transfer_entropy["document_id"]
             symbol_in_file = symbol
-            filename = f"{download_folder}/conditional_information_transfer-{symbol_in_file}{appendix}.bin"
+            random_source_strength = "" if len(metadata_transfer_entropy['random_source']) == 0 else str(
+                metadata_transfer_entropy['random_source'][0])
+            filename = f"{download_folder}/conditional_information_transfer-{symbol_in_file}{appendix}-{random_source_strength}.bin"
             files = glob.glob(filename)
             if len(files) == 0:
                 dataset_pickled = dbHandler.download_from_gridfs(document_id)
