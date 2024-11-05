@@ -629,6 +629,7 @@ def generate_overview_figures_from_averages(
 
 def generate_overview_figures_within_category(figure_parameters, figure_generation):
     folder_parameters = figure_generation["folders"][0]
+    titles = [item["title"] for item in figure_generation["folders"]]
     profile_of_figure = figure_generation["profile"]
     folder_name = folder_parameters["name"]
     filename = figure_generation["merged_dataset"]
@@ -639,143 +640,168 @@ def generate_overview_figures_within_category(figure_parameters, figure_generati
     symbol = "amazon"
     dpi = figure_parameters["dpi"]
 
-    files = glob.glob(actual_dataset)
+    plt.rcParams['text.usetex'] = True
+
+    output_dataset = f"test/random/{figure_generation['collect_dataset']}"
+    files = glob.glob(output_dataset)
     if len(files) == 0:
         # create dataset
-        pass
-    else:
-        output_dataset = f"test/random/{figure_generation['collect_dataset']}"
-        files = glob.glob(output_dataset)
-        if len(files) == 0:
+        table = pd.read_pickle(actual_dataset)
+
+        timeserie_names = set()
+        RTE_types = set()
+        time_sets = set()
+        statistics_types = set()
+        samples = set()
+        timeserie_names_categories = set()
+        timeserie_names_groups = {}
+        history_profiles = set()
+
+        for item in table.columns:
+            (
+                RTE_type,
+                history_first,
+                future_first,
+                history_second,
+                type_of_statistics,
+                shuffled_dataset,
+                reversed_order,
+                sample_number,
+                comment,
+                timeserie_name,
+            ) = item
+            RTE_types.add(RTE_type)
+            history_profiles.add(
+                ((history_first), (future_first), (history_second))
+            )
+            timeserie_names.add(timeserie_name)
+            timeserie_names_categories.add(timeserie_name.split("_")[0])
+            statistics_types.add(type_of_statistics)
+            samples.add(sample_number)
+            timeserie_base_name = timeserie_name.split("_")[0]
+            if timeserie_base_name not in timeserie_names_groups:
+                timeserie_names_groups[timeserie_base_name] = set([timeserie_name])
+            else:
+                timeserie_names_groups[timeserie_base_name].add(timeserie_name)
+
+        table_list = []
+        iter = 0
+
+        for folder in figure_generation["folders"]:
+            actual_dataset = f"{folder['name']}/{filename}"
             table = pd.read_pickle(actual_dataset)
 
-            timeserie_names = set()
-            RTE_types = set()
-            time_sets = set()
-            statistics_types = set()
-            samples = set()
-            timeserie_names_categories = set()
-            timeserie_names_groups = {}
-            history_profiles = set()
+            for RTE_type in [
+                "balance_effective_transfer_entropy",
+                "effective_transfer_entropy",
+            ]:
+                for profile in profile_of_figure:
+                    statistic_selector = profile["selector"]
+                    # color = profile["color"]
+                    data_style = profile["style"]
 
-            for item in table.columns:
-                (
-                    RTE_type,
-                    history_first,
-                    future_first,
-                    history_second,
-                    type_of_statistics,
-                    shuffled_dataset,
-                    reversed_order,
-                    sample_number,
-                    comment,
-                    timeserie_name,
-                ) = item
-                RTE_types.add(RTE_type)
-                history_profiles.add(
-                    ((history_first), (future_first), (history_second))
-                )
-                timeserie_names.add(timeserie_name)
-                timeserie_names_categories.add(timeserie_name.split("_")[0])
-                statistics_types.add(type_of_statistics)
-                samples.add(sample_number)
-                timeserie_base_name = timeserie_name.split("_")[0]
-                if timeserie_base_name not in timeserie_names_groups:
-                    timeserie_names_groups[timeserie_base_name] = set([timeserie_name])
-                else:
-                    timeserie_names_groups[timeserie_base_name].add(timeserie_name)
+                    # for timeserie_name in timeserie_names:
+                    histories_list = list(history_profiles)
+                    # for history_profile in histories_list:
+                    print(folder, profile, iter)
+                    iter += 1
 
-            print(
-                RTE_types, timeserie_names, timeserie_names_categories, history_profiles
-            )
-            table_list = []
-            iter = 0
+                    RTE_type_selection = table.xs(
+                        RTE_type, level="Name of variable", axis=1
+                    )
+                    remark_selection = RTE_type_selection.xs(
+                        averaging_over_neighbors, level="Remark", axis=1
+                    )
+                    # history_first_selection = remark_selection.xs(
+                    #    history_profile[0], level="History first", axis=1
+                    # )
+                    # future_first_selection = history_first_selection.xs(
+                    #    history_profile[1], level="Future first", axis=1
+                    # )
+                    # history_second_selection = future_first_selection.xs(
+                    #    history_profile[2], level="History second", axis=1
+                    # )
+                    # timeseries_selection = history_second_selection.xs(
+                    #    timeserie_name, level="Sample", axis=1
+                    # )
+                    sample_selection = remark_selection.xs(  # history_second_selection
+                        0, level="Sample number", axis=1
+                    )
+                    statistical_value_selection = sample_selection.xs(
+                        statistic_selector[0],
+                        level="Statistical value",
+                        axis=1,
+                    )
 
-            for folder in figure_generation["folders"]:
-                actual_dataset = f"{folder['name']}/{filename}"
-                table = pd.read_pickle(actual_dataset)
+                    new_column = []
+                    for column in statistical_value_selection.columns:
+                        new_column.append(list(column) + [RTE_type] + [folder["title"]])
 
-                for RTE_type in [
-                    "balance_effective_transfer_entropy",
-                    "effective_transfer_entropy",
-                ]:
-                    for profile in profile_of_figure:
-                        statistic_selector = profile["selector"]
-                        color = profile["color"]
-                        data_style = profile["style"]
+                    # print (statistical_value_selection.columns.names)
+                    new_column_names = list(statistical_value_selection.columns.names) + [
+                        "Name of variable"] + ["Randomness"]
+                    transpose_of_column_names = list(map(list, zip(*new_column)))
+                    columns = pd.MultiIndex.from_tuples(new_column, names=new_column_names)
 
-                        # for timeserie_name in timeserie_names:
-                        histories_list = list(history_profiles)
-                        for history_profile in histories_list[:1]:
-                            print(folder, profile, history_profile, iter)
-                            iter += 1
+                    statistical_value_selection.columns = columns
+                    table_list.append(statistical_value_selection)
 
-                            RTE_type_selection = table.xs(
-                                RTE_type, level="Name of variable", axis=1
-                            )
-                            remark_selection = RTE_type_selection.xs(
-                                averaging_over_neighbors, level="Remark", axis=1
-                            )
-                            history_first_selection = remark_selection.xs(
-                                history_profile[0], level="History first", axis=1
-                            )
-                            future_first_selection = history_first_selection.xs(
-                                history_profile[1], level="Future first", axis=1
-                            )
-                            history_second_selection = future_first_selection.xs(
-                                history_profile[2], level="History second", axis=1
-                            )
-                            # timeseries_selection = history_second_selection.xs(
-                            #    timeserie_name, level="Sample", axis=1
-                            # )
-                            sample_selection = history_second_selection.xs(
-                                0, level="Sample number", axis=1
-                            )
-                            statistical_value_selection = sample_selection.xs(
-                                statistic_selector[0],
-                                level="Statistical value",
-                                axis=1,
-                            )
+        table_figure = pd.concat(table_list, axis=1)
+        table_figure.to_pickle(output_dataset)
 
-                            new_column = []
-                            for column in statistical_value_selection.columns:
-                                new_column.append(list(column) + [RTE_type] + [folder["title"]])
+    else:
+        # load
+        table_figure = pd.read_pickle(output_dataset)
 
-                            # print (statistical_value_selection.columns.names)
-                            new_column_names = list(statistical_value_selection.columns.names) + [
-                                "Name of variable"] + ["Randomness"]
-                            transpose_of_column_names = list(map(list, zip(*new_column)))
-                            columns = pd.MultiIndex.from_tuples(new_column, names=new_column_names)
+    print(table_figure.columns.get_level_values(0).unique())
+    timeserie_names = table_figure.columns.values.tolist()
 
-                            statistical_value_selection.columns = columns
-                            table_list.append(statistical_value_selection)
+    # groups of timeseries in a figure
+    plots_in_image = set()
+    history_first_set = set()
+    future_first_set = set()
+    history_second_set = set()
+    for item in timeserie_names:
+        plots_in_image.add(item[-1])
+        history_first_set.add(item[0])
+        future_first_set.add(item[1])
+        history_second_set.add(item[2])
 
-            table_figure = pd.concat(table_list, axis=1)
-            table_figure.to_pickle(output_dataset)
-        else:
-            table_figure = pd.read_pickle(output_dataset)
+    pure_title = (
+            name_of_title.capitalize().replace("_", " ")
+            + f" of {symbol} for nearest neighbor"
+    )
+    latex_title = f"$" + figure_parameters["latex_title_size"] + f"""{{{pure_title}}}""" + f"$"
+    latex_alpha_label = f"$" + figure_parameters["latex_overview_label_size"] + r"\alpha" + f"$"
 
-        print(table_figure.columns.get_level_values(0).unique())
-        timeserie_names = table_figure.columns.values.tolist()
+    table_figure_shuffled = table_figure.xs(
+        False, level="Shuffled", axis=1
+    )
+    table_figure_reversed = table_figure_shuffled.xs(
+        False, level="Reversed direction", axis=1
+    )
+    #    table_figure = table_figure.xs(
+    #        "balance_effective_transfer_entropy", level="Name of variable", axis=1
+    #    )
 
-        # groups of timeseries in a figure
-        plots_in_image = set()
-        for item in timeserie_names:
-            plots_in_image.add(item[-1])
-
-        columns_filtered = [
-            item for item in timeserie_names if "effective" in item[2]
-        ]
-
-        pure_title = (
-                name_of_title.capitalize().replace("_", " ")
-                + f" of {symbol} for nearest neighbor"
-        )
-        latex_title = figure_parameters["latex_title_size"] + f"""{{{pure_title}}}"""
-        latex_alpha_label = figure_parameters["latex_overview_label_size"] + r"$\alpha$"
-
-        figures2d_TE_overview_various_parameters(table_figure, list(plots_in_image), [], latex_title, latex_alpha_label,
-                                                 "RTE", filename, "png", dpi=dpi)
+    for type_of_RTE in ["balance_effective_transfer_entropy", "effective_transfer_entropy"]:
+        table_figure_type_RTE = table_figure_reversed.xs(type_of_RTE, level="Name of variable", axis=1)
+        for reversed in ([True] if "balance" in type_of_RTE else [True, False]):
+            table_figure_reversed = table_figure_shuffled.xs(reversed, level="Reversed direction", axis=1)
+            for history_first in history_first_set:
+                table_history_first_filtered = table_figure_reversed.xs(history_first, level="History first", axis=1)
+                for future_first in future_first_set:
+                    table_future_first_filtered = table_history_first_filtered.xs(future_first, level="Future first",
+                                                                                  axis=1)
+                    for history_second in history_second_set:
+                        table_history_second_filtered = table_future_first_filtered.xs(history_second,
+                                                                                       level="History second", axis=1)
+                        figures2d_TE_overview_various_parameters(table_history_second_filtered, titles,
+                                                                 figure_generation['selectors'], latex_title,
+                                                                 latex_alpha_label,
+                                                                 "RTE",
+                                                                 f"{type_of_RTE}_{figure_generation['figure_base_name']}{history_first}-{future_first}-{history_second}{'-reversed' if reversed else ''}",
+                                                                 "png", dpi=dpi)
 
 
 def generate_figures_aggregated_figures(

@@ -777,7 +777,7 @@ def figures2d_TE_overview_various_parameters(
     number_selectors = len(timeseries_groups)
     matplotlib.style.use(style)
     number_rows, number_columns = max_divisor(number_selectors)
-    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16))
+    fig, axs = plt.subplots(number_rows, number_columns, figsize=(26, 16), sharex=True, sharey=True)
     color_map = matplotlib.colormaps.get_cmap(cmap)
     fig.suptitle(title)
 
@@ -798,49 +798,49 @@ def figures2d_TE_overview_various_parameters(
                 axs[row].set_xlabel(xlabel)
                 axs[row].set_ylabel(ylabel)
             else:
-                axs[row, column].set_title(f"{timeseries_groups[index_of_dataset]}")
+                axs[row, column].set_title(f"${timeseries_groups[index_of_dataset]}$")
                 axs[row, column].set_xlabel(xlabel)
                 if column == 0:
                     axs[row, column].set_ylabel(ylabel)
 
             order_of_dataset = 0
-            for selector_item in selectors:
+            for selelectior_order in enumerate(selectors["selector"]):
                 try:
-                    # subselection = [dataset[item] for item in selector_item["selector"]]
-                    subselection = [
-                        subselection_timeseries.xs(
-                            item, level="Statistical value", axis=1
-                        )
-                        for item in selector_item["selector"]
-                    ]
+                    # print(selectors["selector"], subselection_timeseries, )
+                    subselection = subselection_timeseries[selelectior_order[1]]
+                    # .xs(
+                    #    tuple(selectors["selector"]), level="Sample", axis=1
+                    # )
 
-                    label = selector_item["label"]
-                    ys = subselection[0].index.to_list()
+                    label = selectors["label"]
+                    # ys = subselection[0].index.to_list()
+                    ys = subselection.index.to_list()
                     zs = []
-                    for index in range(len(subselection)):
+
+                    #for index in selectors["selector"]:
                         # for item in ys:
                         #    print(subselection[index].loc[item], subselection[index].loc[item].values[0][index_of_order], len(subselection[index].loc[item].values.shape))
-                        if selector_item["aggregation"] == "sample":
-                            zs.append(
-                                np.array(
-                                    [
-                                        subselection[index][0].loc[key]
-                                        for index_key_selection, key in enumerate(ys)
-                                    ]
-                                )
+                    if selectors["aggregation"] == "sample":
+                        zs.append(
+                            np.array(
+                                [
+                                    subselection.loc[key]
+                                    for index_key_selection, key in enumerate(ys)
+                                ]
                             )
-                        elif selector_item["aggregation"] == "neighborhood":
-                            zs.append(
-                                np.array(
-                                    [
-                                        subselection[index].loc[key].values[0][0]
-                                        for index_key_selection, key in enumerate(ys)
-                                    ]
-                                )
-                            )  # [index_of_order]
+                        )
+                    elif selectors["aggregation"] == "neighborhood":
+                        zs.append(
+                            np.array(
+                                [
+                                    subselection[index].loc[key].values[0][0]
+                                    for index_key_selection, key in enumerate(ys)
+                                ]
+                            )
+                        )  # [index_of_order]
 
                     # prepare visualization
-                    color = selector_item["color"]
+                    color = selectors["color"][selelectior_order[0]]
                     actual_axes = None
                     if number_rows == 1 and number_columns == 1:
                         actual_axes = axs
@@ -851,35 +851,15 @@ def figures2d_TE_overview_various_parameters(
                     else:
                         actual_axes = axs[row, column]
 
-                    if (
-                            len(subselection) == 2
-                            and selector_item["style"] == "quantile band"
-                    ):
-                        actual_axes.fill_between(
-                            ys, zs[0], zs[1], linewidth=1, label=label, color=color
-                        )
-                    elif len(subselection) == 1 and selector_item["style"] == "line":
+                    if len(zs) == 1 and selectors["style"] == "line":
                         actual_axes.plot(
                             ys, zs[0], linewidth=1, label=label, color=color
-                        )
-                    elif (
-                            len(subselection) == 2 and selector_item["style"] == "yerrorbar"
-                    ):
-                        lower_band = zs[0] - zs[1]
-                        upper_band = zs[0] + zs[1]
-                        actual_axes.fill_between(
-                            ys,
-                            lower_band,
-                            upper_band,
-                            linewidth=1,
-                            label=label,
-                            color=color,
                         )
                     else:
                         print("problem")
 
                 except Exception as exc:
-                    print(traceback.format_exc(), selector_item, selectors)
+                    print(traceback.format_exc(), selectors)
 
                 order_of_dataset += 1
 
