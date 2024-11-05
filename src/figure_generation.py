@@ -777,17 +777,17 @@ def generate_overview_figures_within_category(figure_parameters, figure_generati
     table_figure_shuffled = table_figure.xs(
         False, level="Shuffled", axis=1
     )
-    table_figure_reversed = table_figure_shuffled.xs(
-        False, level="Reversed direction", axis=1
-    )
+    # table_figure_reversed = table_figure_shuffled.xs(
+    #    False, level="Reversed direction", axis=1
+    # )
     #    table_figure = table_figure.xs(
     #        "balance_effective_transfer_entropy", level="Name of variable", axis=1
     #    )
 
     for type_of_RTE in ["balance_effective_transfer_entropy", "effective_transfer_entropy"]:
-        table_figure_type_RTE = table_figure_reversed.xs(type_of_RTE, level="Name of variable", axis=1)
-        for reversed in ([True] if "balance" in type_of_RTE else [True, False]):
-            table_figure_reversed = table_figure_shuffled.xs(reversed, level="Reversed direction", axis=1)
+        table_figure_type_RTE = table_figure_shuffled.xs(type_of_RTE, level="Name of variable", axis=1)
+        for reversed in ([False] if "balance" in type_of_RTE else [True, False]):
+            table_figure_reversed = table_figure_type_RTE.xs(reversed, level="Reversed direction", axis=1)
             for history_first in history_first_set:
                 table_history_first_filtered = table_figure_reversed.xs(history_first, level="History first", axis=1)
                 for future_first in future_first_set:
