@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "Transfer entropy"
+name = "Transfer_entropy"
 version = "1.0.0"
 description = "Analyzer of nonlinear data"
 authors = ["Hynek Lavicka"]
@@ -36,7 +36,7 @@ mongo = "^0.2.0"
 python-dotenv = "^1.0.0"
 python-forex-quotes = "^2.0.3"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = ">=3.4"
 
 [tool.black]
