@@ -378,7 +378,7 @@ def entropy_sum_Shannon_LeonenkoProzanto(dataset_x: np.matrix, distances, **kwar
             )
 
             addition_to_entropy = (
-                    np.sum(kwargs["logarithm"](subselected_distances))
+                    np.sum((kwargs["logarithm"])(subselected_distances))
                     * dimension_of_data
                     / number_of_data
             )
@@ -486,7 +486,7 @@ def renyi_entropy(*args, **kwargs):
                     lambda x: np.log(x, kwargs["base_of_logarithm"]) if x > 0 else 0.0
                 )
             else:
-                kwargs["logarithm"] = lambda x: np.log(x) if x > 0 else 0.0
+                kwargs["logarithm"] = np.vectorize(lambda x: np.log(x) if x > 0 else 0.0)
                 # if x > 0 else 0
 
     if "method" in kwargs:
