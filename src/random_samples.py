@@ -29,7 +29,7 @@ def tridiagonal_matrix_determinant(dimension: int, q: float):
         return sample[dimension - 1]
 
 
-def Renyi_laplace_assymetric_distribution(sigma, mean, alpha, sigma_inversion=None):
+def Renyi_laplace_asymmetric_distribution(sigma, mean, alpha, sigma_inversion=None):
     dimension = sigma.shape[0]
     if sigma_inversion is None:
         sigma_inversion = inv(sigma)
