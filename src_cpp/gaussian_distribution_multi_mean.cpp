@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
 {
         double mean_gaussion_distribution = 0;
         double sigma_gaussion_distribution = 10;
+        const unsigned int dimension = 10;
         typedef boost::multiprecision::number <
         boost::multiprecision::cpp_bin_float<20 >>
                         multiprecision_type;
@@ -123,6 +124,6 @@ int main(int argc, char *argv[])
                         auto result_entropy = result[std::make_tuple(item_index, item_alpha)];
                         std::cout << result_entropy << " ";
                 }
-                std::cout << renyi_entropy::Renyi_entropy_normal_distribution(1, static_cast<double>(item_alpha), sigma)  << std::endl;
+                std::cout << renyi_entropy::Renyi_entropy_normal_distribution(static_cast<double>(item_alpha), sigma)  << std::endl;
         }
 }

@@ -27,8 +27,31 @@
 
 namespace renyi_entropy {
 
-double Renyi_entropy_normal_distribution(int m, double q,
+double Renyi_entropy_normal_distribution(double q,
                                          const Eigen::MatrixXd &Sigma);
+
+template <typename TYPE>
+TYPE volume_of_hypersphere(TYPE radius, TYPE metric, unsigned int dimension) {
+  const TYPE static_part = pow(2 / metric, dimension - 1);
+  const TYPE radius_part = pow(radius, dimension) / dimension;
+  const TYPE complete_angular_part = 2 * boost::math::tgamma(1 / metric) *
+                                     boost::math::tgamma(1 / metric) /
+                                     boost::math::tgamma(2 / metric);
+
+  TYPE noncomplete_angular_part =
+      pow(std::numbers::pi_v<double>, (dimension - 2) / 2.);
+  for (unsigned int angular_momentum_index = 1;
+       angular_momentum_index < dimension - 1; ++angular_momentum_index) {
+    noncomplete_angular_part *=
+        boost::math::tgamma(0.5 + (dimension - (angular_momentum_index + 1)) /
+                                      metric) /
+        boost::math::tgamma(
+            (dimension + metric - (angular_momentum_index + 1)) / metric);
+  }
+
+  return static_part * radius_part * complete_angular_part *
+         noncomplete_angular_part;
+}
 
 template <typename TYPE> class renyi_entropy {
 
@@ -124,7 +147,8 @@ public:
 
   void entropy_sum_Shannon_LeonenkoProzanto(
       std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
-      int dimension_of_data, std::vector<std::vector<TYPE>> &distances, bool log_calculation) {
+      int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
+      bool log_calculation) {
     for (const unsigned int use_index : GetIndices()) {
       auto const number_of_data =
           std::accumulate(distances.cbegin(), distances.cend(), 0,
@@ -136,44 +160,42 @@ public:
                             }
                           });
 
-
-      if (log_calculation)
-      {
-            const auto V_m = _power(std::numbers::pi_v<double>, dimension_of_data / 2.0) /
-                  boost::math::tgamma(dimension_of_data / 2.0 + 1);
-            auto digamma = boost::math::digamma(use_index);
-            const auto multiplicator = (number_of_data - 1) * _exp( - digamma );      
-            auto const sum_of_weighted_distances = std::accumulate(
-                distances.begin(), distances.end(), static_cast<TYPE>(0),
-                [&](TYPE count, auto const &element) {
-                  const auto base = element[use_index];
-                  if (base > 0.0) {
-                    return count + _logarithm ( multiplicator * V_m * + _power(base, dimension_of_data) );
-                  } else {
-                    return count;
-                  }
-                });
-            results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
-                    sum_of_weighted_distances / number_of_data;
-      }
-      else
-      {      
-            auto const sum_of_log_distances = std::accumulate(
-                distances.begin(), distances.end(), static_cast<TYPE>(0),
-                [use_index, this](TYPE count, auto const &element) {
-                  const auto log_base = element[use_index];
-                  if (log_base > 0.0) {
-                    return count + _logarithm(log_base);
-                  } else {
-                    return count;
-                  }
-                });
+      if (log_calculation) {
+        const auto V_m =
+            _power(std::numbers::pi_v<double>, dimension_of_data / 2.0) /
+            boost::math::tgamma(dimension_of_data / 2.0 + 1);
+        const auto digamma = boost::math::digamma(use_index);
+        const auto multiplicator = (number_of_data - 1) * _exp(-digamma);
+        auto const sum_of_weighted_distances = std::accumulate(
+            distances.begin(), distances.end(), static_cast<TYPE>(0),
+            [&](TYPE count, auto const &element) {
+              const auto base = element[use_index];
+              if (base > 0.0) {
+                return count + _logarithm(multiplicator * V_m *
+                                          +_power(base, dimension_of_data));
+              } else {
+                return count;
+              }
+            });
+        results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
+            sum_of_weighted_distances / number_of_data;
+      } else {
+        auto const sum_of_log_distances = std::accumulate(
+            distances.begin(), distances.end(), static_cast<TYPE>(0),
+            [use_index, this](TYPE count, auto const &element) {
+              const auto log_base = element[use_index];
+              if (log_base > 0.0) {
+                return count + _logarithm(log_base);
+              } else {
+                return count;
+              }
+            });
 
         auto const addition_to_entropy =
             dimension_of_data * sum_of_log_distances / number_of_data;
         auto digamma = boost::math::digamma(use_index);
         auto V_m = _power(std::numbers::pi_v<double>, dimension_of_data / 2.0) /
-                  boost::math::tgamma(dimension_of_data / 2.0 + 1);
+                   boost::math::tgamma(dimension_of_data / 2.0 + 1);
         auto argument_log = V_m * (number_of_data - 1);
         auto log_volume = _logarithm(argument_log);
         results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
@@ -199,14 +221,9 @@ public:
 
     // calculate distances
     std::vector<std::vector<TYPE>> distances;
-    for (const auto &point : dataset) {
-      auto points = kdtree.nearest_points(point, nearest);
-      std::vector<TYPE> distance_vector;
-      for (int i = 0; i < nearest; ++i) {
-        distance_vector.push_back(distance(point, points[i], metric));
-      }
-      distances.push_back(distance_vector);
-    }
+    calculate_distances_from_each_point(kdtree, dataset, nearest, distances,
+                                        metric);
+
     // remove kdtree to same memory
     auto end_distance_calculation = std::chrono::high_resolution_clock::now();
 
@@ -227,7 +244,7 @@ public:
     // Shannon case already holds entropy
     for (auto &item : results) {
       auto alpha = std::get<1>(item.first);
-      if ( alpha != one ) {
+      if (alpha != one) {
         auto entropy = _logarithm(item.second) / (1 - alpha);
         item.second = entropy;
       }
@@ -267,6 +284,221 @@ public:
     return results;
   }
 
+  void entropy_sum_Renyi_metric(
+      std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
+      int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
+      const TYPE alpha, bool log_calculation, TYPE metric) {
+    std::map<unsigned int, TYPE> entropy;
+    TYPE one_minus_alpha = TYPE(1.0) - alpha;
+
+    for (const unsigned int use_index : GetIndices()) {
+      auto const number_of_data =
+          std::accumulate(distances.begin(), distances.end(), 0,
+                          [=](unsigned int count, auto const &element) {
+                            if (element[use_index] > 0.0) {
+                              return ++count;
+                            } else {
+                              return count;
+                            }
+                          });
+
+      const auto maximum_distance_element =
+          std::max_element(distances.cbegin(), distances.cend(),
+                           [use_index](const auto &first, const auto &second) {
+                             auto first_data = first[use_index];
+                             auto second_data = second[use_index];
+                             return first_data > second_data ? false : true;
+                           });
+      const auto maximum_distance = (*maximum_distance_element)[use_index];
+      const TYPE exponent = dimension_of_data * one_minus_alpha;
+
+      const auto sum_of_power_of_distances = std::accumulate(
+          distances.cbegin(), distances.cend(), static_cast<TYPE>(0),
+          [use_index, maximum_distance, exponent, this](TYPE count,
+                                                        auto &element) {
+            auto power_base = element[use_index];
+            if (power_base > 0.0) {
+              return count + _power(power_base / maximum_distance, exponent);
+            } else {
+              return count;
+            }
+          });
+
+      const auto dimensional_multiplicator =
+          volume_of_hypersphere(TYPE(1), metric, dimension_of_data);
+      const auto index_exponent = one_minus_alpha + TYPE(use_index);
+      if (log_calculation) {
+        const auto multiplicator =
+            boost::math::lgamma(use_index) -
+            boost::math::lgamma(index_exponent) +
+            exponent * _logarithm(maximum_distance) -
+            _logarithm(number_of_data) +
+            one_minus_alpha * _logarithm(number_of_data - 1);
+
+        results[std::make_tuple(use_index, alpha)] =
+            dimensional_multiplicator *
+            _exp(multiplicator + _logarithm(sum_of_power_of_distances));
+      } else {
+        results[std::make_tuple(use_index, alpha)] =
+            sum_of_power_of_distances / number_of_data *
+            pow(number_of_data - 1, one_minus_alpha) *
+            boost::math::tgamma(use_index) /
+            boost::math::tgamma(index_exponent) * dimensional_multiplicator;
+      }
+    }
+  }
+
+  void entropy_sum_Shannon_metric(
+      std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
+      int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
+      bool log_calculation, TYPE metric) {
+    for (const unsigned int use_index : GetIndices()) {
+      auto const number_of_data =
+          std::accumulate(distances.cbegin(), distances.cend(), 0,
+                          [=](unsigned int count, auto const &element) {
+                            if (element[use_index] > 0.0) {
+                              return ++count;
+                            } else {
+                              return count;
+                            }
+                          });
+
+      const auto V_m =
+          volume_of_hypersphere(TYPE(1), metric, dimension_of_data);
+      if (log_calculation) {
+        const auto digamma = boost::math::digamma(use_index);
+        const auto multiplicator = (number_of_data - 1) * _exp(-digamma);
+        auto const sum_of_weighted_distances = std::accumulate(
+            distances.begin(), distances.end(), static_cast<TYPE>(0),
+            [&](TYPE count, auto const &element) {
+              const auto base = element[use_index];
+              if (base > 0.0) {
+                return count + _logarithm(multiplicator * V_m *
+                                          +_power(base, dimension_of_data));
+              } else {
+                return count;
+              }
+            });
+        results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
+            sum_of_weighted_distances / number_of_data;
+      } else {
+        auto const sum_of_log_distances = std::accumulate(
+            distances.begin(), distances.end(), static_cast<TYPE>(0),
+            [use_index, this](TYPE count, auto const &element) {
+              const auto log_base = element[use_index];
+              if (log_base > 0.0) {
+                return count + _logarithm(log_base);
+              } else {
+                return count;
+              }
+            });
+
+        const auto addition_to_entropy =
+            dimension_of_data * sum_of_log_distances / number_of_data;
+        const auto digamma = boost::math::digamma(use_index);
+        auto argument_log = V_m * (number_of_data - 1);
+        auto log_volume = _logarithm(argument_log);
+        results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
+            addition_to_entropy + log_volume - digamma;
+      }
+    }
+  }
+
+  std::map<std::tuple<unsigned int, TYPE>, TYPE>
+  renyi_entropy_metric(std::vector<std::vector<TYPE>> &dataset,
+                       double metric = 2) {
+    auto nearest_iterator =
+        std::max_element(GetIndices().begin(), GetIndices().end());
+    // calculation how large of index of distance needs to be calculated
+    // + 1 for skipping 0-neighbor
+    auto nearest = (*nearest_iterator) + 1;
+    std::map<std::tuple<unsigned int, TYPE>, TYPE> results;
+    int dimension_of_data = dataset[0].size();
+    auto start_calculation = std::chrono::high_resolution_clock::now();
+    auto kdtree = create_KDtree(dataset);
+    auto end_tree_construction_calculation =
+        std::chrono::high_resolution_clock::now();
+
+    // calculate distances
+    std::vector<std::vector<TYPE>> distances;
+    calculate_distances_from_each_point(kdtree, dataset, nearest, distances,
+                                        metric);
+
+    // remove kdtree to same memory
+    auto end_distance_calculation = std::chrono::high_resolution_clock::now();
+
+    // calculate renyi entropy
+    auto log_calculation = true;
+    auto one = static_cast<TYPE>(1);
+    for (const auto alpha : GetAlphas()) {
+      if (alpha == one) {
+        entropy_sum_Shannon_metric(results, dimension_of_data, distances,
+                                   log_calculation, metric);
+      } else {
+        entropy_sum_Renyi_metric(results, dimension_of_data, distances, alpha,
+                                 log_calculation, metric);
+      }
+    }
+
+    // calculation of entropy for Renyi case
+    // Shannon case already holds entropy
+    for (auto &item : results) {
+      auto alpha = std::get<1>(item.first);
+      if (alpha != one) {
+        auto entropy = _logarithm(item.second) / (1 - alpha);
+        item.second = entropy;
+      }
+    }
+
+    auto end_entropy_calculation = std::chrono::high_resolution_clock::now();
+
+    auto elapsed_tree_construction =
+        end_tree_construction_calculation - start_calculation;
+    auto elapsed_distance_calculation =
+        end_distance_calculation - end_tree_construction_calculation;
+    auto elapsed_entropy_calculation =
+        end_entropy_calculation - end_distance_calculation;
+
+    auto milliseconds_tree_construction =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_tree_construction)
+            .count();
+    auto milliseconds_distance_calculation =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_distance_calculation)
+            .count();
+    auto milliseconds_entropy_calculation =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_entropy_calculation)
+            .count();
+
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Tree constructed in {:.5f} seconds",
+                       milliseconds_tree_construction / 1000.0);
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Distances calculated in {:.5f} seconds",
+                       milliseconds_distance_calculation / 1000.0);
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Entropy calculated in {:.5f} seconds",
+                       milliseconds_entropy_calculation / 1000.0);
+    return results;
+  }
+
+  inline void calculate_distances_from_each_point(
+      KDTree<TYPE> &kdtree, std::vector<std::vector<TYPE>> &dataset,
+      unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
+      const TYPE metric) {
+    // calculate distances
+    for (const auto &point : dataset) {
+      auto points = kdtree.nearest_points(point, nearest);
+      std::vector<TYPE> distance_vector;
+      for (int i = 0; i < nearest; ++i) {
+        distance_vector.push_back(distance(point, points[i], metric));
+      }
+      distances.push_back(distance_vector);
+    }
+  }
+
   std::vector<unsigned int> &GetIndices() { return _indices; }
 
   const std::vector<TYPE> &GetAlphas() { return _alphas; }
@@ -276,7 +508,7 @@ public:
     if (a.size() == b.size()) {
       TYPE distance = 0;
       for (int i = 0; i < a.size(); ++i) {
-        distance += pow(a[i] - b[i], power);
+        distance += pow(abs(a[i] - b[i]), power);
       }
       return pow(distance, 1 / power);
     }
