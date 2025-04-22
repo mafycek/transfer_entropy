@@ -28,6 +28,7 @@
 #include <boost/math/special_functions/expm1.hpp>
 
 #include "renyi_entropy.h"
+#include "random_samples.h"
 
 using namespace std;
 
@@ -124,6 +125,6 @@ int main(int argc, char *argv[])
                         auto result_entropy = result[std::make_tuple(item_index, item_alpha)];
                         std::cout << result_entropy << " ";
                 }
-                std::cout << renyi_entropy::Renyi_entropy_normal_distribution(static_cast<double>(item_alpha), sigma)  << std::endl;
+                std::cout << random_samples::Renyi_entropy_normal_distribution(static_cast<double>(item_alpha), sigma)  << std::endl;
         }
 }

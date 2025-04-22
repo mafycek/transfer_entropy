@@ -18,6 +18,12 @@
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 
 #include <eigen3/Eigen/Core>
 
@@ -27,9 +33,17 @@
 
 namespace renyi_entropy {
 
-double Renyi_entropy_normal_distribution(double q,
-                                         const Eigen::MatrixXd &Sigma);
 
+template<typename Scalar, typename Matrix>
+inline std::vector< std::vector<Scalar> > fromEigenMatrix( const Matrix & M ){
+	std::vector< std::vector<Scalar> > m;
+	m.resize(M.cols(), std::vector<Scalar>(M.rows(), 0));
+	for(size_t i = 0; i < m.size(); i++)
+		for(size_t j = 0; j < m.front().size(); j++)
+			m[i][j] = M(j, i);
+	return m;
+}
+  
 template <typename TYPE>
 TYPE volume_of_hypersphere(TYPE radius, TYPE metric, unsigned int dimension) {
   const TYPE static_part = pow(2 / metric, dimension - 1);
@@ -328,22 +342,19 @@ public:
           volume_of_hypersphere(TYPE(1), metric, dimension_of_data);
       const auto index_exponent = one_minus_alpha + TYPE(use_index);
       if (log_calculation) {
-        const auto multiplicator =
+        const auto multiplicator = one_minus_alpha * _logarithm(dimensional_multiplicator) +
             boost::math::lgamma(use_index) -
             boost::math::lgamma(index_exponent) +
             exponent * _logarithm(maximum_distance) -
             _logarithm(number_of_data) +
             one_minus_alpha * _logarithm(number_of_data - 1);
-
-        results[std::make_tuple(use_index, alpha)] =
-            dimensional_multiplicator *
-            _exp(multiplicator + _logarithm(sum_of_power_of_distances));
+        results[std::make_tuple(use_index, alpha)] = _exp(multiplicator + _logarithm(sum_of_power_of_distances));
       } else {
         results[std::make_tuple(use_index, alpha)] =
             sum_of_power_of_distances / number_of_data *
             pow(number_of_data - 1, one_minus_alpha) *
             boost::math::tgamma(use_index) /
-            boost::math::tgamma(index_exponent) * dimensional_multiplicator;
+            boost::math::tgamma(index_exponent) * _power( dimensional_multiplicator, one_minus_alpha );
       }
     }
   }
@@ -413,7 +424,7 @@ public:
     // + 1 for skipping 0-neighbor
     auto nearest = (*nearest_iterator) + 1;
     std::map<std::tuple<unsigned int, TYPE>, TYPE> results;
-    int dimension_of_data = dataset[0].size();
+    const int dimension_of_data = dataset[0].size();
     auto start_calculation = std::chrono::high_resolution_clock::now();
     auto kdtree = create_KDtree(dataset);
     auto end_tree_construction_calculation =
@@ -442,10 +453,28 @@ public:
 
     // calculation of entropy for Renyi case
     // Shannon case already holds entropy
+    const auto fixed_compesation = -0.001921 * dimension_of_data + 1.02726;
+    
+    const auto exponent1 = (0.167 / dimension_of_data - 0.181);
+    const auto multiplication_factor1 = 0.95;
+    const auto threshold1 = exp( log(fixed_compesation) - log(multiplication_factor1) / exponent1 );
+
+    const auto exponent2 = (-0.0015 * dimension_of_data + 0.00067);
+    const auto multiplication_factor2 = 0.99;
+    const auto threshold2 = exp( log(fixed_compesation) - log(multiplication_factor2) / exponent2 );
+    
     for (auto &item : results) {
       auto alpha = std::get<1>(item.first);
-      if (alpha != one) {
-        auto entropy = _logarithm(item.second) / (1 - alpha);
+        const auto compensation1 = ( alpha < threshold1 ) ? (multiplication_factor1 * pow(alpha, exponent1)) : 1;        
+        const auto compensation2 = ( alpha > threshold2 ) ? (multiplication_factor2 * pow(alpha, exponent2)) : 1;
+
+      if (alpha != one) {        
+        auto entropy = _logarithm(item.second) / (1 - alpha) * compensation1 * compensation2 * fixed_compesation;
+        item.second = entropy;
+      }
+      else
+      {
+        auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
         item.second = entropy;
       }
     }
@@ -527,6 +556,26 @@ public:
 
   void SetLog(std::function<TYPE(TYPE)> log) { _logarithm = log; }
 
+  static void SaveRenyiEntropy(std::map<std::tuple<unsigned int, TYPE>, TYPE> &result, const std::string &file)
+  {
+    std::stringstream ss;
+    boost::filesystem::path myFile =
+        boost::filesystem::current_path() / file;
+    boost::filesystem::ofstream ofs ( myFile );
+    boost::archive::binary_oarchive oarch ( ofs );
+    oarch << result;
+    std::cout << ss.str();
+  }
+  
+  static void LoadRenyiEntropy(std::map<std::tuple<unsigned int, TYPE>, TYPE> &result, const std::string &file)
+  {
+    boost::filesystem::path myFile =
+        boost::filesystem::current_path() / file;
+    boost::filesystem::ifstream ifs(myFile);
+    boost::archive::binary_iarchive iarch(ifs);
+    iarch >> result;
+  }
+  
 protected:
   std::vector<TYPE> _alphas;
 
