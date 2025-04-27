@@ -39,7 +39,8 @@ int main ( int argc, char *argv[] )
     ( "dimension", boost::program_options::value<unsigned int>()->default_value ( 2 ), "Dimension" ) 
     ( "metric", boost::program_options::value<double>()->default_value ( 2 ), "Metric" ) 
     ( "method", boost::program_options::value<std::string>()->default_value ( methods[0] ), "Method" ) 
-    ( "random", boost::program_options::value<std::string>()->default_value ( random_noise_types[0] ),  "Random noise" );
+    ( "random", boost::program_options::value<std::string>()->default_value ( random_noise_types[0] ),  "Random noise" )
+    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ),  "Sample size" );
 
     boost::program_options::variables_map vm;
     boost::program_options::store (
@@ -66,9 +67,9 @@ int main ( int argc, char *argv[] )
     const double metric = vm["metric"].as<double>();
     const std::string method = vm["method"].as<std::string>();
     const std::string random_noise_type = vm["random"].as<std::string>();
+    const unsigned int number_samples = vm["sample"].as<unsigned int>();
 
     const double delta_alpha = 0.01;
-    auto number_samples = 50000;
     Eigen::MatrixXd sigma;
     std::vector<std::vector<double>> dataset;
     Eigen::MatrixXd dataset2;
