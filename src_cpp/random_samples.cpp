@@ -10,6 +10,10 @@
 
 #include <eigen3/Eigen/Eigenvalues>
 
+extern "C" {
+#include "stable.h"
+}
+
 namespace random_samples {
 
 double full_correlation_matrix(int dimension, double q)
@@ -150,22 +154,54 @@ void sample_student_t_distribution(Eigen::MatrixXd &dataset, const Eigen::Matrix
 
 double Renyi_student_t_distribution(double degrees_of_freedom, const double q, const Eigen::MatrixXd & sigma )
 {
-    auto dimension = sigma.cols();
+    double dimension = sigma.cols();
     if (q * (degrees_of_freedom + dimension) / 2 - dimension / 2 <= 0 )
     {
         return std::nan("");
     }
 
-    auto arg = pow(sigma.eval().determinant(), (1.0 - q) / 2);
+    if ( q == 1 )
+    {
+        return 0;
+    }
+    else
+    {
+        auto arg = pow(sigma.eval().determinant(), (1.0 - q) / 2);
 
-    auto arg2 = pow(degrees_of_freedom * std::numbers::pi_v<double>, dimension / 2 * (1.0 - q));
-    auto arg31 = pow(boost::math::tgamma((degrees_of_freedom + dimension) / 2), q);
-    auto arg32 = boost::math::tgamma(q * (degrees_of_freedom + dimension) / 2 - dimension / 2);
-    auto arg33 = boost::math::tgamma(q * (degrees_of_freedom + dimension) / 2);
-    auto arg34 = pow(boost::math::tgamma(degrees_of_freedom / 2), q);
-    auto arg3 = (arg31 * arg32) / (arg33 * arg34);
+        auto arg2 = pow(degrees_of_freedom * std::numbers::pi_v<double>, dimension / 2 * (1 - q));
+        auto arg31 = pow(boost::math::tgamma((degrees_of_freedom + dimension) / 2), q);
+        auto arg32 = boost::math::tgamma((q * (degrees_of_freedom + dimension) - dimension) / 2);
+        auto arg33 = boost::math::tgamma(q * (degrees_of_freedom + dimension) / 2);
+        auto arg34 = pow(boost::math::tgamma(degrees_of_freedom / 2), q);
+        auto arg3 = (arg31 * arg32) / (arg33 * arg34);
 
-    return 1 / (1 - q) * log2(arg3 * arg * arg2);
+        return 1 / (1 - q) * log2(arg3 * arg * arg2);
+    }
+}
+
+void sample_alpha_stable_distribution (Eigen::MatrixXd &dataset, const Eigen::MatrixXd &Sigma, const double alpha, const double beta, const double mu, const double param, unsigned int number_samples)
+{
+    typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> MyMatrix;
+    double sigma = 1;
+    const double dimension = Sigma.cols();
+    StableDist *dist = nullptr;
+    if((dist = stable_create(alpha, beta, sigma, mu,param)) == nullptr) 
+    {
+        printf("Error while creatring ditribution. Please check introduced data");
+        exit(1);
+    }
+
+    Eigen::GeneralizedSelfAdjointEigenSolver<Eigen::MatrixXd> eigenValueSolver(Sigma, Eigen::MatrixXd::Identity(Sigma.cols(), Sigma.cols()));
+    const auto eigenvalueMatrix = eigenValueSolver.eigenvalues();
+    const auto eigenvectorMatrix = eigenValueSolver.eigenvectors();
+    
+    std::vector<double> raw_dataset( dimension * number_samples);
+    
+    dataset.conservativeResize(dimension, number_samples);
+    stable_rnd( dist, raw_dataset.data(), dimension * number_samples);
+    dataset = Eigen::Map<MyMatrix>(raw_dataset.data(), dimension, number_samples);
+    
+    stable_free(dist);
 }
 
 }

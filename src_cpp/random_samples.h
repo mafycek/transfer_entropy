@@ -26,4 +26,6 @@ void samples_normal_distribution_correlated(Eigen::MatrixXd &dataset, const Eige
 
 void sample_student_t_distribution(Eigen::MatrixXd &dataset, const Eigen::MatrixXd &Sigma, const Eigen::VectorXd & mean, const double degrees_of_freedom, unsigned int number_samples);
 
+void sample_alpha_stable_distribution (Eigen::MatrixXd &dataset, const Eigen::MatrixXd &Sigma, const double alpha, const double beta, const double mu, const double param, unsigned int number_samples);
+
 }
