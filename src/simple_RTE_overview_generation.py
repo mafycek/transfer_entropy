@@ -42,8 +42,7 @@ if __name__ == "__main__":
             },
         ],
         "selectors":
-            {"selector": ["amazon_amazon", "amazon_amazon_i", "amazon_amazon_r", "amazon_amazon_ir"], "style": "line",
-             "label": [], "aggregation": "sample", "color": ["red", "green", "blue", "greenyellow"]}
+            {"selector": ["amazon_amazon", "amazon_amazon_i", "amazon_amazon_r", "amazon_amazon_ir"], "style": "line", "label": [], "aggregation": "sample", "color": ["red", "green", "blue", "greenyellow"]}
         #, "amazon_amazon_r"
     }
 

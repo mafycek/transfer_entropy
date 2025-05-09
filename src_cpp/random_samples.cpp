@@ -183,25 +183,39 @@ void sample_alpha_stable_distribution (Eigen::MatrixXd &dataset, const Eigen::Ma
 {
     typedef Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> MyMatrix;
     double sigma = 1;
-    const double dimension = Sigma.cols();
-    StableDist *dist = nullptr;
-    if((dist = stable_create(alpha, beta, sigma, mu,param)) == nullptr) 
-    {
-        printf("Error while creatring ditribution. Please check introduced data");
-        exit(1);
-    }
+    const unsigned int dimension = Sigma.cols();
+    std::vector<StableDist *> dist (dimension);
+    std::fill(dist.begin(), dist.end(), nullptr);
 
     Eigen::GeneralizedSelfAdjointEigenSolver<Eigen::MatrixXd> eigenValueSolver(Sigma, Eigen::MatrixXd::Identity(Sigma.cols(), Sigma.cols()));
     const auto eigenvalueMatrix = eigenValueSolver.eigenvalues();
-    const auto eigenvectorMatrix = eigenValueSolver.eigenvectors();
+    const auto eigenvectorMatrix = eigenValueSolver.eigenvectors();    
     
     std::vector<double> raw_dataset( dimension * number_samples);
-    
     dataset.conservativeResize(dimension, number_samples);
-    stable_rnd( dist, raw_dataset.data(), dimension * number_samples);
-    dataset = Eigen::Map<MyMatrix>(raw_dataset.data(), dimension, number_samples);
+
+    int i = 0;
+    for ( auto & item: dist)
+    {
+      if((item = stable_create(alpha, beta, eigenvalueMatrix[i], mu, param)) == nullptr) 
+      {
+          printf("Error while creatring ditribution. Please check introduced data");
+          exit(1);
+      }
+      ++i;
+    }
     
-    stable_free(dist);
+    for ( unsigned int i{0}; i < dimension * number_samples; ++i )
+    {
+        unsigned int column = i % dimension;
+        stable_rnd( dist[column], raw_dataset.data(), dimension * number_samples);
+    }
+      dataset = Eigen::Map<MyMatrix>(raw_dataset.data(), dimension, number_samples);
+    
+    for (auto & item: dist)
+    {
+        stable_free(item);
+    }
 }
 
 }

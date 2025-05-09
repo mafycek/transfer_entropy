@@ -6,6 +6,6 @@
 
 #include "renyi_entropy.h"
 
-namespace renyi_entropy {
-
+namespace renyi_entropy {	
+	
 } // namespace renyi_entropy

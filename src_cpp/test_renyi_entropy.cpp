@@ -87,3 +87,43 @@ TEST(RenyiEntropy, Volumes) {
     //EXPECT_EQ(volume_unit_sphere, volume_unit_sphere2);
   }
 }
+
+TEST(RenyiEntropy, SamplesFromArrays)
+{
+    unsigned int columns{100}, rows{2}; 
+    Eigen::MatrixXd dataset(columns, rows);
+    for (unsigned int i = 0; i < columns; ++i)
+    {
+        for ( unsigned int j = 0; j < rows; ++j)
+        {
+            dataset(i, j) = i + j * 0.5;
+        }
+    }
+    
+    std::map<std::string, std::any> parameters;
+    parameters["select_indices"] = std::vector<unsigned int>({0, 1, 2, 3, 4, 5});
+
+    auto prepared_renyi_dataset = renyi_entropy::renyi_entropy<double>:: samples_from_arrays(dataset, parameters);
+    std::cout << prepared_renyi_dataset->transpose() << std::endl;
+}
+
+TEST(RenyiEntropy, CoroutineSamplesFromArrays)
+{
+    unsigned int columns{100}, rows{2}; 
+    Eigen::MatrixXd dataset(columns, rows);
+    for (unsigned int i = 0; i < columns; ++i)
+    {
+        for ( unsigned int j = 0; j < rows; ++j)
+        {
+            dataset(i, j) = i + j * 0.5;
+        }
+    }
+    
+    std::map<std::string, std::any> parameters;
+    parameters["select_indices"] = std::vector<unsigned int>({0, 1, 2, 3, 4, 5});
+
+    for ( auto item : renyi_entropy::renyi_entropy<double>:: generator_samples_from_arrays(dataset, parameters) )
+    {
+        std::cout << item->transpose() << std::endl;
+    }
+}
