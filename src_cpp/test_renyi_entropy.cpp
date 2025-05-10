@@ -147,7 +147,7 @@ TEST(RenyiEntropy, PreparesDataset2D)
 
     {
         auto [dataset1, dataset2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, false, false, 1, 1 );
-        for(int i = 0 ; i < columns; ++ i)
+        for(unsigned int i = 0 ; i < columns; ++ i)
         {
             EXPECT_EQ( dataset1(i, 0),  dataset(i, 0));
             EXPECT_EQ( dataset2(i, 0),  dataset(i, 1));
@@ -156,7 +156,7 @@ TEST(RenyiEntropy, PreparesDataset2D)
 
     {
         auto [dataset_swap1, dataset_swap2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, true, false, 1, 1 );
-        for(int i = 0 ; i < columns; ++ i)
+        for(unsigned int i = 0 ; i < columns; ++ i)
         {
             EXPECT_EQ( dataset_swap2(i, 0),  dataset(i, 0));
             EXPECT_EQ( dataset_swap1(i, 0),  dataset(i, 1));
@@ -165,7 +165,7 @@ TEST(RenyiEntropy, PreparesDataset2D)
 
     {
         auto [dataset_shuffled1, dataset_shuffled2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, false, true, 1, 1 );
-        for(int i = 0 ; i < columns; ++ i)
+        for(unsigned int i = 0 ; i < columns; ++ i)
         {
             auto data1 = static_cast<unsigned int>(dataset_shuffled1(i, 0));
             auto data2 = static_cast<unsigned int>(dataset_shuffled2(i, 0));
@@ -176,7 +176,7 @@ TEST(RenyiEntropy, PreparesDataset2D)
 
     {
         auto [dataset_shuffled1, dataset_shuffled2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, true, true, 1, 1 );
-        for(int i = 0 ; i < columns; ++ i)
+        for(unsigned int i = 0 ; i < columns; ++ i)
         {
             auto data1 = static_cast<unsigned int>(dataset_shuffled1(i, 0));
             auto data2 = static_cast<unsigned int>(dataset_shuffled2(i, 0));
@@ -188,7 +188,8 @@ TEST(RenyiEntropy, PreparesDataset2D)
 
 TEST(RenyiEntropy, PreparesDatasetND)
 {
-    for (int number_rows = 3; number_rows < 10 ; ++ number_rows)
+    unsigned int maximum_number_rows{10};
+    for (unsigned int number_rows = 3; number_rows < maximum_number_rows ; ++ number_rows)
     {
         unsigned int columns{100}, rows{number_rows}; 
         Eigen::MatrixXd dataset(columns, rows);
@@ -205,32 +206,70 @@ TEST(RenyiEntropy, PreparesDatasetND)
         }
         std::cout << dataset << std::endl;
 
+        for (unsigned int separation_row = 1; separation_row < number_rows - 1; ++ separation_row )
         {
-            auto [dataset1, dataset2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, false, false, 1, 1 );
-            for(int i = 0 ; i < columns; ++ i)
             {
-                EXPECT_EQ( dataset1(i, 0),  dataset(i, 0));
-                EXPECT_EQ( dataset2(i, 0),  dataset(i, 1));
+                auto [dataset1, dataset2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, false, false, separation_row, number_rows - separation_row );
+                for(unsigned int i = 0 ; i < columns; ++ i)
+                {
+                    for (unsigned int row_number = 0; row_number < separation_row; ++ row_number)
+                    {
+                        EXPECT_EQ( dataset1(i, row_number),  dataset(i, row_number));
+                    }
+                    for (unsigned int row_number = separation_row; row_number < number_rows; ++ row_number)
+                    {
+                        EXPECT_EQ( dataset2(i, row_number - separation_row),  dataset(i, row_number));
+                    }
+                }
             }
-        }
 
-        {
-            auto [dataset_swap1, dataset_swap2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, true, false, 1, 1 );
-            for(int i = 0 ; i < columns; ++ i)
             {
-                EXPECT_EQ( dataset_swap2(i, 0),  dataset(i, 0));
-                EXPECT_EQ( dataset_swap1(i, 0),  dataset(i, 1));
+                auto [dataset_swap1, dataset_swap2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, true, false, separation_row, number_rows - separation_row );
+                for(unsigned int i = 0 ; i < columns; ++ i)
+                {
+                    for (unsigned int row_number = 0; row_number < separation_row; ++ row_number)
+                    {
+                        EXPECT_EQ( dataset_swap2(i, row_number),  dataset(i, row_number));
+                    }
+                    for (unsigned int row_number = separation_row; row_number < number_rows; ++ row_number)
+                    {
+                        EXPECT_EQ( dataset_swap1(i, row_number - separation_row),  dataset(i, row_number));
+                    }
+                }
             }
-        }
 
-        {
-            auto [dataset_shuffled1, dataset_shuffled2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, false, true, 1, 1 );
-            for(int i = 0 ; i < columns; ++ i)
             {
-                auto data1 = static_cast<unsigned int>(dataset_shuffled1(i, 0));
-                auto data2 = static_cast<unsigned int>(dataset_shuffled2(i, 0));
-                EXPECT_EQ( data1 % rows,  0);
-                EXPECT_EQ( data2 % rows,  1);
+                auto [dataset_shuffled1, dataset_shuffled2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, false, true, separation_row, number_rows - separation_row );
+                for(unsigned int i = 0 ; i < columns; ++ i)
+                {
+                    for (unsigned int row_number = 0; row_number < separation_row; ++ row_number)
+                    {
+                        auto data1 = static_cast<unsigned int>(dataset_shuffled1(i, row_number));
+                        EXPECT_EQ( data1 % number_rows,  row_number);
+                    }
+                    for (unsigned int row_number = separation_row; row_number < number_rows; ++ row_number)
+                    {
+                        auto data2 = static_cast<unsigned int>(dataset_shuffled2(i, row_number - separation_row));
+                        EXPECT_EQ( data2 % number_rows,  row_number);
+                    }
+                }
+            }
+
+            {
+                auto [dataset_shuffled1, dataset_shuffled2] = renyi_entropy::renyi_entropy<double>:: prepare_dataset( dataset, true, true, separation_row, number_rows - separation_row );
+                for(unsigned int i = 0 ; i < columns; ++ i)
+                {
+                    for (unsigned int row_number = 0; row_number < separation_row; ++ row_number)
+                    {
+                        auto data2 = static_cast<unsigned int>(dataset_shuffled2(i, row_number));
+                        EXPECT_EQ( data2 % number_rows,  row_number);
+                    }
+                    for (unsigned int row_number = separation_row; row_number < number_rows; ++ row_number)
+                    {
+                        auto data1 = static_cast<unsigned int>(dataset_shuffled1(i, row_number - separation_row));
+                        EXPECT_EQ( data1 % number_rows,  row_number);
+                    }
+                }
             }
         }
     }
