@@ -14,6 +14,7 @@
 #include <vector>
 #include <ranges>
 #include <any>
+#include <random>
 #include <memory>
 #include <type_traits>
 #include <typeindex>
@@ -700,139 +701,177 @@ public:
       const Eigen::MatrixXd matrix;
       return std::tuple(matrix, matrix);
   }
+
+    static Eigen::MatrixXd shuffle_sample ( const Eigen::MatrixXd &dataset )
+    {
+      // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
+        Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
+        
+        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm(dataset.rows());
+        perm.setIdentity();
+        std::random_shuffle(perm.indices().data(), perm.indices().data() + perm.indices().size());
+        auto result = perm * dataset;
+        return result;
+    }
+
+    static std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd> prepare_dataset( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, unsigned int selection_1, unsigned int selection_2)
+    {
+        auto marginal_solution_1 = joint_dataset( Eigen::all, Eigen::seqN(0, selection_1) );
+        auto marginal_solution_2 = joint_dataset( Eigen::all, Eigen::seqN(selection_1, selection_2) );
+        
+        auto * swaped_marginal_solution_1 = &marginal_solution_1;
+        auto * swaped_marginal_solution_2 = &marginal_solution_2;
+        
+        if (swap_datasets)
+        {
+            std::swap( swaped_marginal_solution_1, swaped_marginal_solution_2);
+        }
+        
+        Eigen::MatrixXd shuffled_dataset;
+        if (shuffle_dataset)
+        {
+            shuffled_dataset = shuffle_sample( *swaped_marginal_solution_1 );
+        }
+        else
+        {
+            shuffled_dataset = * swaped_marginal_solution_1;
+        }
+        
+        return std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd>(shuffled_dataset, *swaped_marginal_solution_2);
+    }
   
-  static std::shared_ptr<const Eigen::MatrixXd> samples_from_arrays( Eigen::MatrixXd &data, std::map<std::string, std::any> parameters)
-  {
-      const unsigned int dimension_of_data = data.cols();
-      unsigned int history, allocated_space, skip_first, skip_last;
-      std::vector<unsigned int> select_indices;
-      std::vector<unsigned int> &range_of_history (select_indices);
-      if (parameters.contains("history"))
-      {
-          history = std::any_cast<unsigned int>(parameters["history"]);
-          select_indices = std::views::iota(1U, history) | std::ranges::to<std::vector<unsigned int>>();
-      }
-      else
-      {
-          allocated_space = 5;
-          history = 5;
-      }
+    static std::shared_ptr<const Eigen::MatrixXd> samples_from_arrays( Eigen::MatrixXd &data, std::map<std::string, std::any> parameters)
+    {
+        const unsigned int dimension_of_data = data.cols();
+        unsigned int history, allocated_space, skip_first, skip_last;
+        std::vector<unsigned int> select_indices;
+        std::vector<unsigned int> &range_of_history (select_indices);
+        if (parameters.contains("history"))
+        {
+            history = std::any_cast<unsigned int>(parameters["history"]);
+            select_indices = std::views::iota(1U, history) | std::ranges::to<std::vector<unsigned int>>();
+        }
+        else
+        {
+            allocated_space = 5;
+            history = 5;
+        }
 
-      if (parameters.contains("select_indices"))
-      {
-          select_indices = std::any_cast<std::vector<unsigned int>& >( parameters["select_indices"] );
-          allocated_space = select_indices.size();
-          history = *max_element(select_indices.begin(), select_indices.end());
-          range_of_history = select_indices;
-      }
+        if (parameters.contains("select_indices"))
+        {
+            select_indices = std::any_cast<std::vector<unsigned int>& >( parameters["select_indices"] );
+            allocated_space = select_indices.size();
+            history = *max_element(select_indices.begin(), select_indices.end());
+            range_of_history = select_indices;
+        }
 
-      if (parameters.contains("skip_first"))
-      {
-        skip_first = std::any_cast<unsigned int>(parameters["skip_first"]);
-      }
-      else
-      {
-          skip_first = history;
-      }
+        if (parameters.contains("skip_first"))
+        {
+          skip_first = std::any_cast<unsigned int>(parameters["skip_first"]);
+        }
+        else
+        {
+            skip_first = history;
+        }
 
-      if (parameters.contains("skip_last"))
-      {
-        skip_last = std::any_cast<unsigned int>(parameters["skip_last"]);
-      }
-      else
-      {
-          skip_last = 0;
-      }
+        if (parameters.contains("skip_last"))
+        {
+          skip_last = std::any_cast<unsigned int>(parameters["skip_last"]);
+        }
+        else
+        {
+            skip_last = 0;
+        }
 
-      const auto length_of_timeserie = data.rows() - skip_first - skip_last;
-      std::shared_ptr<Eigen::MatrixXd> sampled_dataset ( new Eigen::MatrixXd( data.cols() * allocated_space, length_of_timeserie) );
-      for ( unsigned int row{skip_first}, count_rows{0} ; row < skip_first + length_of_timeserie; ++row, ++count_rows )
-      {
-          for( auto [count_history , item_history]: std::views::enumerate(range_of_history))
-          {
-              for (auto dimension_of_original_dataset: std::views::iota(0U, dimension_of_data))
-              {
-                  const auto original_dataset_row = row - item_history;
-                  const auto inserted_data = data(original_dataset_row, dimension_of_original_dataset);
-                  sampled_dataset->operator()(count_history * dimension_of_data + dimension_of_original_dataset, count_rows) = inserted_data;
-              }
-          }
-      }
+        const auto length_of_timeserie = data.rows() - skip_first - skip_last;
+        std::shared_ptr<Eigen::MatrixXd> sampled_dataset ( new Eigen::MatrixXd( data.cols() * allocated_space, length_of_timeserie) );
+        for ( unsigned int row{skip_first}, count_rows{0} ; row < skip_first + length_of_timeserie; ++row, ++count_rows )
+        {
+            for( auto [count_history , item_history]: std::views::enumerate(range_of_history))
+            {
+                for (auto dimension_of_original_dataset: std::views::iota(0U, dimension_of_data))
+                {
+                    const auto original_dataset_row = row - item_history;
+                    const auto inserted_data = data(original_dataset_row, dimension_of_original_dataset);
+                    sampled_dataset->operator()(count_history * dimension_of_data + dimension_of_original_dataset, count_rows) = inserted_data;
+                }
+            }
+        }
+      
+        return sampled_dataset;
+    }
+
+    static std::generator<std::shared_ptr<const Eigen::MatrixXd>> generator_samples_from_arrays( Eigen::MatrixXd &data, std::map<std::string, std::any> parameters)
+    {
+        const unsigned int dimension_of_data = data.cols();
+        unsigned int history, allocated_space, skip_first, skip_last;
+        std::vector<unsigned int> select_indices;
+        std::vector<unsigned int> &range_of_history (select_indices);
+        if (parameters.contains("history"))
+        {
+            history = std::any_cast<unsigned int>(parameters["history"]);
+            select_indices = std::views::iota(1U, history) | std::ranges::to<std::vector<unsigned int>>();
+        }
+        else
+        {
+            allocated_space = 5;
+            history = 5;
+        }
+
+        if (parameters.contains("select_indices"))
+        {
+            select_indices = std::any_cast<std::vector<unsigned int>& >( parameters["select_indices"] );
+            allocated_space = select_indices.size();
+            history = *max_element(select_indices.begin(), select_indices.end());
+            range_of_history = select_indices;
+        }
+
+        if (parameters.contains("skip_first"))
+        {
+          skip_first = std::any_cast<unsigned int>(parameters["skip_first"]);
+        }
+        else
+        {
+            skip_first = history;
+        }
+
+        if (parameters.contains("skip_last"))
+        {
+          skip_last = std::any_cast<unsigned int>(parameters["skip_last"]);
+        }
+        else
+        {
+            skip_last = 0;
+        }
+
+        const auto length_of_timeserie = data.rows() - skip_first - skip_last;
+        std::shared_ptr<Eigen::MatrixXd> sampled_dataset ( new Eigen::MatrixXd( data.cols() * allocated_space, 1) );
+        for ( unsigned int row{skip_first}, count_rows{0} ; row < skip_first + length_of_timeserie; ++row, ++count_rows )
+        {
+            for( auto [count_history , item_history]: std::views::enumerate(range_of_history))
+            {
+                for (auto dimension_of_original_dataset: std::views::iota(0U, dimension_of_data))
+                {
+                    const auto original_dataset_row = row - item_history;
+                    const auto inserted_data = data(original_dataset_row, dimension_of_original_dataset);
+                    sampled_dataset->operator()(count_history * dimension_of_data + dimension_of_original_dataset, 0) = inserted_data;
+                    
+                }
+            }
+            co_yield sampled_dataset;
+        }
+    }
     
-      return sampled_dataset;
-  }
-
-  static std::generator<std::shared_ptr<const Eigen::MatrixXd>> generator_samples_from_arrays( Eigen::MatrixXd &data, std::map<std::string, std::any> parameters)
-  {
-      const unsigned int dimension_of_data = data.cols();
-      unsigned int history, allocated_space, skip_first, skip_last;
-      std::vector<unsigned int> select_indices;
-      std::vector<unsigned int> &range_of_history (select_indices);
-      if (parameters.contains("history"))
-      {
-          history = std::any_cast<unsigned int>(parameters["history"]);
-          select_indices = std::views::iota(1U, history) | std::ranges::to<std::vector<unsigned int>>();
-      }
-      else
-      {
-          allocated_space = 5;
-          history = 5;
-      }
-
-      if (parameters.contains("select_indices"))
-      {
-          select_indices = std::any_cast<std::vector<unsigned int>& >( parameters["select_indices"] );
-          allocated_space = select_indices.size();
-          history = *max_element(select_indices.begin(), select_indices.end());
-          range_of_history = select_indices;
-      }
-
-      if (parameters.contains("skip_first"))
-      {
-        skip_first = std::any_cast<unsigned int>(parameters["skip_first"]);
-      }
-      else
-      {
-          skip_first = history;
-      }
-
-      if (parameters.contains("skip_last"))
-      {
-        skip_last = std::any_cast<unsigned int>(parameters["skip_last"]);
-      }
-      else
-      {
-          skip_last = 0;
-      }
-
-      const auto length_of_timeserie = data.rows() - skip_first - skip_last;
-      std::shared_ptr<Eigen::MatrixXd> sampled_dataset ( new Eigen::MatrixXd( data.cols() * allocated_space, 1) );
-      for ( unsigned int row{skip_first}, count_rows{0} ; row < skip_first + length_of_timeserie; ++row, ++count_rows )
-      {
-          for( auto [count_history , item_history]: std::views::enumerate(range_of_history))
-          {
-              for (auto dimension_of_original_dataset: std::views::iota(0U, dimension_of_data))
-              {
-                  const auto original_dataset_row = row - item_history;
-                  const auto inserted_data = data(original_dataset_row, dimension_of_original_dataset);
-                  sampled_dataset->operator()(count_history * dimension_of_data + dimension_of_original_dataset, 0) = inserted_data;
-                  
-              }
-          }
-          co_yield sampled_dataset;
-      }
-  }
-  
 protected:
-  std::vector<TYPE> _alphas;
+    std::vector<TYPE> _alphas;
 
-  std::vector<unsigned int> _indices;
+    std::vector<unsigned int> _indices;
 
-  std::function<TYPE(TYPE)> _logarithm;
+    std::function<TYPE(TYPE)> _logarithm;
 
-  std::function<TYPE(TYPE)> _exp;
+    std::function<TYPE(TYPE)> _exp;
 
-  std::function<TYPE(TYPE, TYPE)> _power;
+    std::function<TYPE(TYPE, TYPE)> _power;
 };
 
 } // namespace renyi_entropy

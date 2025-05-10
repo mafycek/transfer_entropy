@@ -50,6 +50,6 @@ TEST(RandomSamples, AlphaStableDistributionSamples) {
 	unsigned int dimension = 5;
 	Eigen::MatrixXd dataset;
 	Eigen::MatrixXd Sigma = Eigen::MatrixXd::Identity ( dimension, dimension );
-	random_samples::sample_alpha_stable_distribution(dataset, Sigma, 1.9, 1, 1, 1, 10);
+	random_samples::sample_alpha_stable_distribution(dataset, Sigma, 1.9, 0, 0, 1, 1000);
 	std::cout << dataset.transpose() << std::endl;
 }
