@@ -42,3 +42,15 @@ target_include_directories(binary_file_test PUBLIC ../third-party/ndarray/includ
 target_link_libraries(binary_file_test PUBLIC
         ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen
 )
+
+add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp renyi_entropy.cpp utils.cpp)
+target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree)
+target_link_libraries(renyi_entropy_calculator PUBLIC
+        ${Boost_LIBRARIES} KDTree stable
+)
+
+add_executable(test_utils test_utils.cpp utils.cpp)
+target_include_directories(test_utils PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree)
+target_link_libraries(test_utils PUBLIC
+        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples 
+)

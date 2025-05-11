@@ -585,6 +585,11 @@ public:
     iarch >> result;
   }
   
+  static int renyi_conditional_information_transfer(const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters)
+  {
+    
+  }
+  
   static std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd, const Eigen::MatrixXd> PrepareDatasetForTransferEntropy ( Eigen::MatrixXd & marginal_solution_1, Eigen::MatrixXd & marginal_solution_2, std::map<std::string, std::any> parameters)
   {
       unsigned int history_first, history_second, skip_first, skip_last, history_x, history_y, time_shift_between_X_Y;
@@ -654,7 +659,7 @@ public:
       }
       else
       {
-          future_index_x = std::vector({0});
+          future_index_x = std::vector<unsigned int>({0U});
       }
 
       if (parameters.contains("transpose"))
@@ -699,7 +704,7 @@ public:
       marginal_solution_2_selected = marginal_solution_2.block(0, skip_first, marginal_solution_2.cols(), marginal_solution_2.rows() - skip_last);
 
       const Eigen::MatrixXd matrix;
-      return std::tuple(matrix, matrix);
+      return std::tuple(matrix, matrix, matrix);
   }
 
     static Eigen::MatrixXd shuffle_sample ( const Eigen::MatrixXd &dataset )
@@ -714,7 +719,7 @@ public:
         return result;
     }
 
-    static std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd> prepare_dataset( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, unsigned int selection_1, unsigned int selection_2)
+    static std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> prepare_dataset( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, unsigned int selection_1, unsigned int selection_2)
     {
         auto marginal_solution_1 = joint_dataset( Eigen::all, Eigen::seqN(0, selection_1) );
         auto marginal_solution_2 = joint_dataset( Eigen::all, Eigen::seqN(selection_1, selection_2) );
