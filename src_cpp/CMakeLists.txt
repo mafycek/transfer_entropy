@@ -45,8 +45,8 @@ target_link_libraries(binary_file_test PUBLIC
 
 add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp renyi_entropy.cpp utils.cpp)
 target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree)
-target_link_libraries(renyi_entropy_calculator PUBLIC
-        ${Boost_LIBRARIES} KDTree stable
+target_link_libraries(renyi_entropy_calculator PUBLIC 
+        ${Boost_LIBRARIES} KDTree stable random_samples
 )
 
 add_executable(test_utils test_utils.cpp utils.cpp)
