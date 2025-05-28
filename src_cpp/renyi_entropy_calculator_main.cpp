@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 
 #include "renyi_entropy.h"
+#include "random_samples.h"
 #include "utils.h"
 
 namespace po = boost::program_options;
@@ -14,7 +15,7 @@ int main(int argc, char *argv[])
 {
 		std::string directory;
 		unsigned int maximal_neighborhood;
-		std::vector<unsigned long> history_firsts, future_firsts, history_seconds;
+		std::vector<std::vector<unsigned int>> history_firsts, future_firsts, history_seconds;
 		std::vector<double> alpha;
 		std::string alphas_string, history_first_string, future_first_string, history_second_string;
 		po::options_description desc("Allowed options");
@@ -33,31 +34,43 @@ int main(int argc, char *argv[])
 		po::notify(vm);    
 
 		if (vm.count("help")) {
-				std::cout << desc << std::endl;
-				return 1;
+			std::cout << desc << std::endl;
+			return 1;
 		}
 
 		if(vm.count("directory")){
-				 directory = vm["directory"].as<std::string>();
+			directory = vm["directory"].as<std::string>();
 		}
 		if(vm.count("history_first")){
-				 history_first_string = vm["history_first"].as<std::string>();
-				 convert_array<unsigned long>( history_first_string, history_firsts, [] (const std::string str, std::size_t* pos) -> unsigned long {return std::stoul(str, pos, 10 );});
+			history_first_string = vm["history_first"].as<std::string>();
+			chop_string_arrays<std::string, unsigned int>( history_first_string, ',', history_firsts, [] (const std::string str, std::size_t* pos) -> unsigned int {return std::stoul(str, pos, 10 );});
+		}
+		else
+		{
+			std::cerr << "history_first option must be used" << std::endl;
 		}
 		if(vm.count("future_first")){
-				 future_first_string = vm["future_first"].as<std::string>();
-				 convert_array<unsigned long>( future_first_string, future_firsts, [] (const std::string str, std::size_t* pos) -> unsigned long {return std::stoul(str, pos, 10 );});
+			future_first_string = vm["future_first"].as<std::string>();
+			chop_string_arrays<std::string, unsigned int>( future_first_string, ',', future_firsts, [] (const std::string str, std::size_t* pos) -> unsigned int {return std::stoul(str, pos, 10 );});
+		}
+		else
+		{
+			std::cerr << "future_first option must be used" << std::endl;
 		}
 		if(vm.count("history_second")){
-				 history_second_string = vm["history_second"].as<std::string>();
-				 convert_array<unsigned long>( history_second_string, history_seconds, [] (const std::string str, std::size_t* pos) -> unsigned long {return std::stoul(str, pos, 10 );});
+			history_second_string = vm["history_second"].as<std::string>();
+			chop_string_arrays<std::string, unsigned int>( history_second_string, ',', history_seconds, [] (const std::string str, std::size_t* pos) -> unsigned int {return std::stoul(str, pos, 10 );});
+		}
+		else
+		{
+			std::cerr << "history_second option must be used" << std::endl;
 		}
 		if(vm.count("maximal_neighborhood")){
-				 maximal_neighborhood = vm["maximal_neighborhood"].as<unsigned int>();
+			maximal_neighborhood = vm["maximal_neighborhood"].as<unsigned int>();
 		}
 		if(vm.count("alpha")){
-				 alphas_string = vm["alpha"].as<std::string>();
-				 convert_array<double>( alphas_string, alpha, std::stod );
+			alphas_string = vm["alpha"].as<std::string>();
+			convert_array<std::string, double>( alphas_string, alpha, std::stod );
 		}
     unsigned int postselection_X_future;
     unsigned int postselection_X_history;
@@ -68,6 +81,7 @@ int main(int argc, char *argv[])
 			std::cout << item << std::endl;
 		}
 		Eigen::MatrixXd dataset;
+		random_samples::samples_normal_distribution_uncorrelated( dataset, 0, 1, 100, 2 );
 
 		for (auto swap_datasets: {true, false})
 		{
@@ -103,8 +117,6 @@ int main(int argc, char *argv[])
 							};
 
 							auto transfer_entropy = renyi_entropy::renyi_entropy<double>::renyi_conditional_information_transfer( y_future, y_history, z_history, configuration_renyi_entropy );
-						
-							
 						}
 					}
 				}

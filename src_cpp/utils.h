@@ -4,10 +4,11 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
-template<typename T>
-void convert_array(const std::string &array, std::vector<T>& values, T (* convertor) (const std::string &, std::size_t*) )
+template<typename S, typename T>
+void convert_array(const S &array, std::vector<T>& values, T (* convertor) (const std::string &, std::size_t*) )
 {
 	try
 	{
@@ -28,8 +29,8 @@ void convert_array(const std::string &array, std::vector<T>& values, T (* conver
 	}
 }
 
-template<typename T>
-void convert_array(const std::string &array, std::vector<T>& values, std::function<T (const std::string &, std::size_t*)> convertor )
+template<typename S, typename T>
+void convert_array(const S &array, std::vector<T>& values, std::function<T (const std::string &, std::size_t*)> convertor )
 {
 	try
 	{
@@ -47,6 +48,58 @@ void convert_array(const std::string &array, std::vector<T>& values, std::functi
 	catch(std::invalid_argument & exp)
 	{
 		// conversion was unsucceful
+	}
+}
+
+template<typename S, typename T>
+void chop_string_arrays (const S &array, char chop_separator, std::vector<std::vector<T>>& values, T (* convertor) (const std::string &, std::size_t*) )
+{
+	size_t position{0};
+	size_t location_separator{0};
+	S data;
+	for(; location_separator != array.npos ;)
+	{
+		data = array.substr( position );
+		location_separator = data.find(chop_separator);
+		size_t position_of_separator;
+		if ( location_separator == data.npos )
+		{
+			position_of_separator = data.size();
+		}
+		else
+		{
+			position_of_separator = location_separator;
+		}
+		auto chop_substring = data.substr(0, position_of_separator);
+		values.push_back(std::vector<T>());
+		convert_array<std::string_view, T>(chop_substring, values.back(), convertor );
+		position += position_of_separator + 1;
+	}
+}
+
+template<typename S, typename T>
+void chop_string_arrays (const S &array, char chop_separator, std::vector<std::vector<T>>& values, std::function<T (const std::string &, std::size_t*)> convertor )
+{
+	size_t position{0};
+	size_t location_separator{0};
+	S data;
+	for(; location_separator != array.npos ;)
+	{
+		data = array.substr( position );
+		location_separator = data.find(chop_separator);
+		size_t position_of_separator;
+		if ( location_separator == data.npos )
+		{
+			position_of_separator = data.size();
+		}
+		else
+		{
+			position_of_separator = location_separator;
+		}
+		auto chop_substring = data.substr(0, position_of_separator);
+		values.push_back(std::vector<T>());
+		convert_array<std::string_view, T>(chop_substring, values.back(), convertor );
+		position += position_of_separator + 1;
 	}
 }
 

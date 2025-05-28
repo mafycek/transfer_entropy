@@ -76,6 +76,7 @@ int main ( int argc, char *argv[] )
     std::vector<double> means ( dimension );
     std::function<double ( double, Eigen::MatrixXd &)> renyi_entropy_function;
     
+    auto start_dataset_generation_calculation = std::chrono::high_resolution_clock::now();
     if ( random_noise_type == random_noise_types[0] )
     {
         sigma = Eigen::MatrixXd::Identity ( dimension, dimension ) *
@@ -174,6 +175,16 @@ int main ( int argc, char *argv[] )
             return random_samples::Renyi_student_t_distribution (degrees_of_freedom, q, sigma );
         };
     }
+    auto end_dataset_generation_calculation = std::chrono::high_resolution_clock::now();
+    auto elapsed_edata_generation =
+        end_dataset_generation_calculation - start_dataset_generation_calculation;
+    auto milliseconds_elapsed_edata_generation=
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_edata_generation)
+            .count();
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Dataset generated in {:.5f} seconds",
+                       milliseconds_elapsed_edata_generation / 1000.0);
 
     std::vector<double> alphas;
     for ( double alpha = 0.05; alpha < 1; alpha += delta_alpha )

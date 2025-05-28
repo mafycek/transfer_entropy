@@ -88,6 +88,11 @@ public:
     return tree;
   }
 
+  KDTree<TYPE> create_KDtree(const Eigen::MatrixXd &dataset) {
+    KDTree<TYPE> tree(dataset);
+    return tree;
+  }
+
   void calculation() {
     std::vector<double> dataset_x;
     std::vector<std::vector<double>> distances;
@@ -424,6 +429,77 @@ public:
     }
   }
 
+  
+  std::map<std::tuple<unsigned int, TYPE>, TYPE>
+  renyi_entropy_metric(const Eigen::MatrixXd &dataset, double metric = 2) {
+    auto nearest_iterator =
+        std::max_element(GetIndices().begin(), GetIndices().end());
+    // calculation how large of index of distance needs to be calculated
+    // + 1 for skipping 0-neighbor
+    auto nearest = (*nearest_iterator) + 1;
+    std::map<std::tuple<unsigned int, TYPE>, TYPE> results;
+    const int dimension_of_data = dataset.cols();
+    auto start_calculation = std::chrono::high_resolution_clock::now();
+    auto kdtree = create_KDtree(dataset);
+    auto end_tree_construction_calculation =
+        std::chrono::high_resolution_clock::now();
+
+    // calculate distances
+    std::vector<std::vector<TYPE>> distances;
+    calculate_distances_from_each_point(kdtree, dataset, nearest, distances,
+                                        metric);
+    
+    // remove kdtree to same memory
+    auto end_distance_calculation = std::chrono::high_resolution_clock::now();
+
+    // calculate renyi entropy
+    auto log_calculation = true;
+    auto one = static_cast<TYPE>(1);
+    for (const auto alpha : GetAlphas()) {
+      if (alpha == one) {
+        entropy_sum_Shannon_metric(results, dimension_of_data, distances,
+                                   log_calculation, metric);
+      } else {
+        entropy_sum_Renyi_metric(results, dimension_of_data, distances, alpha,
+                                 log_calculation, metric);
+      }
+    }
+
+    renyi_entropy_LeonenkoProzanto_compensation(results, dimension_of_data);
+    auto end_entropy_calculation = std::chrono::high_resolution_clock::now();
+
+    auto elapsed_tree_construction =
+        end_tree_construction_calculation - start_calculation;
+    auto elapsed_distance_calculation =
+        end_distance_calculation - end_tree_construction_calculation;
+    auto elapsed_entropy_calculation =
+        end_entropy_calculation - end_distance_calculation;
+
+    auto milliseconds_tree_construction =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_tree_construction)
+            .count();
+    auto milliseconds_distance_calculation =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_distance_calculation)
+            .count();
+    auto milliseconds_entropy_calculation =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            elapsed_entropy_calculation)
+            .count();
+
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Tree constructed in {:.5f} seconds",
+                       milliseconds_tree_construction / 1000.0);
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Distances calculated in {:.5f} seconds",
+                       milliseconds_distance_calculation / 1000.0);
+    BOOST_LOG_TRIVIAL(trace)
+        << std::format("Entropy calculated in {:.5f} seconds",
+                       milliseconds_entropy_calculation / 1000.0);
+    return results;
+  }
+  
   std::map<std::tuple<unsigned int, TYPE>, TYPE>
   renyi_entropy_metric(std::vector<std::vector<TYPE>> &dataset,
                        double metric = 2) {
@@ -460,34 +536,7 @@ public:
       }
     }
 
-    // calculation of entropy for Renyi case
-    // Shannon case already holds entropy
-    const auto fixed_compesation = -0.001921 * dimension_of_data + 1.02726;
-    
-    const auto exponent1 = (0.167 / dimension_of_data - 0.181);
-    const auto multiplication_factor1 = 0.95;
-    const auto threshold1 = exp( log(fixed_compesation) - log(multiplication_factor1) / exponent1 );
-
-    const auto exponent2 = (-0.0015 * dimension_of_data + 0.00067);
-    const auto multiplication_factor2 = 0.99;
-    const auto threshold2 = exp( log(fixed_compesation) - log(multiplication_factor2) / exponent2 );
-    
-    for (auto &item : results) {
-      auto alpha = std::get<1>(item.first);
-        const auto compensation1 = ( alpha < threshold1 ) ? (multiplication_factor1 * pow(alpha, exponent1)) : 1;        
-        const auto compensation2 = ( alpha > threshold2 ) ? (multiplication_factor2 * pow(alpha, exponent2)) : 1;
-
-      if (alpha != one) {        
-        auto entropy = _logarithm(item.second) / (1 - alpha) * compensation1 * compensation2 * fixed_compesation;
-        item.second = entropy;
-      }
-      else
-      {
-        auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
-        item.second = entropy;
-      }
-    }
-
+    renyi_entropy_LeonenkoProzanto_compensation(results, dimension_of_data);
     auto end_entropy_calculation = std::chrono::high_resolution_clock::now();
 
     auto elapsed_tree_construction =
@@ -522,6 +571,38 @@ public:
     return results;
   }
 
+  inline void renyi_entropy_LeonenkoProzanto_compensation(std::map<std::tuple<unsigned int, TYPE>, TYPE> &results, const int dimension_of_data)
+  {
+    auto one = static_cast<TYPE>(1);
+    // calculation of entropy for Renyi case
+    // Shannon case already holds entropy
+    const auto fixed_compesation = -0.001921 * dimension_of_data + 1.02726;
+    
+    const auto exponent1 = (0.167 / dimension_of_data - 0.181);
+    const auto multiplication_factor1 = 0.95;
+    const auto threshold1 = exp( log(fixed_compesation) - log(multiplication_factor1) / exponent1 );
+
+    const auto exponent2 = (-0.0015 * dimension_of_data + 0.00067);
+    const auto multiplication_factor2 = 0.99;
+    const auto threshold2 = exp( log(fixed_compesation) - log(multiplication_factor2) / exponent2 );
+    
+    for (auto &item : results) {
+      auto alpha = std::get<1>(item.first);
+        const auto compensation1 = ( alpha < threshold1 ) ? (multiplication_factor1 * pow(alpha, exponent1)) : 1;        
+        const auto compensation2 = ( alpha > threshold2 ) ? (multiplication_factor2 * pow(alpha, exponent2)) : 1;
+
+      if (alpha != one) {        
+        auto entropy = _logarithm(item.second) / (1 - alpha) * compensation1 * compensation2 * fixed_compesation;
+        item.second = entropy;
+      }
+      else
+      {
+        auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
+        item.second = entropy;
+      }
+    }
+  }
+  
   inline void calculate_distances_from_each_point(
       KDTree<TYPE> &kdtree, std::vector<std::vector<TYPE>> &dataset,
       unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
@@ -532,6 +613,26 @@ public:
       std::vector<TYPE> distance_vector;
       for (int i = 0; i < nearest; ++i) {
         distance_vector.push_back(distance(point, points[i], metric));
+      }
+      distances.push_back(distance_vector);
+    }
+  }
+
+    inline void calculate_distances_from_each_point(
+      KDTree<TYPE> &kdtree, const Eigen::MatrixXd &dataset,
+      unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
+      const TYPE metric) {
+    // calculate distances
+      auto number_data = dataset.cols();
+    for (int i = 0; i < number_data; ++i) {
+      auto item = dataset.col(i);
+      const auto start = item.data();
+      auto end =  item.data() + item.rows();
+      std::vector<double> point(start, end);
+      auto points = kdtree.nearest_points(point, nearest);
+      std::vector<TYPE> distance_vector;
+      for (int j = 0; j < nearest; ++j) {
+        distance_vector.push_back(distance(point, points[j], metric));
       }
       distances.push_back(distance_vector);
     }
@@ -587,14 +688,96 @@ public:
   
   static int renyi_conditional_information_transfer(const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters)
   {
-    
+      bool enhanced_calculation {true};
+      if (parameters.contains("enhanced_calculation"))
+      {
+          enhanced_calculation = std::any_cast<bool>(parameters["enhanced_calculation"]);
+      }
+      unsigned int axis_to_join = 0;
+      if (parameters.contains("axis_to_join"))
+      {
+          axis_to_join = std::any_cast<bool>(parameters["axis_to_join"]);
+      }
+
+      if (enhanced_calculation)
+      {
+          renyi_entropy<double> calculator;
+          Eigen::MatrixXd joint_dataset(y_future.rows() + y_history.rows(), y_future.cols());
+          joint_dataset << y_future, y_history;
+          auto entropy_present_X_history_X = calculator.renyi_entropy_metric(joint_dataset, 2);
+          
+          joint_dataset.reshaped(y_history.rows() + z_history.rows(), y_history.cols());
+          joint_dataset << y_history, z_history;
+          auto entropy_history_X_history_Y = calculator.renyi_entropy_metric(joint_dataset, 2);
+
+          joint_dataset.reshaped(y_future.rows() + y_history.rows() + z_history.rows(), y_future.cols());
+          joint_dataset << y_future, y_history, z_history;
+          auto entropy_joint = calculator.renyi_entropy_metric(joint_dataset, 2);
+          
+          auto entropy_history_X = calculator.renyi_entropy_metric(y_history, 2);
+          
+          decltype(entropy_present_X_history_X) conditional_information_transfer;
+          
+          auto conditional_information_transfer_calculator = [](auto a, auto b, auto c, auto d) { return a.second + b.second - c.second -d.second; };
+      
+          auto sum = std::views::zip_transform(conditional_information_transfer_calculator, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X);
+      }
+      else
+      {
+        
+      }
+/*
+            results = {}
+    if enhanced_calculation:
+        joint_dataset = np.concatenate((data_x_fut, data_x_hist), axis=axis_to_join)
+        entropy_present_X_history_X = renyi_entropy(joint_dataset, **kwargs)
+
+        joint_dataset = np.concatenate((data_x_hist, data_y), axis=axis_to_join)
+        entropy_history_X_history_Y = renyi_entropy(joint_dataset, **kwargs)
+
+        joint_dataset = np.concatenate(
+            (data_x_fut, data_x_hist, data_y), axis=axis_to_join
+        )
+        entropy_joint = renyi_entropy(joint_dataset, **kwargs)
+
+        entropy_history_X = renyi_entropy(data_x_hist, **kwargs)
+
+        for alpha in kwargs["alphas"]:
+            try:
+                result = [
+                    entropy_present_X_history_X[alpha][index]
+                    + entropy_history_X_history_Y[alpha][index]
+                    - entropy_joint[alpha][index]
+                    - entropy_history_X[alpha][index]
+                    for index in range(len(kwargs["indices_to_use"]))
+                ]
+                results[alpha] = result
+            except KeyError as exc:
+                tb = sys.exception().__traceback__
+                print(f"Key {alpha} is missing: {exc.with_traceback(tb)}")
+        return results
+    else:
+        joint_dataset = np.concatenate((data_x_hist, data_y), axis=axis_to_join)
+
+        joint_part = renyi_mutual_entropy(data_x_fut, joint_dataset, **kwargs)
+        marginal_part = renyi_mutual_entropy(data_x_fut, data_x_hist, **kwargs)
+
+        results = {}
+        for alpha in kwargs["alphas"]:
+            result = [
+                joint_part[alpha][index] - marginal_part[alpha][index]
+                for index in range(len(kwargs["indices_to_use"]))
+            ]
+            results[alpha] = result
+
+        return results*/
   }
   
   static std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd, const Eigen::MatrixXd> PrepareDatasetForTransferEntropy ( Eigen::MatrixXd & marginal_solution_1, Eigen::MatrixXd & marginal_solution_2, std::map<std::string, std::any> parameters)
   {
       unsigned int history_first, history_second, skip_first, skip_last, history_x, history_y, time_shift_between_X_Y;
       std::vector<unsigned int> history_index_x, history_index_y, future_index_x;
-      bool postselection_y_fut, postselection_z_hist, postselection_y_hist, random_source;
+      unsigned int postselection_y_fut, postselection_z_hist, postselection_y_hist, random_source;
       Eigen::MatrixXd marginal_solution_1_selected, marginal_solution_2_selected;
       if ( parameters.contains("history_first") )
       {
@@ -646,7 +829,7 @@ public:
 
       if (parameters.contains("time_shift_between_X_Y"))
       {
-        time_shift_between_X_Y = std::any_cast<unsigned int>(parameters["time_shift_between_X_Y"]);
+        time_shift_between_X_Y = std::any_cast<unsigned long>(parameters["time_shift_between_X_Y"]);
       }
       else
       {
@@ -670,29 +853,29 @@ public:
 
       if (parameters.contains("postselection_y_fut"))
       {
-          postselection_y_fut = std::any_cast<bool>(parameters["postselection_y_fut"]);
+          postselection_y_fut = std::any_cast<unsigned int>(parameters["postselection_y_fut"]);
       }
       else
       {
-          postselection_y_fut = false;
+          postselection_y_fut = 0;
       }
 
       if (parameters.contains("postselection_z_hist"))
       {
-          postselection_z_hist = std::any_cast<bool>(parameters["postselection_z_hist"]);
+          postselection_z_hist = std::any_cast<unsigned int>(parameters["postselection_z_hist"]);
       }
       else
       {
-          postselection_z_hist = false;
+          postselection_z_hist = 0;
       }
 
       if (parameters.contains("postselection_y_hist"))
       {
-        postselection_y_hist = std::any_cast<bool>(parameters["postselection_y_hist"]);
+        postselection_y_hist = std::any_cast<unsigned int>(parameters["postselection_y_hist"]);
       }
       else
       {
-          postselection_y_hist = false;
+          postselection_y_hist = 0;
       }
 
       if (parameters.contains("random_source"))
@@ -700,16 +883,78 @@ public:
           random_source = std::any_cast<bool>(parameters["random_source"]);
       }
 
-      marginal_solution_1_selected = marginal_solution_1.block(0, skip_first, marginal_solution_1.cols(), marginal_solution_1.rows() - skip_last);
-      marginal_solution_2_selected = marginal_solution_2.block(0, skip_first, marginal_solution_2.cols(), marginal_solution_2.rows() - skip_last);
+      std::cout << marginal_solution_1 << std::endl;
+      marginal_solution_1_selected = marginal_solution_1.block(skip_first, 0, marginal_solution_1.rows() - skip_last, marginal_solution_1.cols());
+      marginal_solution_2_selected = marginal_solution_2.block(skip_first, 0, marginal_solution_2.rows() - skip_last, marginal_solution_2.cols());
 
       const Eigen::MatrixXd matrix;
-      return std::tuple(matrix, matrix, matrix);
+      
+      parameters["transpose"]= false;
+      // additional move in history is there because then actual timeserie is separated
+      parameters["history"] = history_x;
+      parameters["skip_first"] = (history_x > history_y) ? time_shift_between_X_Y : history_y - history_x + time_shift_between_X_Y;
+      parameters["skip_last"] = 0U;
+      std::vector<unsigned int> indices;
+      std::vector<unsigned int> join_histories_x_y (history_index_x.size() + history_index_y.size());
+      join_histories_x_y.insert( join_histories_x_y.end(), history_index_x.begin(), history_index_x.end() );
+      join_histories_x_y.insert( join_histories_x_y.end(), history_index_y.begin(), history_index_y.end() );
+      auto max_join_histories_x_y = std::max_element(join_histories_x_y.begin(), join_histories_x_y.end());
+      auto max_future_index_x = std::max_element(future_index_x.begin(), future_index_x.end());
+      auto max_history_index_x =  std::max_element(history_index_x.begin(), history_index_x.end());
+
+      if (parameters.contains("history_index_x"))
+      {
+          if (parameters.contains("future_index_x"))
+          {
+              for (unsigned int item : future_index_x) {
+                  indices.push_back( (*max_future_index_x) - item );
+              }
+              for (unsigned int item : history_index_x) {
+                  indices.push_back( (*max_future_index_x) + item );
+              }
+          }
+          else
+          {
+              for (unsigned int item : history_index_x) {
+                  indices.push_back( 1 + item );
+              }
+          }
+          parameters["select_indices"] = indices;
+          parameters["skip_first"] = static_cast<unsigned int> ( (* max_join_histories_x_y ) + (* max_future_index_x ) );
+      }
+      auto samples_marginal_1 = samples_from_arrays(marginal_solution_1_selected, parameters);
+
+      parameters["history"] = history_y;
+      parameters["skip_first"] = static_cast<unsigned int> ( (* max_join_histories_x_y ) + (* max_future_index_x ) );
+      parameters["skip_last"] = 0U;
+      if (parameters.contains("history_index_y"))
+      {
+          for (unsigned int item : history_index_y) {
+              indices.push_back( (* max_future_index_x )- item );
+          }
+          parameters["select_indices"] = indices;
+      }
+
+      auto samples_marginal_2 = samples_from_arrays(marginal_solution_1_selected, parameters);
+
+      Eigen::MatrixXd y_fut, y_history, x_hist;
+      if (parameters.contains("future_index_x"))
+      { // max_history_index_x
+          y_fut = (*samples_marginal_1)(Eigen::all, Eigen::seq( 0, (* max_history_index_x) * samples_marginal_1->cols() ) );
+          y_history = (*samples_marginal_1)(Eigen::all, Eigen::seq( (* max_history_index_x) * samples_marginal_1->cols(), ( (* max_join_histories_x_y ) + (* max_future_index_x ) ) * samples_marginal_1->cols() ) );
+      }
+      else
+      {
+          y_fut = (*samples_marginal_1)(Eigen::all, Eigen::seq(0, samples_marginal_1->cols()));
+          y_history = (*samples_marginal_1)(Eigen::all, Eigen::seq(samples_marginal_1->cols(), (* max_join_histories_x_y ) + (* max_future_index_x )));
+      }
+
+      return std::tuple(y_fut, y_history, x_hist);
   }
 
     static Eigen::MatrixXd shuffle_sample ( const Eigen::MatrixXd &dataset )
     {
-      // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
+        // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
         Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
         
         Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm(dataset.rows());
@@ -721,8 +966,8 @@ public:
 
     static std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> prepare_dataset( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, unsigned int selection_1, unsigned int selection_2)
     {
-        auto marginal_solution_1 = joint_dataset( Eigen::all, Eigen::seqN(0, selection_1) );
-        auto marginal_solution_2 = joint_dataset( Eigen::all, Eigen::seqN(selection_1, selection_2) );
+        auto marginal_solution_1 = joint_dataset( Eigen::seqN(0, selection_1), Eigen::all );
+        auto marginal_solution_2 = joint_dataset( Eigen::seqN(selection_1, selection_2), Eigen::all );
         
         auto * swaped_marginal_solution_1 = &marginal_solution_1;
         auto * swaped_marginal_solution_2 = &marginal_solution_2;
@@ -741,7 +986,7 @@ public:
         {
             shuffled_dataset = * swaped_marginal_solution_1;
         }
-        
+
         return std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd>(shuffled_dataset, *swaped_marginal_solution_2);
     }
   
@@ -789,6 +1034,10 @@ public:
         }
 
         const auto length_of_timeserie = data.rows() - skip_first - skip_last;
+        if (length_of_timeserie <= 0)
+        {
+            throw std::logic_error("Calculation of allocated matrix size gives zero or negative");
+        }
         std::shared_ptr<Eigen::MatrixXd> sampled_dataset ( new Eigen::MatrixXd( data.cols() * allocated_space, length_of_timeserie) );
         for ( unsigned int row{skip_first}, count_rows{0} ; row < skip_first + length_of_timeserie; ++row, ++count_rows )
         {
