@@ -14,12 +14,14 @@
 #include <vector>
 #include <ranges>
 #include <any>
+#include <thread>
 #include <random>
 #include <memory>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 #include <generator>
+#include <latch>
 
 #include <boost/log/trivial.hpp>
 #include <boost/math/special_functions/digamma.hpp>
@@ -79,9 +81,12 @@ template <typename TYPE>
 class renyi_entropy {
 
 public:
-  renyi_entropy() {}
+  renyi_entropy()
+  : _multithreading(false)
+  {}
 
-  ~renyi_entropy() {}
+  ~renyi_entropy()
+  {}
 
   KDTree<TYPE> create_KDtree(std::vector<std::vector<TYPE>> &dataset) {
     KDTree<TYPE> tree(dataset);
@@ -157,11 +162,15 @@ public:
             exponent * _logarithm(maximum_distance) -
             _logarithm(number_of_data) +
             one_minus_alpha * _logarithm(number_of_data - 1);
-
-        results[std::make_tuple(use_index, alpha)] =
+        {
+          std::lock_guard<std::recursive_mutex> lock( _result_mutex );
+          results[std::make_tuple(use_index, alpha)] =
             _exp(multiplicator + _logarithm(sum_of_power_of_distances));
+        }
       } else {
-        results[std::make_tuple(use_index, alpha)] =
+        {
+          std::lock_guard<std::recursive_mutex> lock( _result_mutex );
+          results[std::make_tuple(use_index, alpha)] =
             sum_of_power_of_distances / number_of_data *
             pow(number_of_data - 1, one_minus_alpha) *
             boost::math::tgamma(use_index) /
@@ -169,6 +178,7 @@ public:
             _power(TYPE(std::numbers::pi_v<double>), exponent / 2) /
             _power(boost::math::tgamma(dimension_of_data / 2. + 1.),
                    one_minus_alpha);
+        }
       }
     }
   }
@@ -205,8 +215,11 @@ public:
                 return count;
               }
             });
-        results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
+        {
+          std::lock_guard<std::recursive_mutex> lock( _result_mutex );
+          results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
             sum_of_weighted_distances / number_of_data;
+        }
       } else {
         auto const sum_of_log_distances = std::accumulate(
             distances.begin(), distances.end(), static_cast<TYPE>(0),
@@ -226,8 +239,11 @@ public:
                    boost::math::tgamma(dimension_of_data / 2.0 + 1);
         auto argument_log = V_m * (number_of_data - 1);
         auto log_volume = _logarithm(argument_log);
-        results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
+        {
+          std::lock_guard<std::recursive_mutex> lock( _result_mutex );
+          results[std::make_tuple(use_index, static_cast<TYPE>(1.0))] =
             addition_to_entropy + log_volume - digamma;
+        }
       }
     }
   }
@@ -465,6 +481,7 @@ public:
       }
     }
 
+    // fitted compensation to large and small alphas of Renyi entropy calculation
     renyi_entropy_LeonenkoProzanto_compensation(results, dimension_of_data);
     auto end_entropy_calculation = std::chrono::high_resolution_clock::now();
 
@@ -526,14 +543,56 @@ public:
     // calculate renyi entropy
     auto log_calculation = true;
     auto one = static_cast<TYPE>(1);
-    for (const auto alpha : GetAlphas()) {
-      if (alpha == one) {
-        entropy_sum_Shannon_metric(results, dimension_of_data, distances,
-                                   log_calculation, metric);
-      } else {
-        entropy_sum_Renyi_metric(results, dimension_of_data, distances, alpha,
-                                 log_calculation, metric);
+    if (! GetMultithreading ())
+    {
+      for (const auto alpha : GetAlphas()) {
+        if (alpha == one) {
+          entropy_sum_Shannon_metric(results, dimension_of_data, distances,
+                                    log_calculation, metric);
+        } else {
+          entropy_sum_Renyi_metric(results, dimension_of_data, distances, alpha,
+                                  log_calculation, metric);
+        }
       }
+    }
+    else
+    {
+      const auto processor_count = std::thread::hardware_concurrency();
+      const auto jobs_to_process = (GetAlphas().size() / processor_count) + 1;
+      std::vector<std::thread> threads(processor_count);
+      std::latch work_done{processor_count};
+      for (int thread_count : std::ranges::iota_view{0U, processor_count})
+      {
+        std::thread thread_worker(
+          [&] (int thread_count)
+          {
+            const int start_job = jobs_to_process * thread_count;
+            const int end_job = (jobs_to_process * (thread_count + 1) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1) ) : dataset.size());
+            std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
+            for (int alpha_index : std::ranges::iota_view{start_job, end_job})
+            {
+              const auto alpha = GetAlphas()[alpha_index];
+              if (alpha == one) {
+                entropy_sum_Shannon_metric(results, dimension_of_data, distances,
+                                          log_calculation, metric);
+              } else {
+                entropy_sum_Renyi_metric(results, dimension_of_data, distances, alpha,
+                                        log_calculation, metric);
+              }
+            }
+            work_done.count_down();
+          }, thread_count
+        );
+        threads[thread_count] = std::move( thread_worker );
+      }
+
+      work_done.wait();
+      
+      for (int thread_count : std::ranges::iota_view{0U, processor_count})
+      {
+        threads[thread_count].join();
+      }
+      threads.clear();        
     }
 
     renyi_entropy_LeonenkoProzanto_compensation(results, dimension_of_data);
@@ -608,35 +667,89 @@ public:
       unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
       const TYPE metric) {
     // calculate distances
-    for (const auto &point : dataset) {
-      auto points = kdtree.nearest_points(point, nearest);
-      std::vector<TYPE> distance_vector;
-      for (int i = 0; i < nearest; ++i) {
-        distance_vector.push_back(distance(point, points[i], metric));
+    distances.resize(dataset.size());
+    if (! GetMultithreading ())
+    {
+      for (const auto &[index, point] : std::views::enumerate(dataset)) {
+        distances[index].resize(nearest);
+        auto points = kdtree.nearest_points(point, nearest);
+        for (int nearest_index = 0; nearest_index < nearest; ++nearest_index) {
+          distances[index][nearest_index] = (distance(point, points[nearest_index], metric));
+        }
       }
-      distances.push_back(distance_vector);
+    }
+    else
+    {
+      const auto processor_count = std::thread::hardware_concurrency();
+      const auto jobs_to_process = (dataset.size() / processor_count) + 1;
+      std::vector<std::thread> threads(processor_count);
+      std::latch work_done{processor_count};
+      for (int thread_count : std::ranges::iota_view{0U, processor_count})
+      {
+        std::thread thread_worker(
+          [&processor_count, &jobs_to_process, &dataset, &kdtree, &nearest, &distances, &metric, &work_done] (int thread_count)
+          {
+            const int start_job = jobs_to_process * thread_count;
+            const int end_job = (jobs_to_process * (thread_count + 1) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1) ) : dataset.size());
+            //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
+            for (int point_index : std::ranges::iota_view{start_job, end_job})
+            {
+              distances[point_index].resize(nearest);
+              const auto point = dataset[point_index];
+              auto points = kdtree.nearest_points(point, nearest);
+              for (int nearest_index = 0; nearest_index < nearest; ++nearest_index) {
+                distances[point_index][nearest_index] = (distance(point, points[nearest_index], metric));
+              }
+            }
+            work_done.count_down();
+          }, thread_count
+        );
+        threads[thread_count] = std::move( thread_worker );
+      }
+
+      work_done.wait();
+      
+      for (int thread_count : std::ranges::iota_view{0U, processor_count})
+      {
+        threads[thread_count].join();
+      }
+      threads.clear();
     }
   }
+
+    inline void calculate_distances_from_each_point_mt(
+      KDTree<TYPE> &kdtree, std::vector<std::vector<TYPE>> &dataset,
+      unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
+      const TYPE metric) {
+      const auto processor_count = std::thread::hardware_concurrency();
+      // calculate distances
+      distances.resize(dataset.size());
+      for (const auto &[index, point] : std::views::enumerate(dataset)) {
+        auto points = kdtree.nearest_points(point, nearest);
+        for (int i = 0; i < nearest; ++i) {
+          distances[index].push_back(distance(point, points[i], metric));
+        }
+      }
+    }
 
     inline void calculate_distances_from_each_point(
       KDTree<TYPE> &kdtree, const Eigen::MatrixXd &dataset,
       unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
       const TYPE metric) {
-    // calculate distances
+      // calculate distances
+      distances.resize(dataset.size());
       auto number_data = dataset.cols();
-    for (int i = 0; i < number_data; ++i) {
-      auto item = dataset.col(i);
-      const auto start = item.data();
-      auto end =  item.data() + item.rows();
-      std::vector<double> point(start, end);
-      auto points = kdtree.nearest_points(point, nearest);
-      std::vector<TYPE> distance_vector;
-      for (int j = 0; j < nearest; ++j) {
-        distance_vector.push_back(distance(point, points[j], metric));
+      for (int index = 0; index < number_data; ++index) {
+        auto item = dataset.col(index);
+        const auto start = item.data();
+        auto end =  item.data() + item.rows();
+        std::vector<double> point(start, end);
+        auto points = kdtree.nearest_points(point, nearest);
+        for (int j = 0; j < nearest; ++j) {
+          distances[index].push_back(distance(point, points[j], metric));
+        }
       }
-      distances.push_back(distance_vector);
     }
-  }
 
   std::vector<unsigned int> &GetIndices() { return _indices; }
 
@@ -1115,8 +1228,22 @@ public:
             co_yield sampled_dataset;
         }
     }
+
+    bool GetMultithreading ()
+    {
+      return _multithreading;
+    }
+    
+    void SetMultithreading (bool multithreading)
+    {
+      _multithreading = multithreading;
+    }
     
 protected:
+    bool _multithreading;
+    
+    std::recursive_mutex _result_mutex;
+  
     std::vector<TYPE> _alphas;
 
     std::vector<unsigned int> _indices;

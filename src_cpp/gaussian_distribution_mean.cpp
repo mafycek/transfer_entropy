@@ -25,6 +25,7 @@
 
 int main ( int argc, char *argv[] )
 {
+    bool multithreading = false;
     std::vector<std::string> methods{"LeonenkoProzanto",
                                      "LeonenkoWithGeneralizedMetric"};
 
@@ -37,10 +38,13 @@ int main ( int argc, char *argv[] )
     ( "help", "Gaussian distribution analyzed by Renyi entropy" ) 
     ( "version", "Version of the program" ) 
     ( "dimension", boost::program_options::value<unsigned int>()->default_value ( 2 ), "Dimension" ) 
+    ( "neighborhood", boost::program_options::value<unsigned int>()->default_value ( 21 ), "Maximal neighborhood" ) 
     ( "metric", boost::program_options::value<double>()->default_value ( 2 ), "Metric" ) 
     ( "method", boost::program_options::value<std::string>()->default_value ( methods[0] ), "Method" ) 
     ( "random", boost::program_options::value<std::string>()->default_value ( random_noise_types[0] ),  "Random noise" )
-    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ),  "Sample size" );
+    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ),  "Sample size" )
+    ( "multithreading", boost::program_options::value<bool>()->default_value ( false ),  "Multithreading" )
+    ;
 
     boost::program_options::variables_map vm;
     boost::program_options::store (
@@ -54,6 +58,11 @@ int main ( int argc, char *argv[] )
         return 1;
     }
 
+    if ( vm.count ( "multithreading" ) )
+    {
+        multithreading = true;
+    }
+
     // show version of the program
     if ( vm.count ( "version" ) )
     {
@@ -64,12 +73,13 @@ int main ( int argc, char *argv[] )
     const double mean_gaussion_distribution = 0;
     const double sigma_gaussion_distribution = 1;
     const unsigned int dimension = vm["dimension"].as<unsigned int>();
+    const unsigned int neighborhood = vm["neighborhood"].as<unsigned int>();
     const double metric = vm["metric"].as<double>();
     const std::string method = vm["method"].as<std::string>();
     const std::string random_noise_type = vm["random"].as<std::string>();
     const unsigned int number_samples = vm["sample"].as<unsigned int>();
 
-    const double delta_alpha = 0.01;
+    const double delta_alpha = 0.005;
     Eigen::MatrixXd sigma;
     std::vector<std::vector<double>> dataset;
     Eigen::MatrixXd dataset2;
@@ -187,7 +197,7 @@ int main ( int argc, char *argv[] )
                        milliseconds_elapsed_edata_generation / 1000.0);
 
     std::vector<double> alphas;
-    for ( double alpha = 0.05; alpha < 1; alpha += delta_alpha )
+    for ( double alpha = 0.01; alpha < 1; alpha += delta_alpha )
     {
         alphas.push_back ( alpha );
     }
@@ -200,13 +210,15 @@ int main ( int argc, char *argv[] )
     }
 
     renyi_entropy::renyi_entropy<double> calculator;
-    std::vector<unsigned int> indices({1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20});
+    auto neighbors = std::ranges::iota_view{1U, neighborhood};
+    std::vector<unsigned int> indices(neighbors.begin(), neighbors.end()); //{1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20});
 
     calculator.SetAlpha ( alphas );
     calculator.SetIndices ( indices );
     calculator.SetExp ( exp );
     calculator.SetLog ( log );
     calculator.SetPower ( pow );
+    calculator.SetMultithreading ( multithreading );
 
     std::map<std::tuple<unsigned int, double>, double> result;
     if ( method == methods[0] )
