@@ -40,7 +40,7 @@ target_link_libraries(test_random_samples PUBLIC
 add_executable(test_renyi_entropy_gaussian_distribution gaussian_distribution_mean.cpp renyi_entropy.cpp)
 target_include_directories(test_renyi_entropy_gaussian_distribution PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree)
 target_link_libraries(test_renyi_entropy_gaussian_distribution PUBLIC
-        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_SHARED
+        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_STATIC
 )
 
 add_executable(test_renyi_entropy_multi_gaussian_distribution gaussian_distribution_multi_mean.cpp renyi_entropy.cpp)
