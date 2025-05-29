@@ -18,18 +18,17 @@
 
 #include "renyi_entropy.h"
 
-int main(int argc, char *argv[])
-{
-    std::map<std::tuple<unsigned int, double>, double> result;
-    boost::filesystem::path myFile =
-        boost::filesystem::current_path() / "myfile.dat";
-    boost::filesystem::ifstream ifs(myFile);
-    boost::archive::binary_iarchive iarch(ifs);
-    iarch >> result;
-    std::cout << result.size() << std::endl;
+int main(int argc, char *argv[]) {
+  std::map<std::tuple<unsigned int, double>, double> result;
+  boost::filesystem::path myFile =
+      boost::filesystem::current_path() / "myfile.dat";
+  boost::filesystem::ifstream ifs(myFile);
+  boost::archive::binary_iarchive iarch(ifs);
+  iarch >> result;
+  std::cout << result.size() << std::endl;
 
-    for (auto item : result) {
-        std::cout << std::get<0>(item.first) << " " << std::get<1>(item.first)
-                  << " " << item.second << std::endl;
-    }
+  for (auto item : result) {
+    std::cout << std::get<0>(item.first) << " " << std::get<1>(item.first)
+              << " " << item.second << std::endl;
+  }
 }
