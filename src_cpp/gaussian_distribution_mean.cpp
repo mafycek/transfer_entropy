@@ -25,7 +25,6 @@
 
 int main ( int argc, char *argv[] )
 {
-    bool multithreading = false;
     std::vector<std::string> methods{"LeonenkoProzanto",
                                      "LeonenkoWithGeneralizedMetric"};
 
@@ -41,9 +40,9 @@ int main ( int argc, char *argv[] )
     ( "neighborhood", boost::program_options::value<unsigned int>()->default_value ( 21 ), "Maximal neighborhood" ) 
     ( "metric", boost::program_options::value<double>()->default_value ( 2 ), "Metric" ) 
     ( "method", boost::program_options::value<std::string>()->default_value ( methods[0] ), "Method" ) 
-    ( "random", boost::program_options::value<std::string>()->default_value ( random_noise_types[0] ),  "Random noise" )
-    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ),  "Sample size" )
-    ( "multithreading", boost::program_options::value<bool>()->default_value ( false ),  "Multithreading" )
+    ( "random", boost::program_options::value<std::string>()->default_value ( random_noise_types[0] ), "Random noise" )
+    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ), "Sample size" )
+    ( "multithreading", "Multithreading" )
     ;
 
     boost::program_options::variables_map vm;
@@ -58,6 +57,7 @@ int main ( int argc, char *argv[] )
         return 1;
     }
 
+    bool multithreading = false;
     if ( vm.count ( "multithreading" ) )
     {
         multithreading = true;
@@ -70,6 +70,7 @@ int main ( int argc, char *argv[] )
         return 1;
     }
 
+    const double alpha_max = 5;
     const double mean_gaussion_distribution = 0;
     const double sigma_gaussion_distribution = 1;
     const unsigned int dimension = vm["dimension"].as<unsigned int>();
@@ -78,6 +79,8 @@ int main ( int argc, char *argv[] )
     const std::string method = vm["method"].as<std::string>();
     const std::string random_noise_type = vm["random"].as<std::string>();
     const unsigned int number_samples = vm["sample"].as<unsigned int>();
+
+    std::cout << "N= " << number_samples << ", D= " << dimension << ", k_max= " << neighborhood << ", metric= " << metric << ", random_noise_type= " << random_noise_type << ", method=" << method << std::endl;
 
     const double delta_alpha = 0.005;
     Eigen::MatrixXd sigma;
@@ -197,14 +200,14 @@ int main ( int argc, char *argv[] )
                        milliseconds_elapsed_edata_generation / 1000.0);
 
     std::vector<double> alphas;
-    for ( double alpha = 0.01; alpha < 1; alpha += delta_alpha )
+    for ( double alpha = delta_alpha; alpha < 1; alpha += delta_alpha )
     {
         alphas.push_back ( alpha );
     }
     alphas.push_back ( 0.999 );
     alphas.push_back ( 1 );
     alphas.push_back ( 1.001 );
-    for ( double alpha = 1 + delta_alpha; alpha < 5; alpha += delta_alpha )
+    for ( double alpha = 1 + delta_alpha; alpha < alpha_max; alpha += delta_alpha )
     {
         alphas.push_back ( alpha );
     }
