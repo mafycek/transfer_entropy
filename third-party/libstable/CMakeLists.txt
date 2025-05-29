@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
-cmake_policy(SET CMP0167 NEW)
+#cmake_policy(SET CMP0167 NEW)
 
-project(Libstable C)
+project(libstable LANGUAGES C VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 23)
 
 include(CheckCXXCompilerFlag)

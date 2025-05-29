@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-cmake_policy(SET CMP0167 NEW)
+#cmake_policy(SET CMP0167 NEW)
 
 project(Transfer_entropy CXX)
 
@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD 23)
 
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++2b" COMPILER_SUPPORTS_CXX2B)
+
+set(Boost_USE_STATIC_LIBS   ON)
 
 find_package(GTest)
 find_package (Eigen3 REQUIRED)
