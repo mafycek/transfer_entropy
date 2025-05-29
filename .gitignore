@@ -1,2 +1,8 @@
 # created by virtualenv automatically
-*
+.*
+build*
+data/
+tuning*
+__pycache__
+third-party/libstable/matlab
+complete_statistics*.txt
