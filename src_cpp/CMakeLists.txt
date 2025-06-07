@@ -8,8 +8,9 @@ add_library(random_samples_SHARED SHARED random_samples.cpp)
 set_target_properties(random_samples_SHARED PROPERTIES
         VERSION ${random_samples_VERSION}
         SOVERSION ${random_samples_VERSION_MAJOR} OUTPUT_NAME random_samples)
-set_target_properties(random_samples_SHARED PROPERTIES
+set_target_properties(random_samples_STATIC PROPERTIES
         OUTPUT_NAME random_samples)
+
 target_include_directories(random_samples_STATIC PUBLIC ../third-party/libstable/stable/src)
 target_include_directories(random_samples_SHARED PUBLIC ../third-party/libstable/stable/src)
 target_link_libraries(random_samples_STATIC PUBLIC
@@ -56,7 +57,7 @@ target_link_libraries(binary_file_test PUBLIC
 )
 
 add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp renyi_entropy.cpp utils.cpp)
-target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree)
+target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include)
 target_link_libraries(renyi_entropy_calculator PUBLIC 
         ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_SHARED
 )
@@ -64,5 +65,11 @@ target_link_libraries(renyi_entropy_calculator PUBLIC
 add_executable(test_utils test_utils.cpp utils.cpp)
 target_include_directories(test_utils PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree)
 target_link_libraries(test_utils PUBLIC
+        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_SHARED
+)
+
+add_executable(test_samples_store test_samples_store.cpp)
+target_include_directories(test_samples_store PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include)
+target_link_libraries(test_samples_store PUBLIC
         ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_SHARED
 )
