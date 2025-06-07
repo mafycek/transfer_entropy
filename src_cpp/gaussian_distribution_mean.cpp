@@ -45,7 +45,9 @@ int main ( int argc, char *argv[] )
     ( "metric", boost::program_options::value<double>()->default_value ( 2 ), "Metric" ) 
     ( "method", boost::program_options::value<std::string>()->default_value ( methods[0] ), "Method - LeonenkoProzanto, LeonenkoWithGeneralizedMetric" ) 
     ( "random", boost::program_options::value<std::string>()->default_value ( random_noise_types[0] ), "Random noise - uncorrelated_normal, correlated_normal, full_correlated_normal, uncorrelated_student-t, correlated_student-t, full_correlated_student-t" ) 
-    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ), "Sample size" ) ( "multithreading", "Multithreading" );
+    ( "sample", boost::program_options::value<unsigned int>()->default_value ( 1000 ), "Sample size" ) 
+    ( "multithreading", "Multithreading" )
+    ;
 
     boost::program_options::variables_map vm;
     boost::program_options::store (

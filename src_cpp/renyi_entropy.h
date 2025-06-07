@@ -44,7 +44,6 @@
 namespace renyi_entropy
 {
 
-
 template<typename Scalar, typename Matrix>
 inline std::vector< std::vector<Scalar> > fromEigenMatrix ( const Matrix & M )
 {
@@ -84,8 +83,10 @@ TYPE volume_of_hypersphere ( TYPE radius, TYPE metric, unsigned int dimension )
 template <typename TYPE>
 class renyi_entropy
 {
-
 public:
+    typedef std::map<std::tuple<unsigned int, TYPE>, TYPE> renyi_entropy_storage;
+    typedef std::tuple<renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage> conditional_renyi_entropy_strorage;
+
     renyi_entropy()
         : _multithreading ( false )
     {}
@@ -121,7 +122,7 @@ public:
     }
 
     void entropy_sum_Renyi_LeonenkoProzanto (
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
+        renyi_entropy_storage &results,
         int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
         const TYPE alpha, bool log_calculation )
     {
@@ -193,7 +194,7 @@ public:
     }
 
     void entropy_sum_Shannon_LeonenkoProzanto (
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
+        renyi_entropy_storage &results,
         int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
         bool log_calculation )
     {
@@ -258,7 +259,7 @@ public:
         }
     }
 
-    std::map<std::tuple<unsigned int, TYPE>, TYPE>
+    renyi_entropy_storage
     renyi_entropy_LeonenkoProzanto ( std::vector<std::vector<TYPE>> &dataset,
                                      double metric = 2 )
     {
@@ -267,7 +268,7 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> results;
+        renyi_entropy_storage results;
         int dimension_of_data = dataset[0].size();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -297,10 +298,11 @@ public:
             }
         } else {
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto jobs_to_process = ( GetAlphas().size() / processor_count ) + 1;
-            std::vector<std::thread> threads ( processor_count );
-            std::latch work_done{processor_count};
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
+            const auto jobs_to_process = ( GetAlphas().size() / real_thread_count ) + 1;
+            std::vector<std::thread> threads ( real_thread_count );
+            std::latch work_done{static_cast<long int>(real_thread_count)};
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
                     const int start_job = jobs_to_process * thread_count;
@@ -324,20 +326,60 @@ public:
 
             work_done.wait();
 
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 threads[thread_count].join();
             }
             threads.clear();
         }
 
-        // calculation of entropy for Renyi case
-        // Shannon case already holds entropy
-        for ( auto &item : results ) {
-            auto alpha = std::get<1> ( item.first );
-            if ( alpha != one ) {
-                auto entropy = _logarithm ( item.second ) / ( 1 - alpha );
-                item.second = entropy;
+        if ( ! GetMultithreading () ) {
+            // calculation of entropy for Renyi case
+            // Shannon case already holds entropy
+            for ( auto &item : results ) {
+                auto alpha = std::get<1> ( item.first );
+                if ( alpha != one ) {
+                    auto entropy = _logarithm ( item.second ) / ( 1 - alpha );
+                    item.second = entropy;
+                }
             }
+        } else {
+            auto ks = std::views::keys(results);
+            std::vector<std::tuple<unsigned int, TYPE>> keys{ ks.begin(), ks.end() };
+
+            const auto processor_count = std::thread::hardware_concurrency();
+            const auto jobs_to_process = ( keys.size() / processor_count ) + 1;
+            std::vector<std::thread> threads ( processor_count );
+            std::latch work_done{processor_count};
+            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+                std::thread thread_worker (
+                [&] ( int thread_count ) {
+                    const int start_job = jobs_to_process * thread_count;
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
+                    //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
+                    for ( int key_index : std::ranges::iota_view{start_job, end_job} ) {
+                        const auto key = keys [key_index];
+
+                        auto alpha = std::get<1> ( key );
+                        if ( alpha != one ) {
+                            if (results[key]>0)
+                            {
+                                auto entropy = _logarithm ( results[key] ) / ( 1 - alpha );
+                                results[key] = entropy;
+                            }
+                        }
+                    }
+                    work_done.count_down();
+                }, thread_count
+                );
+                threads[thread_count] = std::move ( thread_worker );
+            }
+
+            work_done.wait();
+
+            for ( int thread_count : std::ranges::iota_view{0U, jobs_to_process} ) {
+                threads[thread_count].join();
+            }
+            threads.clear();
         }
 
         auto end_entropy_calculation = std::chrono::high_resolution_clock::now();
@@ -375,7 +417,7 @@ public:
     }
 
     void entropy_sum_Renyi_metric (
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
+        renyi_entropy_storage &results,
         int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
         const TYPE alpha, bool log_calculation, TYPE metric )
     {
@@ -418,15 +460,23 @@ public:
             const auto dimensional_multiplicator =
                 volume_of_hypersphere ( TYPE ( 1 ), metric, dimension_of_data );
             const auto index_exponent = one_minus_alpha + TYPE ( use_index );
+            auto floor_index_exponent = floor(index_exponent);
             if ( log_calculation ) {
-                const auto multiplicator = one_minus_alpha * _logarithm ( dimensional_multiplicator ) +
-                                           boost::math::lgamma ( use_index ) -
-                                           boost::math::lgamma ( index_exponent ) +
-                                           exponent * _logarithm ( maximum_distance ) -
-                                           _logarithm ( number_of_data ) +
-                                           one_minus_alpha * _logarithm ( number_of_data - 1 );
-                std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                results[std::make_tuple ( use_index, alpha )] = _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
+                if ( (index_exponent <= 0) && (index_exponent == floor_index_exponent) )
+                {
+                    results[std::make_tuple ( use_index, alpha )] = NAN;
+                }
+                else
+                {
+                    const auto multiplicator = one_minus_alpha * _logarithm ( dimensional_multiplicator ) +
+                                            boost::math::lgamma ( use_index ) -
+                                            boost::math::lgamma ( index_exponent ) +
+                                            exponent * _logarithm ( maximum_distance ) -
+                                            _logarithm ( number_of_data ) +
+                                            one_minus_alpha * _logarithm ( number_of_data - 1 );
+                    std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
+                    results[std::make_tuple ( use_index, alpha )] = _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
+                }
             } else {
                 std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
                 results[std::make_tuple ( use_index, alpha )] =
@@ -439,7 +489,7 @@ public:
     }
 
     void entropy_sum_Shannon_metric (
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> &results,
+        renyi_entropy_storage &results,
         int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
         bool log_calculation, TYPE metric )
     {
@@ -502,7 +552,7 @@ public:
     }
 
 
-    std::map<std::tuple<unsigned int, TYPE>, TYPE>
+    renyi_entropy_storage
     renyi_entropy_metric ( const Eigen::MatrixXd &dataset, double metric = 2 )
     {
         auto nearest_iterator =
@@ -510,7 +560,7 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> results;
+        renyi_entropy_storage results;
         const int dimension_of_data = dataset.cols();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -540,10 +590,11 @@ public:
             }
         } else {
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto jobs_to_process = ( GetAlphas().size() / processor_count ) + 1;
-            std::vector<std::thread> threads ( processor_count );
-            std::latch work_done{processor_count};
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
+            const auto jobs_to_process = ( GetAlphas().size() / real_thread_count );
+            std::vector<std::thread> threads ( real_thread_count );
+            std::latch work_done{static_cast<long>(real_thread_count)};
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
                     const int start_job = jobs_to_process * thread_count;
@@ -567,7 +618,7 @@ public:
 
             work_done.wait();
 
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 threads[thread_count].join();
             }
             threads.clear();
@@ -609,7 +660,7 @@ public:
         return results;
     }
 
-    std::map<std::tuple<unsigned int, TYPE>, TYPE>
+    renyi_entropy_storage
     renyi_entropy_metric ( std::vector<std::vector<TYPE>> &dataset,
                            double metric = 2 )
     {
@@ -618,7 +669,7 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        std::map<std::tuple<unsigned int, TYPE>, TYPE> results;
+        renyi_entropy_storage results;
         const int dimension_of_data = dataset[0].size();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -648,10 +699,11 @@ public:
             }
         } else {
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto jobs_to_process = ( GetAlphas().size() / processor_count ) + 1;
-            std::vector<std::thread> threads ( processor_count );
-            std::latch work_done{processor_count};
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
+            const auto jobs_to_process = ( GetAlphas().size() / real_thread_count ) + 1;
+            std::vector<std::thread> threads ( real_thread_count );
+            std::latch work_done{static_cast<long>(real_thread_count)};
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
                     const int start_job = jobs_to_process * thread_count;
@@ -675,7 +727,7 @@ public:
 
             work_done.wait();
 
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 threads[thread_count].join();
             }
             threads.clear();
@@ -716,7 +768,7 @@ public:
         return results;
     }
 
-    inline void renyi_entropy_LeonenkoProzanto_compensation ( std::map<std::tuple<unsigned int, TYPE>, TYPE> &results, const int dimension_of_data )
+    inline void renyi_entropy_LeonenkoProzanto_compensation ( renyi_entropy_storage &results, const int dimension_of_data )
     {
         auto one = static_cast<TYPE> ( 1 );
         // calculation of entropy for Renyi case
@@ -763,12 +815,13 @@ public:
             }
         } else {
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto jobs_to_process = ( dataset.size() / processor_count ) + 1;
-            std::vector<std::thread> threads ( processor_count );
-            std::latch work_done{processor_count};
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
+            const auto jobs_to_process = ( dataset.size() / real_thread_count ) + 1;
+            std::vector<std::thread> threads ( real_thread_count );
+            std::latch work_done{static_cast<long>(real_thread_count)};
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
-                [&processor_count, &jobs_to_process, &dataset, &kdtree, &nearest, &distances, &metric, &work_done] ( int thread_count ) {
+                [&real_thread_count, &jobs_to_process, &dataset, &kdtree, &nearest, &distances, &metric, &work_done] ( int thread_count ) {
                     const int start_job = jobs_to_process * thread_count;
                     const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
                     //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
@@ -788,7 +841,7 @@ public:
 
             work_done.wait();
 
-            for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 threads[thread_count].join();
             }
             threads.clear();
@@ -801,6 +854,7 @@ public:
         const TYPE metric )
     {
         const auto processor_count = std::thread::hardware_concurrency();
+        const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
         // calculate distances
         distances.resize ( dataset.size() );
         for ( const auto &[index, point] : std::views::enumerate ( dataset ) ) {
@@ -817,16 +871,17 @@ public:
         const TYPE metric )
     {
         // calculate distances
-        distances.resize ( dataset.size() );
-        auto number_data = dataset.cols();
+        const auto number_data = dataset.cols();
+        distances.resize ( number_data );
         for ( int index = 0; index < number_data; ++index ) {
             auto item = dataset.col ( index );
             const auto start = item.data();
             auto end =  item.data() + item.rows();
             std::vector<double> point ( start, end );
             auto points = kdtree.nearest_points ( point, nearest );
+            distances[index].resize(nearest);
             for ( int j = 0; j < nearest; ++j ) {
-                distances[index].push_back ( distance ( point, points[j], metric ) );
+                distances[index][j] = ( distance ( point, points[j], metric ) );
             }
         }
     }
@@ -879,7 +934,7 @@ public:
         _logarithm = log;
     }
 
-    static void SaveRenyiEntropy ( std::map<std::tuple<unsigned int, TYPE>, TYPE> &result, const std::string &file )
+    static void SaveRenyiEntropy ( renyi_entropy_storage &result, const std::string &file )
     {
         std::stringstream ss;
         boost::filesystem::path myFile =
@@ -890,7 +945,7 @@ public:
         std::cout << ss.str();
     }
 
-    static void LoadRenyiEntropy ( std::map<std::tuple<unsigned int, TYPE>, TYPE> &result, const std::string &file )
+    static void LoadRenyiEntropy ( renyi_entropy_storage &result, const std::string &file )
     {
         boost::filesystem::path myFile =
             boost::filesystem::current_path() / file;
@@ -899,28 +954,42 @@ public:
         iarch >> result;
     }
 
-    static int renyi_conditional_information_transfer ( const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters )
+    static conditional_renyi_entropy_strorage renyi_conditional_information_transfer ( const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters )
     {
         bool enhanced_calculation {true};
         if ( parameters.contains ( "enhanced_calculation" ) ) {
             enhanced_calculation = std::any_cast<bool> ( parameters["enhanced_calculation"] );
         }
-        unsigned int axis_to_join = 0;
-        if ( parameters.contains ( "axis_to_join" ) ) {
-            axis_to_join = std::any_cast<bool> ( parameters["axis_to_join"] );
+
+        renyi_entropy<double> calculator;
+        if ( parameters.contains ( "indices" ) ) {
+            auto indices = std::any_cast<std::vector<unsigned int>> ( parameters["indices"] );
+            calculator.SetIndices ( indices );
         }
 
+        if ( parameters.contains ( "alphas" ) ) {
+            auto alphas = std::any_cast<std::vector<double>> ( parameters["alphas"] );
+            calculator.SetAlpha ( alphas );
+        }
+
+        if ( parameters.contains ( "multithreading" ) ) {
+            auto multithreading = std::any_cast<bool> ( parameters["multithreading"] );
+            calculator.SetMultithreading ( multithreading );
+        }
+        calculator.SetExp ( exp );
+        calculator.SetLog ( log );
+        calculator.SetPower ( pow );
+
         if ( enhanced_calculation ) {
-            renyi_entropy<double> calculator;
             Eigen::MatrixXd joint_dataset ( y_future.rows() + y_history.rows(), y_future.cols() );
             joint_dataset << y_future, y_history;
             auto entropy_present_X_history_X = calculator.renyi_entropy_metric ( joint_dataset, 2 );
 
-            joint_dataset.reshaped ( y_history.rows() + z_history.rows(), y_history.cols() );
+            joint_dataset = Eigen::MatrixXd ( y_history.rows() + z_history.rows(), y_history.cols() );
             joint_dataset << y_history, z_history;
             auto entropy_history_X_history_Y = calculator.renyi_entropy_metric ( joint_dataset, 2 );
 
-            joint_dataset.reshaped ( y_future.rows() + y_history.rows() + z_history.rows(), y_future.cols() );
+            joint_dataset = Eigen::MatrixXd ( y_future.rows() + y_history.rows() + z_history.rows(), y_future.cols() );
             joint_dataset << y_future, y_history, z_history;
             auto entropy_joint = calculator.renyi_entropy_metric ( joint_dataset, 2 );
 
@@ -929,10 +998,28 @@ public:
             decltype ( entropy_present_X_history_X ) conditional_information_transfer;
 
             auto conditional_information_transfer_calculator = [] ( auto a, auto b, auto c, auto d ) {
-                return a.second + b.second - c.second -d.second;
+                auto [index_a, alpha_a] = a.first;
+                auto [index_b, alpha_b] = b.first;
+                auto [index_c, alpha_c] = c.first;
+                auto [index_d, alpha_d] = d.first;
+                assert(index_a == index_b);
+                assert(index_b == index_c);
+                assert(index_c == index_d);
+                assert(alpha_a == alpha_b);
+                assert(alpha_b == alpha_c);
+                assert(alpha_c == alpha_d);
+                return std::tuple<std::tuple<unsigned int, TYPE>, TYPE>(a.first, a.second + b.second - c.second - d.second );
             };
 
             auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X );
+            renyi_entropy_storage conditional_information_transfer_result;
+            for (auto [key, item]: sum)
+            {
+                //auto [index, alpha] = key;
+                //std::cout << "[" <<  index << "," << alpha << "]" << item << std::endl;
+                conditional_information_transfer_result[key] = item;
+            }
+            return conditional_renyi_entropy_strorage (conditional_information_transfer_result, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X);
         } else {
 
         }
@@ -1062,7 +1149,7 @@ public:
             random_source = std::any_cast<bool> ( parameters["random_source"] );
         }
 
-        std::cout << marginal_solution_1 << std::endl;
+        //std::cout << marginal_solution_1 << std::endl;
         marginal_solution_1_selected = marginal_solution_1.block ( skip_first, 0, marginal_solution_1.rows() - skip_last, marginal_solution_1.cols() );
         marginal_solution_2_selected = marginal_solution_2.block ( skip_first, 0, marginal_solution_2.rows() - skip_last, marginal_solution_2.cols() );
 
@@ -1073,7 +1160,6 @@ public:
         parameters["history"] = history_x;
         parameters["skip_first"] = ( history_x > history_y ) ? time_shift_between_X_Y : history_y - history_x + time_shift_between_X_Y;
         parameters["skip_last"] = 0U;
-        std::vector<unsigned int> indices;
         std::vector<unsigned int> join_histories_x_y ( history_index_x.size() + history_index_y.size() );
         join_histories_x_y.insert ( join_histories_x_y.end(), history_index_x.begin(), history_index_x.end() );
         join_histories_x_y.insert ( join_histories_x_y.end(), history_index_y.begin(), history_index_y.end() );
@@ -1082,6 +1168,7 @@ public:
         auto max_history_index_x =  std::max_element ( history_index_x.begin(), history_index_x.end() );
 
         if ( parameters.contains ( "history_index_x" ) ) {
+            std::vector<unsigned int> indices;
             if ( parameters.contains ( "future_index_x" ) ) {
                 for ( unsigned int item : future_index_x ) {
                     indices.push_back ( ( *max_future_index_x ) - item );
@@ -1099,27 +1186,25 @@ public:
         }
         auto samples_marginal_1 = samples_from_arrays ( marginal_solution_1_selected, parameters );
 
+        //std::cout << samples_marginal_1->rows() << " " << samples_marginal_1->cols() << *samples_marginal_1 << std::endl;
+        auto separator_row_x = ( * max_history_index_x ) * history_index_x.size();
+        Eigen::MatrixXd y_fut, y_history, x_hist;
+        y_history = ( *samples_marginal_1 ) ( Eigen::seq ( 0, separator_row_x ), Eigen::all );
+        y_fut = ( *samples_marginal_1 ) ( Eigen::seq ( separator_row_x, samples_marginal_1->rows() - 1 ), Eigen::all );
+
         parameters["history"] = history_y;
         parameters["skip_first"] = static_cast<unsigned int> ( ( * max_join_histories_x_y ) + ( * max_future_index_x ) );
         parameters["skip_last"] = 0U;
         if ( parameters.contains ( "history_index_y" ) ) {
+            std::vector<unsigned int> indices;
             for ( unsigned int item : history_index_y ) {
                 indices.push_back ( ( * max_future_index_x )- item );
             }
             parameters["select_indices"] = indices;
         }
 
-        auto samples_marginal_2 = samples_from_arrays ( marginal_solution_1_selected, parameters );
-
-        Eigen::MatrixXd y_fut, y_history, x_hist;
-        if ( parameters.contains ( "future_index_x" ) ) {
-            // max_history_index_x
-            y_fut = ( *samples_marginal_1 ) ( Eigen::all, Eigen::seq ( 0, ( * max_history_index_x ) * samples_marginal_1->cols() ) );
-            y_history = ( *samples_marginal_1 ) ( Eigen::all, Eigen::seq ( ( * max_history_index_x ) * samples_marginal_1->cols(), ( ( * max_join_histories_x_y ) + ( * max_future_index_x ) ) * samples_marginal_1->cols() ) );
-        } else {
-            y_fut = ( *samples_marginal_1 ) ( Eigen::all, Eigen::seq ( 0, samples_marginal_1->cols() ) );
-            y_history = ( *samples_marginal_1 ) ( Eigen::all, Eigen::seq ( samples_marginal_1->cols(), ( * max_join_histories_x_y ) + ( * max_future_index_x ) ) );
-        }
+        auto samples_marginal_2 = samples_from_arrays ( marginal_solution_2_selected, parameters );
+        x_hist = *(samples_marginal_2.get());
 
         return std::tuple ( y_fut, y_history, x_hist );
     }
