@@ -9,6 +9,7 @@
 #include <format>
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <numeric>
 #include <sstream>
 #include <vector>
@@ -70,10 +71,8 @@ TYPE volume_of_hypersphere ( TYPE radius, TYPE metric, unsigned int dimension )
     for ( unsigned int angular_momentum_index = 1;
             angular_momentum_index < dimension - 1; ++angular_momentum_index ) {
         noncomplete_angular_part *=
-            boost::math::tgamma ( 0.5 + ( dimension - ( angular_momentum_index + 1 ) ) /
-                                  metric ) /
-            boost::math::tgamma (
-                ( dimension + metric - ( angular_momentum_index + 1 ) ) / metric );
+            exp ( boost::math::lgamma ( 0.5 + ( dimension - ( angular_momentum_index + 1 ) ) / metric ) -
+            boost::math::lgamma ( ( dimension + metric - ( angular_momentum_index + 1 ) ) / metric ) );
     }
 
     return static_part * radius_part * complete_angular_part *
@@ -84,8 +83,8 @@ template <typename TYPE>
 class renyi_entropy
 {
 public:
-    typedef std::map<std::tuple<unsigned int, TYPE>, TYPE> renyi_entropy_storage;
-    typedef std::tuple<renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage> conditional_renyi_entropy_strorage;
+    typedef std::map<std::tuple<unsigned int, TYPE>, TYPE> renyi_entropy_storage; // , renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage
+    typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage;
 
     renyi_entropy()
         : _multithreading ( false )
@@ -298,15 +297,17 @@ public:
             }
         } else {
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
-            const auto jobs_to_process = ( GetAlphas().size() / real_thread_count ) + 1;
+            const auto maximal_number_of_jobs = GetAlphas().size();
+            const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
+            const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
+            const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
             std::vector<std::thread> threads ( real_thread_count );
             std::latch work_done{static_cast<long int>(real_thread_count)};
             for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
-                    const int start_job = jobs_to_process * thread_count;
-                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
+                    const int start_job = jobs_to_process * thread_count + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count : excess_jobs_to_process );
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
                     //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int alpha_index : std::ranges::iota_view{start_job, end_job} ) {
                         const auto alpha = GetAlphas() [alpha_index];
@@ -347,14 +348,17 @@ public:
             std::vector<std::tuple<unsigned int, TYPE>> keys{ ks.begin(), ks.end() };
 
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto jobs_to_process = ( keys.size() / processor_count ) + 1;
+            const auto maximal_number_of_jobs = GetAlphas().size();
+            const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
+            const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
+            const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
             std::vector<std::thread> threads ( processor_count );
             std::latch work_done{processor_count};
             for ( int thread_count : std::ranges::iota_view{0U, processor_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
-                    const int start_job = jobs_to_process * thread_count;
-                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
+                    const int start_job = jobs_to_process * thread_count + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count : excess_jobs_to_process );
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
                     //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int key_index : std::ranges::iota_view{start_job, end_job} ) {
                         const auto key = keys [key_index];
@@ -590,16 +594,18 @@ public:
             }
         } else {
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
-            const auto jobs_to_process = ( GetAlphas().size() / real_thread_count );
+            const auto maximal_number_of_jobs = GetAlphas().size();
+            const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
+            const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
+            const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
             std::vector<std::thread> threads ( real_thread_count );
             std::latch work_done{static_cast<long>(real_thread_count)};
             for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
-                    const int start_job = jobs_to_process * thread_count;
-                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
-                    std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
+                    const int start_job = jobs_to_process * thread_count + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count : excess_jobs_to_process );
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
+                    //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int alpha_index : std::ranges::iota_view{start_job, end_job} ) {
                         const auto alpha = GetAlphas() [alpha_index];
                         if ( alpha == one ) {
@@ -698,17 +704,19 @@ public:
                 }
             }
         } else {
+            const auto maximal_number_of_jobs = GetAlphas().size();
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
-            const auto jobs_to_process = ( GetAlphas().size() / real_thread_count ) + 1;
+            const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
+            const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
+            const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
             std::vector<std::thread> threads ( real_thread_count );
             std::latch work_done{static_cast<long>(real_thread_count)};
             for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
                 [&] ( int thread_count ) {
-                    const int start_job = jobs_to_process * thread_count;
-                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
-                    std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
+                    const int start_job = jobs_to_process * thread_count + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count : excess_jobs_to_process );
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
+                    //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int alpha_index : std::ranges::iota_view{start_job, end_job} ) {
                         const auto alpha = GetAlphas() [alpha_index];
                         if ( alpha == one ) {
@@ -814,16 +822,18 @@ public:
                 }
             }
         } else {
+            const auto maximal_number_of_jobs = dataset.size();
             const auto processor_count = std::thread::hardware_concurrency();
-            const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
-            const auto jobs_to_process = ( dataset.size() / real_thread_count ) + 1;
+            const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
+            const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
+            const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
             std::vector<std::thread> threads ( real_thread_count );
             std::latch work_done{static_cast<long>(real_thread_count)};
             for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
                 std::thread thread_worker (
-                [&real_thread_count, &jobs_to_process, &dataset, &kdtree, &nearest, &distances, &metric, &work_done] ( int thread_count ) {
-                    const int start_job = jobs_to_process * thread_count;
-                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) < dataset.size() ? ( jobs_to_process * ( thread_count+ 1 ) ) : dataset.size() );
+                [&real_thread_count, &jobs_to_process, &dataset, &kdtree, &nearest, &distances, &metric, &work_done, &maximal_number_of_jobs, &excess_jobs_to_process] ( int thread_count ) {
+                    const int start_job = jobs_to_process * thread_count + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count : excess_jobs_to_process );
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
                     //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int point_index : std::ranges::iota_view{start_job, end_job} ) {
                         distances[point_index].resize ( nearest );
@@ -848,23 +858,6 @@ public:
         }
     }
 
-    inline void calculate_distances_from_each_point_mt (
-        KDTree<TYPE> &kdtree, std::vector<std::vector<TYPE>> &dataset,
-        unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
-        const TYPE metric )
-    {
-        const auto processor_count = std::thread::hardware_concurrency();
-        const auto real_thread_count = ( processor_count >= GetAlphas().size() ? GetAlphas().size() : processor_count );
-        // calculate distances
-        distances.resize ( dataset.size() );
-        for ( const auto &[index, point] : std::views::enumerate ( dataset ) ) {
-            auto points = kdtree.nearest_points ( point, nearest );
-            for ( int i = 0; i < nearest; ++i ) {
-                distances[index].push_back ( distance ( point, points[i], metric ) );
-            }
-        }
-    }
-
     inline void calculate_distances_from_each_point (
         KDTree<TYPE> &kdtree, const Eigen::MatrixXd &dataset,
         unsigned int nearest, std::vector<std::vector<TYPE>> &distances,
@@ -873,16 +866,57 @@ public:
         // calculate distances
         const auto number_data = dataset.cols();
         distances.resize ( number_data );
-        for ( int index = 0; index < number_data; ++index ) {
-            auto item = dataset.col ( index );
-            const auto start = item.data();
-            auto end =  item.data() + item.rows();
-            std::vector<double> point ( start, end );
-            auto points = kdtree.nearest_points ( point, nearest );
-            distances[index].resize(nearest);
-            for ( int j = 0; j < nearest; ++j ) {
-                distances[index][j] = ( distance ( point, points[j], metric ) );
+        if ( ! GetMultithreading () ) {
+            for ( int index = 0; index < number_data; ++index ) {
+                auto item = dataset.col ( index );
+                const auto start = item.data();
+                auto end =  item.data() + item.rows();
+                std::vector<double> point ( start, end );
+                auto points = kdtree.nearest_points ( point, nearest );
+                distances[index].resize(nearest);
+                for ( int j = 0; j < nearest; ++j ) {
+                    distances[index][j] = ( distance ( point, points[j], metric ) );
+                }
             }
+        }
+        else
+        {
+            const auto maximal_number_of_jobs = dataset.cols();
+            const auto processor_count = std::thread::hardware_concurrency();
+            const auto real_thread_count = static_cast<unsigned int>( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
+            const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
+            const auto excess_jobs_to_process { maximal_number_of_jobs - jobs_to_process * real_thread_count };
+            std::vector<std::thread> threads ( real_thread_count );
+            std::latch work_done{static_cast<long>(real_thread_count)};
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
+                std::thread thread_worker (
+                [&real_thread_count, &jobs_to_process, &dataset, &kdtree, &nearest, &distances, &metric, &work_done, &maximal_number_of_jobs, &excess_jobs_to_process, &processor_count] ( int thread_count ) {
+                    const int start_job = jobs_to_process * thread_count + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count : excess_jobs_to_process );
+                    const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
+                    //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
+                    for ( int point_index : std::ranges::iota_view{start_job, end_job}  ) {
+                        distances[point_index].resize ( nearest );
+                        auto item = dataset.col ( point_index );
+                        const auto start = item.data();
+                        auto end =  item.data() + item.rows();
+                        std::vector<double> point ( start, end );
+                        auto points = kdtree.nearest_points ( point, nearest );
+                        for ( int nearest_index = 0; nearest_index < nearest; ++nearest_index ) {
+                            distances[point_index][nearest_index] = ( distance ( point, points[nearest_index], metric ) );
+                        }
+                    }
+                    work_done.count_down();
+                }, thread_count
+                );
+                threads[thread_count] = std::move ( thread_worker );
+            }
+
+            work_done.wait();
+
+            for ( int thread_count : std::ranges::iota_view{0U, real_thread_count} ) {
+                threads[thread_count].join();
+            }
+            threads.clear();
         }
     }
 
@@ -1015,11 +1049,9 @@ public:
             renyi_entropy_storage conditional_information_transfer_result;
             for (auto [key, item]: sum)
             {
-                //auto [index, alpha] = key;
-                //std::cout << "[" <<  index << "," << alpha << "]" << item << std::endl;
                 conditional_information_transfer_result[key] = item;
             }
-            return conditional_renyi_entropy_strorage (conditional_information_transfer_result, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X);
+            return conditional_renyi_entropy_strorage {{"CRE", conditional_information_transfer_result}, {"RE_ph_X", entropy_present_X_history_X}, {"RE_h_XY", entropy_history_X_history_Y}, {"RE_ph_XY", entropy_joint}, {"RE_h_X", entropy_history_X}};
         } else {
 
         }
@@ -1211,12 +1243,14 @@ public:
 
     static Eigen::MatrixXd shuffle_sample ( const Eigen::MatrixXd &dataset )
     {
+        std::random_device random_device_instance;
+        std::mt19937 random_generator (random_device_instance());
         // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
         Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
 
         Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm ( dataset.rows() );
         perm.setIdentity();
-        std::random_shuffle ( perm.indices().data(), perm.indices().data() + perm.indices().size() );
+        std::shuffle ( perm.indices().data(), perm.indices().data() + perm.indices().size(), random_generator );
         auto result = perm * dataset;
         return result;
     }
@@ -1335,7 +1369,6 @@ public:
                     const auto original_dataset_row = row - item_history;
                     const auto inserted_data = data ( original_dataset_row, dimension_of_original_dataset );
                     sampled_dataset->operator() ( count_history * dimension_of_data + dimension_of_original_dataset, 0 ) = inserted_data;
-
                 }
             }
             co_yield sampled_dataset;

@@ -13,7 +13,7 @@ namespace po = boost::program_options;
 
 int main ( int argc, char *argv[] )
 {
-    std::string directory;
+    std::string directory, output;
     unsigned int maximal_neighborhood;
     std::vector<std::vector<unsigned int>> history_firsts, future_firsts,
         history_seconds;
@@ -22,7 +22,8 @@ int main ( int argc, char *argv[] )
         history_second_string;
     po::options_description desc ( "Allowed options" );
     desc.add_options() ( "help, h", "produce help message" ) 
-    ("directory, d", po::value<std::string>(), "Folder to export results" ) 
+    ("directory, d", po::value<std::string>()->default_value("."), "Folder to export results" )
+    ("file, f", po::value<std::string>()->default_value("CRE.bin"), "Output file" )
     ("history_first", po::value<std::string>()->composing(), "History of the first timeries" ) 
     ("future_first", po::value<std::string>()->composing(), "Future of the first timeries" ) 
     ("history_second", po::value<std::string>()->composing(), "History of the second timeseries" ) 
@@ -46,11 +47,11 @@ int main ( int argc, char *argv[] )
     {
         multithreading = true;
     }
-
     if ( vm.count ( "directory" ) )
     {
         directory = vm["directory"].as<std::string>();
     }
+    output = vm["file"].as<std::string>();
     if ( vm.count ( "history_first" ) )
     {
         history_first_string = vm["history_first"].as<std::string>();
@@ -111,11 +112,11 @@ int main ( int argc, char *argv[] )
 
     for ( auto &item : alpha )
     {
-        std::cout << item << std::endl;
+        std::cout << item << " ";
     }
+    std::cout << std::endl;
     Eigen::MatrixXd dataset;
-    random_samples::samples_normal_distribution_uncorrelated ( dataset, 0, 1, 100,
-            2 );
+    random_samples::samples_normal_distribution_uncorrelated ( dataset, 0, 1, 1000, 2 );
 
     for ( auto swap_datasets :
             {
@@ -179,7 +180,7 @@ int main ( int argc, char *argv[] )
     std::stringstream ss;
     msgpack::pack(ss, result_conditional_information_transfer);
     boost::filesystem::path output_file =
-    boost::filesystem::current_path() / "myfile.dat";
+    boost::filesystem::path(directory) / boost::filesystem::path(output);
     boost::filesystem::ofstream output_file_handler ( output_file );
     output_file_handler << ss.str();
 }
