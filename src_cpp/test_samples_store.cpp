@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <iterator>
 
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/filesystem.hpp>
@@ -10,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include "renyi_entropy.h"
 
 /**
  Save a mpfr_float type to a boost archive.
@@ -174,6 +176,117 @@ TEST ( SampleStore, Boost_Serialize )
     //oarch << std::tuple<bool, int>(true, 1);
 }
 
+TEST ( SampleStore, MSGPACK_C_Serialize_String1 )
+{
+    typedef std::map<std::tuple<bool, bool, unsigned int>, std::string> struct_type;
+    struct_type dataset{{ {true, true, 0} , "CVB"}};
+
+    std::stringstream ss;
+    msgpack::pack(ss, dataset);
+
+    msgpack::object_handle object_handle_buffer = msgpack::unpack(ss.str().data(), ss.str().size());
+    msgpack::object deserialized = object_handle_buffer.get();
+
+    std::cout << deserialized << std::endl;
+
+    struct_type dataset_out;
+    deserialized.convert(dataset_out);
+    std::cout << dataset_out[std::tuple(true, true, 0)] << std::endl;
+}
+
+TEST ( SampleStore, MSGPACK_C_Serialize_String2 )
+{
+    typedef std::map<std::tuple<bool, bool, unsigned int>, std::map<std::string, unsigned int> > struct_type;
+    struct_type dataset{{ {true, true, 0} , {{"CVB", 1}, {"CVF", 2 }}}};
+
+    std::stringstream ss;
+    msgpack::pack(ss, dataset);
+
+    msgpack::object_handle object_handle_buffer = msgpack::unpack(ss.str().data(), ss.str().size());
+    msgpack::object deserialized = object_handle_buffer.get();
+
+    std::cout << deserialized << std::endl;
+
+    struct_type dataset_out;
+    deserialized.convert(dataset_out);
+}
+
+TEST ( SampleStore, MSGPACK_C_Serialize_String3 )
+{
+    typedef std::map<std::tuple<bool, bool, unsigned int>, std::map<std::string, std::map<unsigned int, double > > > struct_type;
+    struct_type dataset{{ {true, true, 0} , {{"CVB", {{1, 2}} }, {"CVF", {{2, 2}, {1, 3} }} } }};
+
+    std::stringstream ss;
+    msgpack::pack(ss, dataset);
+
+    msgpack::object_handle object_handle_buffer = msgpack::unpack(ss.str().data(), ss.str().size());
+    msgpack::object deserialized = object_handle_buffer.get();
+
+    std::cout << deserialized << std::endl;
+
+    struct_type dataset_out;
+    deserialized.convert(dataset_out);
+}
+
+TEST ( SampleStore, MSGPACK_C_Serialize_String4 )
+{
+    typedef std::map<std::tuple<bool, bool, unsigned int>, std::map< std::string, std::map< std::tuple<unsigned int, double>, double> > > struct_type;
+    struct_type dataset{{ {true, true, 0} , {{"CVB", {{{1, 1}, 2}} }, {"CVF", {{ {2, 0.1}, 2}, {{1, 0.2}, 3} }} } }};
+
+    std::stringstream ss;
+    msgpack::pack(ss, dataset);
+
+    msgpack::object_handle object_handle_buffer = msgpack::unpack(ss.str().data(), ss.str().size());
+    msgpack::object deserialized = object_handle_buffer.get();
+
+    std::cout << deserialized << std::endl;
+
+    struct_type dataset_out;
+    deserialized.convert(dataset_out);
+}
+
+TEST ( SampleStore, MSGPACK_C_Serialize_String5 )
+{
+    typedef std::map<std::tuple<bool, bool, unsigned int>, std::map< std::string, std::map< std::tuple<unsigned int, double>, double> > > struct_type;
+    struct_type dataset{{ {true, true, 0} , {{"CVB", {{{1, 1}, NAN }} }, {"CVF", {{ {2, 0.1}, 2}, {{1, 0.2}, 3} }} } }};
+
+    std::stringstream ss;
+    msgpack::pack(ss, dataset);
+
+    msgpack::object_handle object_handle_buffer = msgpack::unpack(ss.str().data(), ss.str().size());
+    msgpack::object deserialized = object_handle_buffer.get();
+
+    std::cout << deserialized << std::endl;
+
+    struct_type dataset_out;
+    deserialized.convert(dataset_out);
+}
+
+TEST ( SampleStore, MSGPACK_C_Serialize_Advanced )
+{
+    try
+    {
+        typedef std::map<std::tuple<bool, bool, unsigned int>, std::unordered_map< std::string, std::map< std::tuple<unsigned int, double>, double> > > struct_type;
+        struct_type dataset{{{true, true, 0U}, {{"AB", {{{1, 0.1}, 1}, {{1, 0.2}, 1}} }} }};
+        std::stringstream ss;
+        msgpack::pack(ss, dataset);
+
+        msgpack::object_handle object_handle_buffer = msgpack::unpack(ss.str().data(), ss.str().size());
+        msgpack::object deserialized = object_handle_buffer.get();
+
+        std::cout << deserialized << std::endl;
+
+        struct_type dataset_out;
+        deserialized.convert(dataset_out);
+    }
+    catch (std::bad_cast & exc)
+    {
+        std::cerr << exc.what() << std::endl;
+    }
+
+}
+
+
 TEST ( SampleStore, MSGPACK_C_Serialize )
 {
 
@@ -201,3 +314,42 @@ TEST ( SampleStore, MSGPACK_C_Serialize )
     }
 }
 
+TEST( SampleStore, MSGPACK_C_Deserialize )
+{
+    boost::filesystem::path output_file =
+    boost::filesystem::path(".") / boost::filesystem::path("CRE.bin");
+    boost::filesystem::ifstream input_file_handler ( output_file );
+    try
+    {
+        if (input_file_handler.is_open())
+        {
+            std::string buffer(std::istreambuf_iterator<char>{input_file_handler}, {});
+            //std::string buffer;
+            input_file_handler >> buffer;
+            std::cout << buffer.size() << std::endl;
+
+            msgpack::object_handle object_handle_buffer =
+                msgpack::unpack(buffer.data(), buffer.size());
+
+            // deserialized object is valid during the msgpack::object_handle instance is alive.
+            msgpack::object deserialized = object_handle_buffer.get();
+            //deserialized.;
+            // msgpack::object supports ostream.
+            std::cout << deserialized << std::endl;
+
+            typedef double TYPE;
+            typedef std::tuple<bool, bool, unsigned int> conditional_information_transfer_key_type;
+            typedef std::map<std::tuple<unsigned int, TYPE>, TYPE> renyi_entropy_storage;
+            typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage_type;
+            std::map<conditional_information_transfer_key_type, conditional_renyi_entropy_strorage_type> result_conditional_information_transfer2;
+
+            //std::map<std::tuple<bool, bool, unsigned int>, std::unordered_map<std::string, std::map<std::tuple<unsigned int, double>, double > > > result_conditional_information_transfer2;
+
+            deserialized.convert(result_conditional_information_transfer2);
+        }
+    }
+    catch (std::bad_cast & exc)
+    {
+        std::cerr << exc.what() << std::endl;
+    }
+}

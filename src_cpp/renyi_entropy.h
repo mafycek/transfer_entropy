@@ -70,9 +70,10 @@ TYPE volume_of_hypersphere ( TYPE radius, TYPE metric, unsigned int dimension )
         pow ( std::numbers::pi_v<double>, ( dimension - 2 ) / 2. );
     for ( unsigned int angular_momentum_index = 1;
             angular_momentum_index < dimension - 1; ++angular_momentum_index ) {
+        auto nominator = boost::math::lgamma ( 0.5 + ( dimension - ( angular_momentum_index + 1 ) ) / metric );
+        auto denominator= boost::math::lgamma ( ( dimension + metric - ( angular_momentum_index + 1 ) ) / metric );
         noncomplete_angular_part *=
-            exp ( boost::math::lgamma ( 0.5 + ( dimension - ( angular_momentum_index + 1 ) ) / metric ) -
-            boost::math::lgamma ( ( dimension + metric - ( angular_momentum_index + 1 ) ) / metric ) );
+            exp ( nominator - denominator );
     }
 
     return static_part * radius_part * complete_angular_part *
@@ -565,7 +566,7 @@ public:
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
         renyi_entropy_storage results;
-        const int dimension_of_data = dataset.cols();
+        const int dimension_of_data = dataset.rows();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
         auto end_tree_construction_calculation =
@@ -1045,6 +1046,9 @@ public:
                 return std::tuple<std::tuple<unsigned int, TYPE>, TYPE>(a.first, a.second + b.second - c.second - d.second );
             };
 
+            assert(entropy_present_X_history_X.size() == entropy_history_X_history_Y.size());
+            assert(entropy_history_X_history_Y.size() == entropy_joint.size());
+            assert(entropy_joint.size() == entropy_history_X.size());
             auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X );
             renyi_entropy_storage conditional_information_transfer_result;
             for (auto [key, item]: sum)
@@ -1158,6 +1162,8 @@ public:
             marginal_solution_1 = marginal_solution_1.transpose();
             marginal_solution_2 = marginal_solution_2.transpose();
         }
+        unsigned int dimension_timeseries_1 = marginal_solution_1.cols();
+        unsigned int dimension_timeseries_2 = marginal_solution_2.cols();
 
         if ( parameters.contains ( "postselection_y_fut" ) ) {
             postselection_y_fut = std::any_cast<unsigned int> ( parameters["postselection_y_fut"] );
@@ -1198,6 +1204,7 @@ public:
         auto max_join_histories_x_y = std::max_element ( join_histories_x_y.begin(), join_histories_x_y.end() );
         auto max_future_index_x = std::max_element ( future_index_x.begin(), future_index_x.end() );
         auto max_history_index_x =  std::max_element ( history_index_x.begin(), history_index_x.end() );
+        auto max_history_index_y =  std::max_element ( history_index_y.begin(), history_index_y.end() );
 
         if ( parameters.contains ( "history_index_x" ) ) {
             std::vector<unsigned int> indices;
@@ -1219,7 +1226,7 @@ public:
         auto samples_marginal_1 = samples_from_arrays ( marginal_solution_1_selected, parameters );
 
         //std::cout << samples_marginal_1->rows() << " " << samples_marginal_1->cols() << *samples_marginal_1 << std::endl;
-        auto separator_row_x = ( * max_history_index_x ) * history_index_x.size();
+        auto separator_row_x = dimension_timeseries_1 * history_index_x.size(); //bug number of original dimension of data
         Eigen::MatrixXd y_fut, y_history, x_hist;
         y_history = ( *samples_marginal_1 ) ( Eigen::seq ( 0, separator_row_x ), Eigen::all );
         y_fut = ( *samples_marginal_1 ) ( Eigen::seq ( separator_row_x, samples_marginal_1->rows() - 1 ), Eigen::all );
@@ -1230,7 +1237,7 @@ public:
         if ( parameters.contains ( "history_index_y" ) ) {
             std::vector<unsigned int> indices;
             for ( unsigned int item : history_index_y ) {
-                indices.push_back ( ( * max_future_index_x )- item );
+                indices.push_back ( ( * max_history_index_y ) - item );
             }
             parameters["select_indices"] = indices;
         }

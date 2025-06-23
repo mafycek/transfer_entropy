@@ -56,10 +56,10 @@ target_link_libraries(binary_file_test PUBLIC
         ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen
 )
 
-add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp renyi_entropy.cpp utils.cpp)
-target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include)
+add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp renyi_entropy.cpp utils.cpp cpptrace_helper.cpp)
+target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include ../third-party/cpptrace/include)
 target_link_libraries(renyi_entropy_calculator PUBLIC 
-        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_SHARED
+        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_SHARED cpptrace::cpptrace
 )
 
 add_executable(test_utils test_utils.cpp utils.cpp)
@@ -73,3 +73,8 @@ target_include_directories(test_samples_store PUBLIC ../third-party/ndarray/incl
 target_link_libraries(test_samples_store PUBLIC
         ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_SHARED
 )
+
+add_executable(signal_tracer signal_tracer.cpp)
+target_include_directories(signal_tracer PUBLIC ../third-party/cpptrace/include)
+target_link_libraries(signal_tracer PUBLIC cpptrace::cpptrace)
+
