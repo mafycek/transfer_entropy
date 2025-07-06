@@ -3,9 +3,14 @@
 #include <sstream>
 #include <iterator>
 
+#include <cpptrace/from_current.hpp>
+#include <cpptrace/formatting.hpp>
+#include <cpptrace/cpptrace.hpp>
+
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/exception/diagnostic_information.hpp>
 
 #include "msgpack.hpp"
 
@@ -319,7 +324,7 @@ TEST( SampleStore, MSGPACK_C_Deserialize )
     boost::filesystem::path output_file =
     boost::filesystem::path(".") / boost::filesystem::path("CRE.bin");
     boost::filesystem::ifstream input_file_handler ( output_file );
-    try
+    CPPTRACE_TRY
     {
         if (input_file_handler.is_open())
         {
@@ -335,7 +340,7 @@ TEST( SampleStore, MSGPACK_C_Deserialize )
             msgpack::object deserialized = object_handle_buffer.get();
             //deserialized.;
             // msgpack::object supports ostream.
-            std::cout << deserialized << std::endl;
+            //std::cout << deserialized << std::endl;
 
             typedef double TYPE;
             typedef std::tuple<bool, bool, unsigned int> conditional_information_transfer_key_type;
@@ -348,8 +353,10 @@ TEST( SampleStore, MSGPACK_C_Deserialize )
             deserialized.convert(result_conditional_information_transfer2);
         }
     }
-    catch (std::bad_cast & exc)
+    CPPTRACE_CATCH (std::bad_cast & exc)
     {
-        std::cerr << exc.what() << std::endl;
+        std::cerr << "Msgpack deserialize failed: " << exc.what() << std::endl;
+        cpptrace::from_current_exception().print();
+        std::cout << boost::current_exception_diagnostic_information(true) << std::endl;
     }
 }

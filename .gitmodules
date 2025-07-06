@@ -4,3 +4,15 @@
 [submodule "third-party/cpp-btree"]
 	path = third-party/cpp-btree
 	url = https://github.com/JGRennison/cpp-btree.git
+[submodule "third-party/DataFrameCpp"]
+	path = third-party/DataFrameCpp
+	url = https://github.com/kilasuelika/DataFrameCpp.git
+[submodule "third-party/fmt"]
+	path = third-party/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "third-party/DataFrame"]
+	path = third-party/DataFrame
+	url = https://github.com/hosseinmoein/DataFrame.git
+[submodule "third-party/QuantLib"]
+	path = third-party/QuantLib
+	url = git@github.com:lballabio/QuantLib.git

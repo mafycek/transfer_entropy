@@ -10,6 +10,8 @@
 #include <iostream>
 #include <map>
 #include <unordered_map>
+#include <set>
+#include <unordered_set>
 #include <numeric>
 #include <sstream>
 #include <vector>
@@ -40,10 +42,27 @@
 
 #include "KDTree.cpp"
 
-//#include "ndarray.h"
+struct hash_tuple {
+
+    template <class T1, class T2>
+
+    size_t operator()(
+        const std::tuple<T1, T2>& x)
+        const
+    {
+        return std::get<0>(x)
+               ^ std::get<1>(x);
+    }
+};
 
 namespace renyi_entropy
 {
+
+inline extern constexpr std::string conditional_renyi_entropy_label{"CRE"};
+inline extern constexpr std::string renyi_entropy_X_present_history_label{"RE_ph_X"};
+inline extern constexpr std::string renyi_entropy_XY_history_label{"RE_h_XY"};
+inline extern constexpr std::string joint_renyi_entropy_label{"RE_ph_XY"};
+inline extern constexpr std::string renyi_entropy_X_history_label{"RE_h_X"};
 
 template<typename Scalar, typename Matrix>
 inline std::vector< std::vector<Scalar> > fromEigenMatrix ( const Matrix & M )
@@ -84,7 +103,8 @@ template <typename TYPE>
 class renyi_entropy
 {
 public:
-    typedef std::map<std::tuple<unsigned int, TYPE>, TYPE> renyi_entropy_storage; // , renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage
+    typedef std::tuple<unsigned int, TYPE> renyi_key_type;
+    typedef std::map<renyi_key_type, TYPE> renyi_entropy_storage;
     typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage;
 
     renyi_entropy()
@@ -346,7 +366,7 @@ public:
             }
         } else {
             auto ks = std::views::keys(results);
-            std::vector<std::tuple<unsigned int, TYPE>> keys{ ks.begin(), ks.end() };
+            std::vector<renyi_key_type> keys{ ks.begin(), ks.end() };
 
             const auto processor_count = std::thread::hardware_concurrency();
             const auto maximal_number_of_jobs = GetAlphas().size();
@@ -1011,7 +1031,7 @@ public:
             auto multithreading = std::any_cast<bool> ( parameters["multithreading"] );
             calculator.SetMultithreading ( multithreading );
         }
-        calculator.SetExp ( exp );
+        calculator.SetExp ( [&] (double x) { return exp(x);} );
         calculator.SetLog ( log );
         calculator.SetPower ( pow );
 
@@ -1046,16 +1066,86 @@ public:
                 return std::tuple<std::tuple<unsigned int, TYPE>, TYPE>(a.first, a.second + b.second - c.second - d.second );
             };
 
-            assert(entropy_present_X_history_X.size() == entropy_history_X_history_Y.size());
-            assert(entropy_history_X_history_Y.size() == entropy_joint.size());
-            assert(entropy_joint.size() == entropy_history_X.size());
+#ifndef NDEBUG
+            auto keys_view = std::views::keys(entropy_present_X_history_X);
+            std::set<renyi_key_type> keys{ keys_view.begin(), keys_view.end() };
+            keys_view = std::views::keys(entropy_history_X_history_Y);
+            keys.insert( keys_view.begin(), keys_view.end() );
+            keys_view = std::views::keys(entropy_joint);
+            keys.insert( keys_view.begin(), keys_view.end() );
+            keys_view = std::views::keys(entropy_history_X);
+            keys.insert( keys_view.begin(), keys_view.end() );
+
+            if (keys.size() != std::views::keys(entropy_present_X_history_X).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_present_X_history_X {} {}", keys.size(), std::views::keys(entropy_present_X_history_X).size() );
+            }
+            if (keys.size() != std::views::keys(entropy_history_X_history_Y).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X_history_Y {} {}", keys.size(), std::views::keys(entropy_history_X_history_Y).size() );
+            }
+            if (keys.size() != std::views::keys(entropy_joint).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_joint {} {}", keys.size(), std::views::keys(entropy_joint).size() );
+            }
+            if (keys.size() != std::views::keys(entropy_history_X).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X {} {}", keys.size(), std::views::keys(entropy_history_X).size() );
+            }
+
+            auto keys2(keys);
+            for ( auto item: std::views::keys(entropy_present_X_history_X))
+            {
+                keys2.erase(item);
+            }
+            auto keys3(keys);
+            for ( auto item: std::views::keys(entropy_history_X_history_Y))
+            {
+                keys3.erase(item);
+            }
+            auto keys4(keys);
+            for ( auto item: std::views::keys(entropy_joint))
+            {
+                keys4.erase(item);
+            }
+            auto keys5(keys);
+            for ( auto item: std::views::keys(entropy_history_X))
+            {
+                keys5.erase(item);
+            }
+
+            for ( const auto & key : keys )
+            {
+                if (!entropy_present_X_history_X.contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_present_X_history_X", std::get<0>(key), std::get<1>(key));
+                }
+                if (!entropy_history_X_history_Y.contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_history_X_history_Y", std::get<0>(key), std::get<1>(key));
+                }
+                if (!entropy_joint.contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_joint", std::get<0>(key), std::get<1>(key));
+                }
+                if (!entropy_history_X.contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_history_X", std::get<0>(key), std::get<1>(key));
+                }
+            }
+#endif
+            //assert(entropy_present_X_history_X.size() == entropy_history_X_history_Y.size());
+            //assert(entropy_history_X_history_Y.size() == entropy_joint.size());
+            //assert(entropy_joint.size() == entropy_history_X.size());
+
+            // conditional Renyi entropy
             auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X );
             renyi_entropy_storage conditional_information_transfer_result;
             for (auto [key, item]: sum)
             {
                 conditional_information_transfer_result[key] = item;
             }
-            return conditional_renyi_entropy_strorage {{"CRE", conditional_information_transfer_result}, {"RE_ph_X", entropy_present_X_history_X}, {"RE_h_XY", entropy_history_X_history_Y}, {"RE_ph_XY", entropy_joint}, {"RE_h_X", entropy_history_X}};
+            return conditional_renyi_entropy_strorage {{conditional_renyi_entropy_label, conditional_information_transfer_result}, {renyi_entropy_X_present_history_label, entropy_present_X_history_X}, {renyi_entropy_XY_history_label, entropy_history_X_history_Y}, {joint_renyi_entropy_label, entropy_joint}, {renyi_entropy_X_history_label, entropy_history_X}};
         } else {
 
         }
@@ -1188,8 +1278,8 @@ public:
         }
 
         //std::cout << marginal_solution_1 << std::endl;
-        marginal_solution_1_selected = marginal_solution_1.block ( skip_first, 0, marginal_solution_1.rows() - skip_last, marginal_solution_1.cols() );
-        marginal_solution_2_selected = marginal_solution_2.block ( skip_first, 0, marginal_solution_2.rows() - skip_last, marginal_solution_2.cols() );
+        marginal_solution_1_selected = marginal_solution_1.block ( skip_first, 0, marginal_solution_1.rows() - skip_last, dimension_timeseries_1 );
+        marginal_solution_2_selected = marginal_solution_2.block ( skip_first, 0, marginal_solution_2.rows() - skip_last, dimension_timeseries_2 );
 
         const Eigen::MatrixXd matrix;
 
@@ -1245,20 +1335,28 @@ public:
         auto samples_marginal_2 = samples_from_arrays ( marginal_solution_2_selected, parameters );
         x_hist = *(samples_marginal_2.get());
 
+        if ( parameters.contains ( "transpose" ) ) {
+            marginal_solution_1 = marginal_solution_1.transpose();
+            marginal_solution_2 = marginal_solution_2.transpose();
+        }
         return std::tuple ( y_fut, y_history, x_hist );
     }
 
     static Eigen::MatrixXd shuffle_sample ( const Eigen::MatrixXd &dataset )
     {
         std::random_device random_device_instance;
-        std::mt19937 random_generator (random_device_instance());
+        std::seed_seq rng_seed{random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance()};
+        std::mt19937 random_generator (rng_seed);
         // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
-        Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
+        //Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
 
-        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm ( dataset.rows() );
+        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm ( dataset.cols() );
         perm.setIdentity();
         std::shuffle ( perm.indices().data(), perm.indices().data() + perm.indices().size(), random_generator );
-        auto result = perm * dataset;
+        // permutate columns
+        //dataset.transpose();
+        auto result =  dataset * perm;
+        //std::cout << dataset << "\nres:\n" << result << std::endl;
         return result;
     }
 

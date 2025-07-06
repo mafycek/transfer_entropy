@@ -3,6 +3,8 @@ file(GLOB SOURCES *.cpp)
 
 project(random_samples VERSION 1.0.0)
 
+set(CMAKE_CXX_STANDARD 23)
+
 add_library(random_samples_STATIC STATIC random_samples.cpp)
 add_library(random_samples_SHARED SHARED random_samples.cpp)
 set_target_properties(random_samples_SHARED PROPERTIES
@@ -57,9 +59,9 @@ target_link_libraries(binary_file_test PUBLIC
 )
 
 add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp renyi_entropy.cpp utils.cpp cpptrace_helper.cpp)
-target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include ../third-party/cpptrace/include)
+target_include_directories(renyi_entropy_calculator PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include ../third-party/cpptrace/include ../third-party/QuantLib)
 target_link_libraries(renyi_entropy_calculator PUBLIC 
-        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_SHARED cpptrace::cpptrace
+        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_SHARED cpptrace::cpptrace #ql_library
 )
 
 add_executable(test_utils test_utils.cpp utils.cpp)
@@ -71,10 +73,13 @@ target_link_libraries(test_utils PUBLIC
 add_executable(test_samples_store test_samples_store.cpp)
 target_include_directories(test_samples_store PUBLIC ../third-party/ndarray/include ../third-party/KDTree ../third-party/cpp-btree ../third-party/msgpack-c/include)
 target_link_libraries(test_samples_store PUBLIC
-        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_SHARED
+        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace random_samples_SHARED
 )
 
 add_executable(signal_tracer signal_tracer.cpp)
 target_include_directories(signal_tracer PUBLIC ../third-party/cpptrace/include)
 target_link_libraries(signal_tracer PUBLIC cpptrace::cpptrace)
 
+add_executable(test_dataframe test_dataframe.cpp)
+target_include_directories(test_dataframe PUBLIC ../third-party/cpptrace/include ../third-party/msgpack-c/include ../third-party/DataFrame/include ../third-party/fmt/include ../third-party/matplotlib-cpp ${Python_INCLUDE_DIRS})
+target_link_libraries(test_dataframe PUBLIC ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace )
