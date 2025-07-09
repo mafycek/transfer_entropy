@@ -68,9 +68,9 @@ TEST ( RenyiEntropy, SimpleTest )
     std::vector<unsigned int> indices{1, 2, 3, 4, 5};
     calculator.SetAlpha ( alpha );
     calculator.SetIndices ( indices );
-    calculator.SetExp ( exp );
-    calculator.SetLog ( log );
-    calculator.SetPower ( pow );
+    calculator.SetExp ( [&] (double x) { return exp(x);} );
+    calculator.SetLog ( [&] (double x) { return log(x);} );
+    calculator.SetPower ( [&] (double x, double y) { return pow(x, y);} );
 
     auto result = calculator.renyi_entropy_LeonenkoProzanto ( dataset, 2 );
     std::stringstream ss;
@@ -173,7 +173,7 @@ TEST ( RenyiEntropy, PreparesDataset2D )
     {
         auto [dataset1, dataset2] =
             renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, false,
-                    false, 1, 1 );
+                    false, false, 1, 1 );
         for ( unsigned int i = 0; i < columns; ++i )
         {
             EXPECT_EQ ( dataset1 ( i, 0 ), dataset ( i, 0 ) );
@@ -184,7 +184,7 @@ TEST ( RenyiEntropy, PreparesDataset2D )
     {
         auto [dataset_swap1, dataset_swap2] =
             renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, true,
-                    false, 1, 1 );
+                    false, false, 1, 1 );
         for ( unsigned int i = 0; i < columns; ++i )
         {
             EXPECT_EQ ( dataset_swap2 ( i, 0 ), dataset ( i, 0 ) );
@@ -195,7 +195,7 @@ TEST ( RenyiEntropy, PreparesDataset2D )
     {
         auto [dataset_shuffled1, dataset_shuffled2] =
             renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, false,
-                    true, 1, 1 );
+                    true, false, 1, 1 );
         for ( unsigned int i = 0; i < columns; ++i )
         {
             auto data1 = static_cast<unsigned int> ( dataset_shuffled1 ( i, 0 ) );
@@ -208,7 +208,7 @@ TEST ( RenyiEntropy, PreparesDataset2D )
     {
         auto [dataset_shuffled1, dataset_shuffled2] =
             renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, true,
-                    true, 1, 1 );
+                    true, false, 1, 1 );
         for ( unsigned int i = 0; i < columns; ++i )
         {
             auto data1 = static_cast<unsigned int> ( dataset_shuffled1 ( i, 0 ) );
@@ -246,7 +246,7 @@ TEST ( RenyiEntropy, PreparesDatasetND )
             {
                 auto [dataset1, dataset2] =
                     renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, false, false, separation_row,
+                        dataset, false, false, false, separation_row,
                         number_rows - separation_row );
                 for ( unsigned int i = 0; i < columns; ++i )
                 {
@@ -267,7 +267,7 @@ TEST ( RenyiEntropy, PreparesDatasetND )
             {
                 auto [dataset_swap1, dataset_swap2] =
                     renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, true, false, separation_row,
+                        dataset, true, false, false, separation_row,
                         number_rows - separation_row );
                 for ( unsigned int i = 0; i < columns; ++i )
                 {
@@ -288,7 +288,7 @@ TEST ( RenyiEntropy, PreparesDatasetND )
             {
                 auto [dataset_shuffled1, dataset_shuffled2] =
                     renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, false, true, separation_row,
+                        dataset, false, true, false, separation_row,
                         number_rows - separation_row );
                 for ( unsigned int i = 0; i < columns; ++i )
                 {
@@ -312,7 +312,7 @@ TEST ( RenyiEntropy, PreparesDatasetND )
             {
                 auto [dataset_shuffled1, dataset_shuffled2] =
                     renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, true, true, separation_row,
+                        dataset, true, true, false, separation_row,
                         number_rows - separation_row );
                 for ( unsigned int i = 0; i < columns; ++i )
                 {

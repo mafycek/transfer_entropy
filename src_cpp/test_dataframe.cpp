@@ -95,7 +95,7 @@ TEST ( dataframe, matplotlibcpp )
 	plt::title("Standard usage"); // set a title
 	plt::legend();
 	plt::show();
-	plt::savefig("minimal.pdf");
+	//plt::savefig("minimal.pdf");
 }
 
 

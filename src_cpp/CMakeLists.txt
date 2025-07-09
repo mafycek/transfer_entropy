@@ -80,6 +80,10 @@ add_executable(signal_tracer signal_tracer.cpp)
 target_include_directories(signal_tracer PUBLIC ../third-party/cpptrace/include)
 target_link_libraries(signal_tracer PUBLIC cpptrace::cpptrace)
 
+add_executable(test_fftw3 test_fftw3.cpp)
+target_include_directories(test_fftw3 PUBLIC ../third-party/cpptrace/include)
+target_link_libraries(test_fftw3 PUBLIC cpptrace::cpptrace fft 2Dfft GTest::gtest GTest::gtest_main)
+
 add_executable(test_dataframe test_dataframe.cpp)
 target_include_directories(test_dataframe PUBLIC ../third-party/cpptrace/include ../third-party/msgpack-c/include ../third-party/DataFrame/include ../third-party/fmt/include ../third-party/matplotlib-cpp ${Python_INCLUDE_DIRS})
 target_link_libraries(test_dataframe PUBLIC ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace )

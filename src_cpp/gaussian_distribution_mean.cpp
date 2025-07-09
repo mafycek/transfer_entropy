@@ -255,9 +255,9 @@ int main ( int argc, char *argv[] )
 
     calculator.SetAlpha ( alphas );
     calculator.SetIndices ( indices );
-    calculator.SetExp ( exp );
-    calculator.SetLog ( log );
-    calculator.SetPower ( pow );
+    calculator.SetExp ( [&] (double x) { return exp(x);} );
+    calculator.SetLog ( [&] (double x) { return log(x);} );
+    calculator.SetPower ( [&] (double x, double y) { return pow(x, y);} );
     calculator.SetMultithreading ( multithreading );
 
     std::map<std::tuple<unsigned int, double>, double> result;

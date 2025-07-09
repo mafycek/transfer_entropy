@@ -25,6 +25,11 @@
 #include <typeinfo>
 #include <generator>
 #include <latch>
+#include <cmath>
+#include <numbers>
+
+#include <real2DFFT.H>
+#include <complexFFT.H>
 
 #include <boost/log/trivial.hpp>
 #include <boost/math/special_functions/digamma.hpp>
@@ -58,11 +63,13 @@ struct hash_tuple {
 namespace renyi_entropy
 {
 
-inline extern constexpr std::string conditional_renyi_entropy_label{"CRE"};
-inline extern constexpr std::string renyi_entropy_X_present_history_label{"RE_ph_X"};
-inline extern constexpr std::string renyi_entropy_XY_history_label{"RE_h_XY"};
-inline extern constexpr std::string joint_renyi_entropy_label{"RE_ph_XY"};
-inline extern constexpr std::string renyi_entropy_X_history_label{"RE_h_X"};
+inline extern const std::string conditional_renyi_entropy_label{"CRE"};
+inline extern const std::string renyi_entropy_X_present_history_label{"RE_ph_X"};
+inline extern const std::string renyi_entropy_XY_history_label{"RE_h_XY"};
+inline extern const std::string joint_renyi_entropy_label{"RE_ph_XY"};
+inline extern const std::string renyi_entropy_X_history_label{"RE_h_X"};
+inline extern const std::string average_runs{"average_runs"};
+inline extern const std::string average_runs_neighbors{"average_runs_neighbors"};
 
 template<typename Scalar, typename Matrix>
 inline std::vector< std::vector<Scalar> > fromEigenMatrix ( const Matrix & M )
@@ -1032,8 +1039,8 @@ public:
             calculator.SetMultithreading ( multithreading );
         }
         calculator.SetExp ( [&] (double x) { return exp(x);} );
-        calculator.SetLog ( log );
-        calculator.SetPower ( pow );
+        calculator.SetLog ( [&] (double x) { return log(x);} );
+        calculator.SetPower ( [&] (double x, double y) { return pow(x, y);} );
 
         if ( enhanced_calculation ) {
             Eigen::MatrixXd joint_dataset ( y_future.rows() + y_history.rows(), y_future.cols() );
@@ -1355,12 +1362,77 @@ public:
         std::shuffle ( perm.indices().data(), perm.indices().data() + perm.indices().size(), random_generator );
         // permutate columns
         //dataset.transpose();
-        auto result =  dataset * perm;
+        auto result = dataset * perm;
         //std::cout << dataset << "\nres:\n" << result << std::endl;
         return result;
     }
 
-    static std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> prepare_dataset ( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, unsigned int selection_1, unsigned int selection_2 )
+    static Eigen::MatrixXd surrogate_sample ( const Eigen::MatrixXd &dataset )
+    {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(-std::numbers::pi, std::numbers::pi);
+
+        Eigen::MatrixXd result(dataset.rows(), dataset.cols());
+
+        int count = dataset.cols();
+        std::vector<double> phases(count / 2);
+        for (int i = 1; i < count / 2; ++i)
+        {
+            double phase = dis(gen);
+        }
+
+        for (unsigned int row = 0; row < dataset.rows(); ++ row )
+        {
+            complexFFTData fftData(count);
+            complexFFT fft(&fftData);
+
+            for ( unsigned int column = 0 ; column < count; ++ column )
+            {
+                c_re(fftData.in[column]) = static_cast<double>(dataset(row, column) );
+                c_im(fftData.in[column]) = static_cast<double>(0);
+            }
+
+            // forward transform
+            fft.fwdTransform();
+
+            // power spectrum
+            fftData.compPowerSpec();
+
+            for (int i = 1; i < count / 2; ++ i)
+            {
+                double phase = phases[i];
+                double real_shift = cos(phase);
+                double imag_shift = sin(phase);
+                c_re(fftData.out[i]) = sqrt( fftData.power_spectrum[i] ) * real_shift;
+                c_im(fftData.out[i]) = sqrt( fftData.power_spectrum[i] ) * imag_shift;
+
+                c_re(fftData.out[count - i]) = c_re(fftData.out[i]);
+                c_im(fftData.out[count - i]) = - c_im(fftData.out[i]);
+            }
+
+            // inverse transform
+            fft.invTransform();
+
+            // normalization
+            for (int i = 0; i < count; ++ i)
+            {
+                c_re(fftData.in[i]) /= count;
+                c_im(fftData.in[i]) /= count;
+            }
+
+            for ( unsigned int column = 0 ; column < count; ++ column )
+            {
+                result(row, column) = c_re(fftData.in[column]);
+                assert(std::fabs(c_im(fftData.in[column])) < 1e-15);
+
+                //std::cout << c_re(fftData.in[column]) << " + i* " << c_im(fftData.in[column]) << std::endl;
+            }
+        }
+        return result;
+    }
+
+    static std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> prepare_dataset ( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, bool surrogate_dataset, unsigned int selection_1, unsigned int selection_2 )
     {
         auto marginal_solution_1 = joint_dataset ( Eigen::seqN ( 0, selection_1 ), Eigen::all );
         auto marginal_solution_2 = joint_dataset ( Eigen::seqN ( selection_1, selection_2 ), Eigen::all );
@@ -1372,14 +1444,20 @@ public:
             std::swap ( swaped_marginal_solution_1, swaped_marginal_solution_2 );
         }
 
-        Eigen::MatrixXd shuffled_dataset;
+        Eigen::MatrixXd modified_dataset;
         if ( shuffle_dataset ) {
-            shuffled_dataset = shuffle_sample ( *swaped_marginal_solution_1 );
+            modified_dataset = shuffle_sample ( *swaped_marginal_solution_1 );
         } else {
-            shuffled_dataset = * swaped_marginal_solution_1;
+            modified_dataset = * swaped_marginal_solution_1;
         }
 
-        return std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd> ( shuffled_dataset, *swaped_marginal_solution_2 );
+        if ( surrogate_dataset ) {
+            modified_dataset = surrogate_sample ( *swaped_marginal_solution_1 );
+        } else {
+            modified_dataset = * swaped_marginal_solution_1;
+        }
+
+        return std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd> ( modified_dataset, *swaped_marginal_solution_2 );
     }
 
     static std::shared_ptr<const Eigen::MatrixXd> samples_from_arrays ( Eigen::MatrixXd &data, std::map<std::string, std::any> parameters )
