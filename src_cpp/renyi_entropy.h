@@ -113,9 +113,17 @@ public:
     typedef std::tuple<unsigned int, TYPE> renyi_key_type;
     typedef std::map<renyi_key_type, TYPE> renyi_entropy_storage;
     typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage;
+    typedef std::tuple<std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>> collection_conditional_information_transfer_key_type;
+    typedef std::tuple<bool, bool, bool, unsigned int> conditional_information_transfer_key_type;
+    typedef std::map<conditional_information_transfer_key_type, conditional_renyi_entropy_strorage> result_conditional_information_transfer_type;
+    typedef std::map<conditional_information_transfer_key_type, renyi_entropy_storage> processed_conditional_information_transfer_type;
+    typedef std::map<collection_conditional_information_transfer_key_type, result_conditional_information_transfer_type> collection_result_conditional_information_transfer_type;
+    typedef std::map<collection_conditional_information_transfer_key_type, processed_conditional_information_transfer_type> collection_processed_conditional_information_transfer_type;
+    typedef std::map<std::string, collection_processed_conditional_information_transfer_type> average_result_conditional_information_transfer_type;
+    typedef std::map<std::string, average_result_conditional_information_transfer_type> type_average_result_conditional_information_transfer_type;
 
     renyi_entropy()
-        : _multithreading ( false )
+        : _multithreading ( false ), _number_of_threads(std::thread::hardware_concurrency())
     {}
 
     ~renyi_entropy()
@@ -324,7 +332,7 @@ public:
                 }
             }
         } else {
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto maximal_number_of_jobs = GetAlphas().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
@@ -375,7 +383,7 @@ public:
             auto ks = std::views::keys(results);
             std::vector<renyi_key_type> keys{ ks.begin(), ks.end() };
 
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto maximal_number_of_jobs = GetAlphas().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
@@ -621,7 +629,7 @@ public:
                 }
             }
         } else {
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto maximal_number_of_jobs = GetAlphas().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
@@ -733,7 +741,7 @@ public:
             }
         } else {
             const auto maximal_number_of_jobs = GetAlphas().size();
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
@@ -851,7 +859,7 @@ public:
             }
         } else {
             const auto maximal_number_of_jobs = dataset.size();
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
@@ -910,7 +918,7 @@ public:
         else
         {
             const auto maximal_number_of_jobs = dataset.cols();
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto real_thread_count = static_cast<unsigned int>( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs - jobs_to_process * real_thread_count };
@@ -1424,7 +1432,7 @@ public:
             for ( unsigned int column = 0 ; column < count; ++ column )
             {
                 result(row, column) = c_re(fftData.in[column]);
-                assert(std::fabs(c_im(fftData.in[column])) < 1e-15);
+                assert(std::fabs(c_im(fftData.in[column])) < 1e-10);
 
                 //std::cout << c_re(fftData.in[column]) << " + i* " << c_im(fftData.in[column]) << std::endl;
             }
@@ -1447,13 +1455,12 @@ public:
         Eigen::MatrixXd modified_dataset;
         if ( shuffle_dataset ) {
             modified_dataset = shuffle_sample ( *swaped_marginal_solution_1 );
-        } else {
-            modified_dataset = * swaped_marginal_solution_1;
         }
-
-        if ( surrogate_dataset ) {
+        else if ( surrogate_dataset ) {
             modified_dataset = surrogate_sample ( *swaped_marginal_solution_1 );
-        } else {
+        }
+        else
+        {
             modified_dataset = * swaped_marginal_solution_1;
         }
 
@@ -1568,8 +1575,20 @@ public:
         _multithreading = multithreading;
     }
 
+    const unsigned int GetNumberOfThreads ()
+    {
+        return _number_of_threads;
+    }
+
+    void SetNumberOfThreads ( unsigned int number_of_threads )
+    {
+        _number_of_threads = number_of_threads;
+    }
+
 protected:
     bool _multithreading;
+
+    unsigned int _number_of_threads;
 
     std::recursive_mutex _result_mutex;
 

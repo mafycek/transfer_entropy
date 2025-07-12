@@ -14,7 +14,7 @@ int main()
         if(res == 0) {
             break;
         } else if(res != 1) {
-            std::cerr<<"Oops, size mismatch "<<res<<" "<<sizeof(frame)<<std::endl;
+            std::cerr << "Oops, size mismatch " << res << " " << sizeof(frame) << std::endl;
             break;
         } else {
             trace.frames.push_back(frame.resolve());

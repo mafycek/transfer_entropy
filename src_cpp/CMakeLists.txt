@@ -87,3 +87,7 @@ target_link_libraries(test_fftw3 PUBLIC cpptrace::cpptrace fft 2Dfft GTest::gtes
 add_executable(test_dataframe test_dataframe.cpp)
 target_include_directories(test_dataframe PUBLIC ../third-party/cpptrace/include ../third-party/msgpack-c/include ../third-party/DataFrame/include ../third-party/fmt/include ../third-party/matplotlib-cpp ${Python_INCLUDE_DIRS})
 target_link_libraries(test_dataframe PUBLIC ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace )
+
+add_executable(renyi_entropy_figures renyi_entropy_figures_main.cpp cpptrace_helper.cpp)
+target_include_directories(renyi_entropy_figures PUBLIC ../third-party/cpptrace/include ../third-party/KDTree ../third-party/msgpack-c/include ../third-party/DataFrame/include ../third-party/fmt/include ../third-party/matplotlib-cpp ${Python_INCLUDE_DIRS})
+target_link_libraries(renyi_entropy_figures PUBLIC ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace )

@@ -22,7 +22,7 @@ void handler(int signo, siginfo_t* info, void* context)
 {
     const char* message = "SIGSEGV occurred:\n";
     write(STDERR_FILENO, message, strlen(message));
-		constexpr std::size_t N = 100;
+		constexpr std::size_t N = 1000;
     cpptrace::frame_ptr buffer[N];
     std::size_t count = cpptrace::safe_generate_raw_trace(buffer, N);
     pipe_t input_pipe;
