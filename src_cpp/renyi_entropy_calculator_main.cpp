@@ -12,6 +12,7 @@
 #include <boost/stacktrace.hpp>
 #include <boost/exception/all.hpp>
 #include <boost/program_options.hpp>
+
 #include <boost/accumulators/accumulators.hpp>
 #include <boost/accumulators/statistics.hpp>
 #include <boost/accumulators/statistics/mean.hpp>
@@ -22,6 +23,12 @@
 #include <boost/accumulators/framework/accumulator_set.hpp>
 #include <boost/accumulators/statistics/tail.hpp>
 #include <boost/accumulators/statistics_fwd.hpp>
+
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filter/zstd.hpp>
+#include <boost/iostreams/filter/lzma.hpp>
+#include <boost/iostreams/filter/bzip2.hpp>
 
 #include "msgpack.hpp"
 
@@ -43,6 +50,17 @@ void throw_with_trace(const E& e) {
 }
 
 namespace po = boost::program_options;
+namespace bio = boost::iostreams;
+
+struct zstd_ostream : boost::iostreams::filtering_ostream
+{
+    zstd_ostream(std::ostream& os)
+    {
+        bio::zstd_params zstd_params ( 13 );
+        bio::filtering_ostream::push( bio::zstd_compressor{zstd_params} );
+        bio::filtering_ostream::push( os );
+    }
+};
 
 int main ( int argc, char *argv[] )
 {
@@ -66,7 +84,7 @@ int main ( int argc, char *argv[] )
     po::options_description desc ( "Allowed options" );
     desc.add_options() ( "help, h", "produce help message" ) 
     ("directory,d", po::value<std::string>()->default_value("."), "Folder to export results" )
-    ("file,f", po::value<std::string>()->default_value("CRE.bin"), "Output file" )
+    ("file,f", po::value<std::string>()->default_value("CRE.bin.zstd"), "Output file" )
     ("history_first", po::value<std::string>()->composing(), "History of the first timeries" ) 
     ("future_first", po::value<std::string>()->composing(), "Future of the first timeries" ) 
     ("history_second", po::value<std::string>()->composing(), "History of the second timeseries" )
@@ -196,15 +214,15 @@ int main ( int argc, char *argv[] )
         {
             for (auto & type_of_average: {std::tuple<bool,bool>({false, false}), std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
             {
-                auto [shuffle_inidicator, surrogate_indicator] = type_of_average;
+                auto [shuffle_indicator, surrogate_indicator] = type_of_average;
 
-                unsigned int maximal_samples = (( shuffle_inidicator == false) && (surrogate_indicator == false )) ? 1U : ( ( shuffle_inidicator == true) && (surrogate_indicator == false ) ? runs_shuffle : runs_surrogate );
+                unsigned int maximal_samples = (( shuffle_indicator == false) && (surrogate_indicator == false )) ? 1U : ( ( shuffle_indicator == true) && (surrogate_indicator == false ) ? runs_shuffle : runs_surrogate );
                 // calculation of shuffled datasets
                 for (unsigned int sample = 0; sample < maximal_samples; ++ sample)
                 {
                     auto [dataset1, dataset2] =
                         renyi_entropy::renyi_entropy<calculation_type>::prepare_dataset (
-                            dataset, swap_datasets, shuffle_inidicator, surrogate_indicator, 1, 1 );
+                            dataset, swap_datasets, shuffle_indicator, surrogate_indicator, 1, 1 );
 
                     for ( auto &future_first : future_firsts )
                     {
@@ -245,10 +263,11 @@ int main ( int argc, char *argv[] )
                                                         renyi_conditional_information_transfer (
                                                             y_future, y_history, z_history,
                                                             configuration_renyi_entropy );
-                                collection_result_RTE[collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, sample)] = transfer_entropy_results;
+                                collection_result_RTE[collection_key][std::make_tuple(swap_datasets, shuffle_indicator, surrogate_indicator, sample)] = transfer_entropy_results;
                             }
                         }
                     }
+                    std::cout << std::format("Sw: {} Sh:{} Sur:{} R:{}", swap_datasets, shuffle_indicator, surrogate_indicator, sample) << std::endl;
                 }
             }
         }
@@ -265,13 +284,13 @@ int main ( int argc, char *argv[] )
                     true, false
                 })
             {
-                auto main_conditional_renyi_entropy_results = result_conditional_information_transfer[std::make_tuple(swap_datasets, false, false, 0)][renyi_entropy::conditional_renyi_entropy_label];
+                auto &main_conditional_renyi_entropy_results = result_conditional_information_transfer[std::make_tuple(swap_datasets, false, false, 0)][renyi_entropy::conditional_renyi_entropy_label];
                 std::set<unsigned int> neighbours;
                 std::set<double> alphas;
 
-                for (auto & type_of_average: {std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
+                for (auto & type_of_collection: {std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
                 {
-                    auto [shuffle_inidicator, surrogate_indicator] = type_of_average;
+                    auto [shuffle_indicator, surrogate_indicator] = type_of_collection;
 
                     auto CRE_key_views = std::views::keys(main_conditional_renyi_entropy_results);
                     std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
@@ -287,7 +306,7 @@ int main ( int argc, char *argv[] )
 
                         for ( unsigned int run = 0; run < runs; ++ run )
                         {
-                            auto counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
+                            auto &counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(swap_datasets, shuffle_indicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
                             auto entropy_difference = main_conditional_renyi_entropy_results[CRE_key] - counterpart_conditional_renyi_entropy_results[CRE_key];
                             accumulator_statistics ( entropy_difference );
                         }
@@ -295,26 +314,31 @@ int main ( int argc, char *argv[] )
                         auto variance = boost::accumulators::variance(accumulator_statistics);
                         auto median = boost::accumulators::median(accumulator_statistics);
                         auto quantile_01 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.1);
+                        auto quantile_02 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.2);
                         auto quantile_03 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.3);
                         auto quantile_04 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.4);
                         auto quantile_06 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.6);
                         auto quantile_07 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.7);
+                        auto quantile_08 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.8);
                         auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
-                        processing_RTE[renyi_entropy::average_runs]["mean"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = mean;
-                        processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = variance;
-                        processing_RTE[renyi_entropy::average_runs]["median"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = median;
-                        processing_RTE[renyi_entropy::average_runs]["quantile_01"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_01;
-                        processing_RTE[renyi_entropy::average_runs]["quantile_03"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_03;
-                        processing_RTE[renyi_entropy::average_runs]["quantile_04"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_04;
-                        processing_RTE[renyi_entropy::average_runs]["quantile_06"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_06;
-                        processing_RTE[renyi_entropy::average_runs]["quantile_07"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_07;
-                        processing_RTE[renyi_entropy::average_runs]["quantile_09"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_09;
+                        auto final_CRE_key = std::make_tuple(false, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
+                        processing_RTE[renyi_entropy::average_runs]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
+                        processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                        processing_RTE[renyi_entropy::average_runs]["median"][collection_key][final_CRE_key][CRE_key] = median;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_03"][collection_key][final_CRE_key][CRE_key] = quantile_03;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_04"][collection_key][final_CRE_key][CRE_key] = quantile_04;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_06"][collection_key][final_CRE_key][CRE_key] = quantile_06;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_07"][collection_key][final_CRE_key][CRE_key] = quantile_07;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_08"][collection_key][final_CRE_key][CRE_key] = quantile_08;
+                        processing_RTE[renyi_entropy::average_runs]["quantile_09"][collection_key][final_CRE_key][CRE_key] = quantile_09;
                     }
                 }
 
-                for (auto & type_of_average: {std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
+                for (auto & type_of_collection: {std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
                 {
-                    auto [shuffle_inidicator, surrogate_indicator] = type_of_average;
+                    auto [shuffle_indicator, surrogate_indicator] = type_of_collection;
 
                     for (auto alpha: alphas)
                     {
@@ -329,7 +353,7 @@ int main ( int argc, char *argv[] )
                             for ( unsigned int run = 0; run < runs; ++ run )
                             {
                                 renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type data_CRE_key(neighbour, alpha);
-                                auto counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
+                                auto &counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(swap_datasets, shuffle_indicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
                                 auto entropy_difference = main_conditional_renyi_entropy_results[data_CRE_key] - counterpart_conditional_renyi_entropy_results[data_CRE_key];
                                 accumulator_statistics ( entropy_difference );
                             }
@@ -338,32 +362,146 @@ int main ( int argc, char *argv[] )
                         auto variance = boost::accumulators::variance(accumulator_statistics);
                         auto median = boost::accumulators::median(accumulator_statistics);
                         auto quantile_01 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.1);
+                        auto quantile_02 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.2);
                         auto quantile_03 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.3);
                         auto quantile_04 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.4);
                         auto quantile_06 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.6);
                         auto quantile_07 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.7);
+                        auto quantile_08 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.8);
                         auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["mean"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = mean;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = variance;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["median"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = median;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_01"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_01;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_03"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_03;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_04"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_04;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_06"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_06;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_07"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_07;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_09"][collection_key][std::make_tuple(swap_datasets, shuffle_inidicator, surrogate_indicator, 0)][CRE_key] = quantile_09;
+                        auto final_CRE_key = std::make_tuple(false, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["median"][collection_key][final_CRE_key][CRE_key] = median;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_03"][collection_key][final_CRE_key][CRE_key] = quantile_03;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_04"][collection_key][final_CRE_key][CRE_key] = quantile_04;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_06"][collection_key][final_CRE_key][CRE_key] = quantile_06;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_07"][collection_key][final_CRE_key][CRE_key] = quantile_07;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_08"][collection_key][final_CRE_key][CRE_key] = quantile_08;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_09"][collection_key][final_CRE_key][CRE_key] = quantile_09;
                     }
+                }
+            }
+
+            // ballance calculation
+            auto swap_datasets = false;
+            auto &main_conditional_renyi_entropy_results = result_conditional_information_transfer[std::make_tuple(swap_datasets, false, false, 0)][renyi_entropy::conditional_renyi_entropy_label];
+            auto &main_reverse_conditional_renyi_entropy_results = result_conditional_information_transfer[std::make_tuple(!swap_datasets, false, false, 0)][renyi_entropy::conditional_renyi_entropy_label];
+            std::set<unsigned int> neighbours;
+            std::set<double> alphas;
+
+            for (auto & type_of_collection: {std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
+            {
+                auto [shuffle_indicator, surrogate_indicator] = type_of_collection;
+
+                auto CRE_key_views = std::views::keys(main_conditional_renyi_entropy_results);
+                std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
+                for (auto & CRE_key: CRE_keys)
+                {
+                    auto [neighbor, alpha] = CRE_key;
+                    neighbours.insert(neighbor);
+                    alphas.insert(alpha);
+                    // effective RTE statistical
+                    //# boost::accumulators::stats<boost::accumulators::tag::count, boost::accumulators::tag::sum, boost::accumulators::tag::immediate_mean, boost::accumulators::tag::variance, boost::accumulators::tag::median, boost::accumulators::tag::p_square_quantile >
+                    using stats_accumulators = boost::accumulators::stats<boost::accumulators::tag::mean, boost::accumulators::tag::variance, boost::accumulators::tag::median, boost::accumulators::tag::tail_quantile<boost::accumulators::left>>;
+                    boost::accumulators::accumulator_set< double, stats_accumulators > accumulator_statistics(boost::accumulators::tag::tail<boost::accumulators::left>::cache_size = 100);
+
+                    for ( unsigned int run = 0; run < runs; ++ run )
+                    {
+                        auto &counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(swap_datasets, shuffle_indicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
+                        auto &reverse_counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(!swap_datasets, shuffle_indicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
+
+                        auto entropy_difference = main_conditional_renyi_entropy_results[CRE_key] - counterpart_conditional_renyi_entropy_results[CRE_key] - main_reverse_conditional_renyi_entropy_results[CRE_key] + reverse_counterpart_conditional_renyi_entropy_results[CRE_key];
+                        accumulator_statistics ( entropy_difference );
+                    }
+                    auto mean = boost::accumulators::mean(accumulator_statistics);
+                    auto variance = boost::accumulators::variance(accumulator_statistics);
+                    auto median = boost::accumulators::median(accumulator_statistics);
+                    auto quantile_01 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.1);
+                    auto quantile_02 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.2);
+                    auto quantile_03 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.3);
+                    auto quantile_04 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.4);
+                    auto quantile_06 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.6);
+                    auto quantile_07 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.7);
+                    auto quantile_08 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.8);
+                    auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
+                    auto final_CRE_key = std::make_tuple(true, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
+                    processing_RTE[renyi_entropy::average_runs]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
+                    processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                    processing_RTE[renyi_entropy::average_runs]["median"][collection_key][final_CRE_key][CRE_key] = median;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_03"][collection_key][final_CRE_key][CRE_key] = quantile_03;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_04"][collection_key][final_CRE_key][CRE_key] = quantile_04;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_06"][collection_key][final_CRE_key][CRE_key] = quantile_06;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_07"][collection_key][final_CRE_key][CRE_key] = quantile_07;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_08"][collection_key][final_CRE_key][CRE_key] = quantile_08;
+                    processing_RTE[renyi_entropy::average_runs]["quantile_09"][collection_key][final_CRE_key][CRE_key] = quantile_09;
+                }
+            }
+
+            for (auto & type_of_collection: {std::tuple<bool,bool>({true, false}), std::tuple<bool,bool>({false, true}) })
+            {
+                auto [shuffle_indicator, surrogate_indicator] = type_of_collection;
+
+                for (auto alpha: alphas)
+                {
+                    renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type CRE_key(0, alpha);
+
+                    // effective RTE
+                    using stats_accumulators = boost::accumulators::stats<boost::accumulators::tag::mean, boost::accumulators::tag::variance, boost::accumulators::tag::median, boost::accumulators::tag::tail_quantile<boost::accumulators::left>>;
+                    boost::accumulators::accumulator_set< double, stats_accumulators > accumulator_statistics(boost::accumulators::tag::tail<boost::accumulators::left>::cache_size = runs*(maximal_neighborhood- start_neighbor));
+
+                    for ( unsigned int neighbour = start_neighbor; neighbour < maximal_neighborhood; ++neighbour)
+                    {
+                        for ( unsigned int run = 0; run < runs; ++ run )
+                        {
+                            renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type data_CRE_key(neighbour, alpha);
+                            auto &counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(swap_datasets, shuffle_indicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
+                            auto &reverse_counterpart_conditional_renyi_entropy_results = result_conditional_information_transfer[std::tuple(!swap_datasets, shuffle_indicator, surrogate_indicator, run)][renyi_entropy::conditional_renyi_entropy_label];
+
+                            auto entropy_difference = main_conditional_renyi_entropy_results[data_CRE_key] - counterpart_conditional_renyi_entropy_results[data_CRE_key] - main_reverse_conditional_renyi_entropy_results[CRE_key] + reverse_counterpart_conditional_renyi_entropy_results[CRE_key];
+                            accumulator_statistics ( entropy_difference );
+                        }
+                    }
+                    auto mean = boost::accumulators::mean(accumulator_statistics);
+                    auto variance = boost::accumulators::variance(accumulator_statistics);
+                    auto median = boost::accumulators::median(accumulator_statistics);
+                    auto quantile_01 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.1);
+                    auto quantile_02 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.2);
+                    auto quantile_03 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.3);
+                    auto quantile_04 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.4);
+                    auto quantile_06 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.6);
+                    auto quantile_07 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.7);
+                    auto quantile_08 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.8);
+                    auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
+                    auto final_CRE_key = std::make_tuple(true, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["median"][collection_key][final_CRE_key][CRE_key] = median;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_03"][collection_key][final_CRE_key][CRE_key] = quantile_03;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_04"][collection_key][final_CRE_key][CRE_key] = quantile_04;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_06"][collection_key][final_CRE_key][CRE_key] = quantile_06;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_07"][collection_key][final_CRE_key][CRE_key] = quantile_07;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_08"][collection_key][final_CRE_key][CRE_key] = quantile_08;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_09"][collection_key][final_CRE_key][CRE_key] = quantile_09;
                 }
             }
         }
 
         // save results
         std::stringstream ss;
-        msgpack::pack(ss, std::make_tuple(collection_result_RTE, processing_RTE));
+        msgpack::pack(ss, processing_RTE); //renyi_entropy::renyi_entropy<calculation_type>::storage_RTE(collection_result_RTE, processing_RTE)
         std::cout << ss.str().size() << std::endl;
         boost::filesystem::path output_file =
         boost::filesystem::path(directory) / boost::filesystem::path(output);
         boost::filesystem::ofstream output_file_handler ( output_file );
+        zstd_ostream zstd_compression_stream{output_file_handler};
+
         output_file_handler << ss.str();
     }
     CPPTRACE_CATCH (std::exception& exc)

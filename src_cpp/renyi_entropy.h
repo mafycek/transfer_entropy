@@ -115,12 +115,14 @@ public:
     typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage;
     typedef std::tuple<std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>> collection_conditional_information_transfer_key_type;
     typedef std::tuple<bool, bool, bool, unsigned int> conditional_information_transfer_key_type;
+    typedef std::tuple<bool, bool, bool, bool, unsigned int> result_conditional_information_transfer_key_type;
     typedef std::map<conditional_information_transfer_key_type, conditional_renyi_entropy_strorage> result_conditional_information_transfer_type;
-    typedef std::map<conditional_information_transfer_key_type, renyi_entropy_storage> processed_conditional_information_transfer_type;
+    typedef std::map<result_conditional_information_transfer_key_type, renyi_entropy_storage> processed_conditional_information_transfer_type;
     typedef std::map<collection_conditional_information_transfer_key_type, result_conditional_information_transfer_type> collection_result_conditional_information_transfer_type;
     typedef std::map<collection_conditional_information_transfer_key_type, processed_conditional_information_transfer_type> collection_processed_conditional_information_transfer_type;
     typedef std::map<std::string, collection_processed_conditional_information_transfer_type> average_result_conditional_information_transfer_type;
     typedef std::map<std::string, average_result_conditional_information_transfer_type> type_average_result_conditional_information_transfer_type;
+    typedef std::tuple<collection_result_conditional_information_transfer_type, type_average_result_conditional_information_transfer_type> storage_RTE;
 
     renyi_entropy()
         : _multithreading ( false ), _number_of_threads(std::thread::hardware_concurrency())

@@ -4,6 +4,7 @@
 #include <random>
 #include <ranges>
 #include <vector>
+#include <functional>
 
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
@@ -46,5 +47,13 @@ void sample_alpha_stable_distribution ( Eigen::MatrixXd &dataset,
                                         const double alpha, const double beta,
                                         const double mu, const double param,
                                         unsigned int number_samples );
+
+void AB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double eta, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double> initial_confition = std::tuple<double, double>({0.,0.}));
+
+void CB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double eta, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double> initial_confition = std::tuple<double, double>({0.,0.}), double lambda=3);
+
+void ADB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double gamma, double eta1, double eta2, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double, double> initial_confition = std::tuple<double, double, double>({0.,0.,0,}));
+
+void ACB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double gamma, double eta1, double eta2, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double, double> initial_confition = std::tuple<double, double, double>({0.,0.,0,}), double lambda=3);
 
 } // namespace random_samples

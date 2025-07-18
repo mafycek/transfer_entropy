@@ -59,3 +59,110 @@ TEST ( RandomSamples, AlphaStableDistributionSamples )
             1000 );
     std::cout << dataset.transpose() << std::endl;
 }
+
+
+TEST ( RandomSamples, AB_process )
+{
+    std::random_device random{};
+    std::mt19937 generator{random() };
+    std::normal_distribution distributionA{0.,1.};
+    std::normal_distribution distributionB{0.,1.};
+
+    Eigen::MatrixXd dataset;
+    random_samples::AB_process(dataset, 0.1, 0.1, 0.1, 100,
+        std::make_tuple(
+            [&]()
+            {
+                return distributionA ( generator );
+            },
+            [&]()
+            {
+                return distributionB ( generator );
+            }
+        ),
+        std::make_tuple(0.,0.)
+    );
+    std::cout << dataset << std::endl;
+}
+
+TEST ( RandomSamples, CB_process )
+{
+    std::random_device random{};
+    std::mt19937 generator{random() };
+    std::normal_distribution distributionC{0.,1.};
+    std::normal_distribution distributionB{0.,1.};
+
+    Eigen::MatrixXd dataset;
+    random_samples::CB_process(dataset, 0.1, 0.1, 0.1, 100,
+        std::make_tuple(
+            [&]()
+            {
+                return distributionC ( generator );
+            },
+            [&]()
+            {
+                return distributionB ( generator );
+            }
+        ),
+        std::make_tuple(0.,0.)
+    );
+    std::cout << dataset << std::endl;
+}
+
+TEST ( RandomSamples, ADB_process )
+{
+    std::random_device random{};
+    std::mt19937 generator{random() };
+    std::normal_distribution distributionA{0.,1.};
+    std::normal_distribution distributionD{0.,1.};
+    std::normal_distribution distributionB{0.,1.};
+
+    Eigen::MatrixXd dataset;
+    random_samples::ADB_process(dataset, 0.1, 0.1, 0.1, 0.1, 0.1, 100,
+        std::make_tuple(
+            [&]()
+            {
+                return distributionA ( generator );
+            },
+            [&]()
+            {
+                return distributionD ( generator );
+            },
+            [&]()
+            {
+                return distributionB ( generator );
+            }
+        ),
+        std::make_tuple(0., 0., 0.)
+    );
+    std::cout << dataset << std::endl;
+}
+
+TEST ( RandomSamples, ACB_process )
+{
+    std::random_device random{};
+    std::mt19937 generator{random() };
+    std::normal_distribution distributionA{0.,1.};
+    std::normal_distribution distributionC{0.,1.};
+    std::normal_distribution distributionB{0.,1.};
+
+    Eigen::MatrixXd dataset;
+    random_samples::ACB_process(dataset, 0.1, 0.1, 0.1, 0.1, 0.1, 100,
+        std::make_tuple(
+            [&]()
+            {
+                return distributionA ( generator );
+            },
+            [&]()
+            {
+                return distributionC ( generator );
+            },
+            [&]()
+            {
+                return distributionB ( generator );
+            }
+        ),
+        std::make_tuple(0., 0., 0.)
+    );
+    std::cout << dataset << std::endl;
+}
