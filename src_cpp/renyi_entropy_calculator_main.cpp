@@ -323,7 +323,7 @@ int main ( int argc, char *argv[] )
                         auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
                         auto final_CRE_key = std::make_tuple(false, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
                         processing_RTE[renyi_entropy::average_runs]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
-                        processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                        processing_RTE[renyi_entropy::average_runs]["standard_deviation"][collection_key][final_CRE_key][CRE_key] = variance;
                         processing_RTE[renyi_entropy::average_runs]["median"][collection_key][final_CRE_key][CRE_key] = median;
                         processing_RTE[renyi_entropy::average_runs]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
                         processing_RTE[renyi_entropy::average_runs]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
@@ -371,7 +371,7 @@ int main ( int argc, char *argv[] )
                         auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
                         auto final_CRE_key = std::make_tuple(false, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
                         processing_RTE[renyi_entropy::average_runs_neighbors]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
-                        processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                        processing_RTE[renyi_entropy::average_runs_neighbors]["standard_deviation"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
                         processing_RTE[renyi_entropy::average_runs_neighbors]["median"][collection_key][final_CRE_key][CRE_key] = median;
                         processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
                         processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
@@ -429,7 +429,7 @@ int main ( int argc, char *argv[] )
                     auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
                     auto final_CRE_key = std::make_tuple(true, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
                     processing_RTE[renyi_entropy::average_runs]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
-                    processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                    processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
                     processing_RTE[renyi_entropy::average_runs]["median"][collection_key][final_CRE_key][CRE_key] = median;
                     processing_RTE[renyi_entropy::average_runs]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
                     processing_RTE[renyi_entropy::average_runs]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
@@ -479,7 +479,7 @@ int main ( int argc, char *argv[] )
                     auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
                     auto final_CRE_key = std::make_tuple(true, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
                     processing_RTE[renyi_entropy::average_runs_neighbors]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
-                    processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][final_CRE_key][CRE_key] = variance;
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
                     processing_RTE[renyi_entropy::average_runs_neighbors]["median"][collection_key][final_CRE_key][CRE_key] = median;
                     processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
                     processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;

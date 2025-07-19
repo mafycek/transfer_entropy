@@ -13,9 +13,9 @@
 [submodule "third-party/DataFrame"]
 	path = third-party/DataFrame
 	url = https://github.com/hosseinmoein/DataFrame.git
-[submodule "third-party/QuantLib"]
-	path = third-party/QuantLib
-	url = git@github.com:lballabio/QuantLib.git
 [submodule "third-party/matplotlib-cpp"]
 	path = third-party/matplotlib-cpp
 	url = https://github.com/lava/matplotlib-cpp.git
+[submodule "third-party/pybind11"]
+	path = third-party/pybind11
+	url = https://github.com/pybind/pybind11.git

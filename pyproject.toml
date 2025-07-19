@@ -5,7 +5,7 @@ description = "Analyzer of nonlinear data"
 authors = ["Hynek Lavicka"]
 
 [tool.poetry.dependencies]
-python = ">= 3.9, < 4.0"
+python = ">= 3.11, < 4.0"
 scipy = ">=1.3"
 numpy = ">=1.13.3"
 mpmath = ">=1.2.1"
@@ -35,6 +35,7 @@ sqlalchemy-utils = "^0.38.3"
 mongo = "^0.2.0"
 python-dotenv = "^1.0.0"
 python-forex-quotes = "^2.0.3"
+ipython = "^9.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=3.4"
