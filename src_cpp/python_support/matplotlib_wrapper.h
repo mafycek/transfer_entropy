@@ -8,6 +8,7 @@
 #include <pybind11/stl_bind.h>
 
 namespace py = pybind11;
+using namespace pybind11::literals;
 
 /**
  * @todo Wrapper for matplotlib functions
@@ -72,7 +73,7 @@ public:
   py::object matplotlib_pyplot_subplots_adjust;
   py::object matplotlib_pyplot_imshow;
   py::object matplotlib_pyplot_colorbar;
-  py::object matplotlib_pyplot_rcParams;
+  py::object matplotlib_rcParams;
   py::object matplotlib_use;
   py::object matplotlib_get_backend;
   py::object matplotlib_colormaps;

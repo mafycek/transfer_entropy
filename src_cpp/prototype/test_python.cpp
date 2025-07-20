@@ -10,6 +10,7 @@
 #include <pybind11/stl_bind.h>
 
 namespace py = pybind11;
+using namespace pybind11::literals;
 
 TEST ( PyBind11, ImportTest )
 {
@@ -87,8 +88,31 @@ TEST ( PyBind11, ImportTest )
   py::object matplotlib_colormaps = matplotlib.attr("colormaps");
 
   std::vector<double> x{0, 1, 2, 3, 4};
-  std::vector<double> y{0, 1, 2, 3, 4};
+  std::vector<double> y{0, 1, 5, 6, 1};
+  std::vector<double> y1{0, 1, 5, 6, 1};
+  std::vector<double> y2{0, 0.5, 3, 2, 1};
+  std::vector<double> z1{0, 0.7, 4.5, 5.5, 1};
+  std::vector<double> z2{0, 0.6, 3.5, 2.5, 1};
+
+  auto text = matplotlib_pyplot_rcParams.attr("__setitem__");
+  text("text.usetex", py::bool_(true));
+  py::print(matplotlib_pyplot_rcParams["text.usetex"]);
+  matplotlib_pyplot_rcParams["text.usetex"] = py::bool_(false);
+  py::print(matplotlib_pyplot_rcParams["text.usetex"]);
+  std::string title{"{\\Large \\textrm{RTE\\ dependence\\ on\\ }$\\alpha$ }"};
+  matplotlib_pyplot_title(py::str(title));
   matplotlib_pyplot_plot(x, y);
+  matplotlib_pyplot_show();
+
+  auto fill_colormap = matplotlib_colormaps [py::str("jet")];
+  auto color = fill_colormap( py::float_(0.1 ));
+  py::dict kwargs ("color"_a = color, "linewidth"_a = py::float_(3.), "alpha"_a = py::float_(0.7));
+  matplotlib_pyplot_fill_between(x, y1, y2, **kwargs);
+
+  auto color2 = fill_colormap( py::float_(0.9 ));
+  kwargs[py::str("color")] = color2;
+  matplotlib_pyplot_fill_between(x, z1, z2, **kwargs);
+
   matplotlib_pyplot_show();
   matplotlib_pyplot_close();
 }

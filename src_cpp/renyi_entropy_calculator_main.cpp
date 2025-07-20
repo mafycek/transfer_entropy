@@ -429,7 +429,7 @@ int main ( int argc, char *argv[] )
                     auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
                     auto final_CRE_key = std::make_tuple(true, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
                     processing_RTE[renyi_entropy::average_runs]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
-                    processing_RTE[renyi_entropy::average_runs]["variance"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
+                    processing_RTE[renyi_entropy::average_runs]["standard_deviation"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
                     processing_RTE[renyi_entropy::average_runs]["median"][collection_key][final_CRE_key][CRE_key] = median;
                     processing_RTE[renyi_entropy::average_runs]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
                     processing_RTE[renyi_entropy::average_runs]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
@@ -451,7 +451,7 @@ int main ( int argc, char *argv[] )
                     renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type CRE_key(0, alpha);
 
                     // effective RTE
-                    using stats_accumulators = boost::accumulators::stats<boost::accumulators::tag::mean, boost::accumulators::tag::variance, boost::accumulators::tag::median, boost::accumulators::tag::tail_quantile<boost::accumulators::left>>;
+                    using stats_accumulators = boost::accumulators::stats<boost::accumulators::tag::mean, boost::accumulators::tag::moment<2>, boost::accumulators::tag::variance, boost::accumulators::tag::median, boost::accumulators::tag::tail_quantile<boost::accumulators::left>>;
                     boost::accumulators::accumulator_set< double, stats_accumulators > accumulator_statistics(boost::accumulators::tag::tail<boost::accumulators::left>::cache_size = runs*(maximal_neighborhood- start_neighbor));
 
                     for ( unsigned int neighbour = start_neighbor; neighbour < maximal_neighborhood; ++neighbour)
@@ -479,7 +479,7 @@ int main ( int argc, char *argv[] )
                     auto quantile_09 = boost::accumulators::quantile(accumulator_statistics, boost::accumulators::quantile_probability = 0.9);
                     auto final_CRE_key = std::make_tuple(true, swap_datasets, shuffle_indicator, surrogate_indicator, 0);
                     processing_RTE[renyi_entropy::average_runs_neighbors]["mean"][collection_key][final_CRE_key][CRE_key] = mean;
-                    processing_RTE[renyi_entropy::average_runs_neighbors]["variance"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
+                    processing_RTE[renyi_entropy::average_runs_neighbors]["standard_deviation"][collection_key][final_CRE_key][CRE_key] = sqrt(variance);
                     processing_RTE[renyi_entropy::average_runs_neighbors]["median"][collection_key][final_CRE_key][CRE_key] = median;
                     processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_01"][collection_key][final_CRE_key][CRE_key] = quantile_01;
                     processing_RTE[renyi_entropy::average_runs_neighbors]["quantile_02"][collection_key][final_CRE_key][CRE_key] = quantile_02;
@@ -502,7 +502,7 @@ int main ( int argc, char *argv[] )
         boost::filesystem::ofstream output_file_handler ( output_file );
         zstd_ostream zstd_compression_stream{output_file_handler};
 
-        output_file_handler << ss.str();
+        zstd_compression_stream << ss.str();
     }
     CPPTRACE_CATCH (std::exception& exc)
     {
