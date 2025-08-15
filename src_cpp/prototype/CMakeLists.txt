@@ -16,3 +16,9 @@ target_include_directories(test_python PUBLIC ${CMAKE_SOURCE_DIR}/third-party/py
 target_link_libraries(test_python PUBLIC
         ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main
 )
+
+add_executable(test_msgpack test_msgpack.cpp)
+target_include_directories(test_msgpack PUBLIC ${CMAKE_SOURCE_DIR}/third-party/msgpack-c/include renyi_entropy)
+target_link_libraries(test_msgpack PUBLIC
+        ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main
+)

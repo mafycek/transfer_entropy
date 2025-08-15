@@ -3,8 +3,8 @@ add_library(renyi_entropy_STATIC STATIC renyi_entropy.cpp)
 add_library(renyi_entropy_SHARED SHARED renyi_entropy.cpp)
 set_target_properties(renyi_entropy_SHARED PROPERTIES VERSION ${random_samples_VERSION} SOVERSION ${random_samples_VERSION_MAJOR} OUTPUT_NAME matplotlib_wrapper)
 set_target_properties(renyi_entropy_STATIC PROPERTIES OUTPUT_NAME matplotlib_wrapper)
-target_include_directories(renyi_entropy_SHARED PUBLIC ${CMAKE_SOURCE_DIR}/third-party/KDTree)
-target_include_directories(renyi_entropy_STATIC PUBLIC ${CMAKE_SOURCE_DIR}/third-party/KDTree)
+target_include_directories(renyi_entropy_SHARED PUBLIC ${CMAKE_SOURCE_DIR}/third-party/KDTree ${CMAKE_SOURCE_DIR}/third-party/msgpack-c/include)
+target_include_directories(renyi_entropy_STATIC PUBLIC ${CMAKE_SOURCE_DIR}/third-party/KDTree ${CMAKE_SOURCE_DIR}/third-party/msgpack-c/include)
 
 target_link_libraries(renyi_entropy_STATIC PUBLIC
         ${Boost_LIBRARIES}

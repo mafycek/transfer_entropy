@@ -8,22 +8,8 @@ namespace python_wrappers
 {
 
 matplotlib_wrapper::matplotlib_wrapper()
+: generic_python_wrapper()
 {
-  Py_Initialize();
-
-  if ( !Py_IsInitialized() )
-  {
-    throw std::runtime_error("Unable to initialize Python interpreter!");
-  }
-  else
-  {
-    std::cout << Py_GetVersion() << std::endl;
-    std::cout << Py_GetPlatform() << std::endl;
-    std::cout << Py_GetCopyright() << std::endl;
-    std::cout << Py_GetCompiler() << std::endl;
-    std::cout << Py_GetBuildInfo() << std::endl;
-  }
-
   matplotlib = py::module_::import("matplotlib");
   matplotlib_pyplot = py::module_::import("matplotlib.pyplot");
   matplotlib_colormap = py::module_::import("matplotlib.cm");

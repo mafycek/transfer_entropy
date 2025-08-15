@@ -23,8 +23,12 @@
 #include "random_samples.h"
 #include "renyi_entropy.h"
 
+const auto microseconds_in_second =
+        static_cast<double> (std::chrono::duration_cast<std::chrono::microseconds> (1s).count());
+
 int main ( int argc, char *argv[] )
 {
+
     std::vector<std::string> methods{"LeonenkoProzanto",
                                      "LeonenkoWithGeneralizedMetric"};
 
@@ -224,13 +228,11 @@ int main ( int argc, char *argv[] )
         std::chrono::high_resolution_clock::now();
     auto elapsed_edata_generation =
         end_dataset_generation_calculation - start_dataset_generation_calculation;
-    auto milliseconds_elapsed_edata_generation =
-        std::chrono::duration_cast<std::chrono::milliseconds> (
+    auto microseconds_elapsed_edata_generation =
+        std::chrono::duration_cast<std::chrono::microseconds> (
             elapsed_edata_generation )
         .count();
-    BOOST_LOG_TRIVIAL ( trace ) << std::format (
-                                    "Dataset generated in {:.5f} seconds",
-                                    milliseconds_elapsed_edata_generation / 1000.0 );
+    BOOST_LOG_TRIVIAL ( trace ) << "Dataset generated in " << microseconds_elapsed_edata_generation / microseconds_in_second << " seconds";
 
     std::vector<double> alphas;
     for ( double alpha = delta_alpha; alpha < 1; alpha += delta_alpha )
@@ -260,7 +262,7 @@ int main ( int argc, char *argv[] )
     calculator.SetPower ( [&] (double x, double y) { return pow(x, y);} );
     calculator.SetMultithreading ( multithreading );
 
-    std::map<std::tuple<unsigned int, double>, double> result;
+    renyi_entropy::renyi_entropy<double>::renyi_entropy_storage_collection result;
     if ( method == methods[0] )
     {
         result = calculator.renyi_entropy_LeonenkoProzanto ( dataset, 2 );
@@ -270,14 +272,14 @@ int main ( int argc, char *argv[] )
         result = calculator.renyi_entropy_metric ( dataset, metric );
     }
 
-    renyi_entropy::renyi_entropy<double>::SaveRenyiEntropy ( result, "myfile.dat" );
+    renyi_entropy::renyi_entropy<double>::SaveRenyiEntropy ( result, ".", "myfile.dat" );
 
     for ( const auto &item_alpha : calculator.GetAlphas() )
     {
         std::cout << item_alpha << " ";
         for ( const auto &item_index : calculator.GetIndices() )
         {
-            auto result_entropy = result[std::make_tuple ( item_index, item_alpha )];
+            auto result_entropy = result[item_index][item_alpha];
             std::cout << result_entropy << " ";
         }
         auto theoretical_renyi_entropy =
@@ -287,7 +289,7 @@ int main ( int argc, char *argv[] )
         {
             auto result_relative_entropy =
                 theoretical_renyi_entropy /
-                result[std::make_tuple ( item_index, item_alpha )];
+                result[item_index][item_alpha];
             std::cout << result_relative_entropy << " ";
         }
         std::cout << std::endl;

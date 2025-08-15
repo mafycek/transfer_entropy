@@ -12,7 +12,9 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
-TEST ( PyBind11, ImportTest )
+PYBIND11_MAKE_OPAQUE(std::map<std::tuple<std::string, std::string>, double>)
+
+TEST ( PyBind11, matplotlib )
 {
   Py_Initialize();
 
@@ -115,4 +117,69 @@ TEST ( PyBind11, ImportTest )
 
   matplotlib_pyplot_show();
   matplotlib_pyplot_close();
+}
+
+TEST ( PyBind11, pandas )
+{
+  Py_Initialize();
+
+  if ( !Py_IsInitialized() )
+  {
+    throw std::runtime_error("Unable to initialize Python interpreter!");
+  }
+  else
+  {
+    std::cout << Py_GetVersion() << std::endl;
+    std::cout << Py_GetPlatform() << std::endl;
+    std::cout << Py_GetCopyright() << std::endl;
+    std::cout << Py_GetCompiler() << std::endl;
+    std::cout << Py_GetBuildInfo() << std::endl;
+  }
+
+  py::object pandas = py::module_::import("pandas");
+  py::object pandas_dataframe = pandas.attr("DataFrame");
+  py::object pandas_multiindex = pandas.attr("MultiIndex");
+  py::object pandas_multiindex_from_tuples = pandas_multiindex.attr("from_tuples");
+
+  auto column_multiindex = pandas_multiindex_from_tuples("tuples"_a=std::list<py::tuple>{py::make_tuple(py::str("A"), py::make_tuple(0, 1, 2)), py::make_tuple(py::str("A"), py::make_tuple(0, 1, 2, 3)), py::make_tuple(py::str("B"), py::make_tuple(0, 1, 2, 3, 4))}, "names"_a=std::list<py::str>{py::str("AA"), py::str("BB")});
+  auto indexn_multiindex = pandas_multiindex_from_tuples("tuples"_a=std::list<py::tuple>{py::make_tuple(py::str("A"), py::make_tuple(0, 1)), py::make_tuple(py::str("A"), py::make_tuple(0)), py::make_tuple(py::str("B"), py::make_tuple(0, 1, 2))}, "names"_a=std::list<py::str>{py::str("aa"), py::str("bb")});
+  auto empty_dataframe = pandas_dataframe("index"_a=indexn_multiindex, "columns"_a=column_multiindex);
+  py::print(empty_dataframe);
+
+  std::map<py::tuple, py::float_ > column_dataset{{py::make_tuple("a", "b"), py::float_(1.)}};
+  py::object dataset = py::cast( column_dataset );
+  py::print(dataset);
+  py::dict column;
+  column [ py::make_tuple( 'a', 'v' ) ] = py::cast( column_dataset );
+  py::object dataframe = pandas_dataframe();
+  py::object dataframe_join = dataframe.attr("join");
+  py::print(dataframe_join);
+  dataframe_join(column);
+  py::print(dataframe);
+
+}
+
+TEST ( PyBind11, vectorTest )
+{
+  Py_Initialize();
+
+  if ( !Py_IsInitialized() )
+  {
+    throw std::runtime_error("Unable to initialize Python interpreter!");
+  }
+  else
+  {
+    std::cout << Py_GetVersion() << std::endl;
+    std::cout << Py_GetPlatform() << std::endl;
+    std::cout << Py_GetCopyright() << std::endl;
+    std::cout << Py_GetCompiler() << std::endl;
+    std::cout << Py_GetBuildInfo() << std::endl;
+  }
+  std::list<unsigned int> dataset;
+  dataset.push_back(1);
+  dataset.push_back(3);
+  dataset.push_back(6);
+  auto tuple = py::tuple(py::cast(dataset));
+  py::print(tuple);
+
 }

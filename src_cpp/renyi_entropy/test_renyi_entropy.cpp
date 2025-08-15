@@ -78,7 +78,7 @@ TEST ( RenyiEntropy, SimpleTest )
         boost::filesystem::current_path() / "myfile.dat";
     boost::filesystem::ofstream ofs ( myFile );
     boost::archive::binary_oarchive oarch ( ofs );
-    oarch << result;
+    //oarch << result;
     std::cout << ss.str();
 
     EXPECT_EQ ( 0, 0 );

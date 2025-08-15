@@ -32,20 +32,35 @@
 #include <complexFFT.H>
 
 #include <boost/log/trivial.hpp>
+
 #include <boost/math/special_functions/digamma.hpp>
 #include <boost/math/special_functions/gamma.hpp>
+
 #include <boost/serialization/map.hpp>
+
 #include <boost/tuple/tuple.hpp>
+
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filter/zstd.hpp>
+#include <boost/iostreams/filter/lzma.hpp>
+#include <boost/iostreams/filter/bzip2.hpp>
 
 #include <eigen3/Eigen/Core>
 
 #include "KDTree.cpp"
+
+#include "msgpack.hpp"
+
+namespace bio = boost::iostreams;
 
 struct hash_tuple {
 
@@ -63,6 +78,19 @@ struct hash_tuple {
 namespace renyi_entropy
 {
 
+const auto microseconds_in_second =
+        static_cast<double> (std::chrono::duration_cast<std::chrono::microseconds> (1s).count());
+
+struct zstd_ostream : boost::iostreams::filtering_ostream
+{
+    zstd_ostream(std::ostream& os)
+    {
+        bio::zstd_params zstd_params ( 13 );
+        bio::filtering_ostream::push( bio::zstd_compressor{zstd_params} );
+        bio::filtering_ostream::push( os );
+    }
+};
+
 inline extern const std::string conditional_renyi_entropy_label{"CRE"};
 inline extern const std::string renyi_entropy_X_present_history_label{"RE_ph_X"};
 inline extern const std::string renyi_entropy_XY_history_label{"RE_h_XY"};
@@ -70,6 +98,7 @@ inline extern const std::string joint_renyi_entropy_label{"RE_ph_XY"};
 inline extern const std::string renyi_entropy_X_history_label{"RE_h_X"};
 inline extern const std::string average_runs{"average_runs"};
 inline extern const std::string average_runs_neighbors{"average_runs_neighbors"};
+inline extern const std::vector<const std::string*> RTE_types {&conditional_renyi_entropy_label, &renyi_entropy_X_present_history_label, &renyi_entropy_XY_history_label, &joint_renyi_entropy_label, &renyi_entropy_X_history_label};
 
 template<typename Scalar, typename Matrix>
 inline std::vector< std::vector<Scalar> > fromEigenMatrix ( const Matrix & M )
@@ -110,18 +139,22 @@ template <typename TYPE>
 class renyi_entropy
 {
 public:
-    typedef std::tuple<unsigned int, TYPE> renyi_key_type;
+    typedef TYPE renyi_key_type;
     typedef std::map<renyi_key_type, TYPE> renyi_entropy_storage;
-    typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage;
+    typedef std::vector<renyi_entropy_storage> renyi_entropy_storage_collection;
+    typedef std::unordered_map<std::string, std::vector<renyi_entropy_storage>> conditional_renyi_entropy_strorage;
     typedef std::tuple<std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>> collection_conditional_information_transfer_key_type;
     typedef std::tuple<bool, bool, bool, unsigned int> conditional_information_transfer_key_type;
     typedef std::tuple<bool, bool, bool, bool, unsigned int> result_conditional_information_transfer_key_type;
+    typedef std::tuple<bool, bool, bool, unsigned int, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>, std::string, unsigned int> result_RTE_key;
+    typedef std::tuple<bool, bool, bool, bool, unsigned int, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>, std::string, std::string> collection_RTE_results_key;
     typedef std::map<conditional_information_transfer_key_type, conditional_renyi_entropy_strorage> result_conditional_information_transfer_type;
     typedef std::map<result_conditional_information_transfer_key_type, renyi_entropy_storage> processed_conditional_information_transfer_type;
     typedef std::map<collection_conditional_information_transfer_key_type, result_conditional_information_transfer_type> collection_result_conditional_information_transfer_type;
+    typedef std::map<result_RTE_key, renyi_entropy_storage> result_RTE_t;
     typedef std::map<collection_conditional_information_transfer_key_type, processed_conditional_information_transfer_type> collection_processed_conditional_information_transfer_type;
     typedef std::map<std::string, collection_processed_conditional_information_transfer_type> average_result_conditional_information_transfer_type;
-    typedef std::map<std::string, average_result_conditional_information_transfer_type> type_average_result_conditional_information_transfer_type;
+    typedef std::map<collection_RTE_results_key, renyi_entropy_storage> type_average_result_conditional_information_transfer_type;
     typedef std::tuple<collection_result_conditional_information_transfer_type, type_average_result_conditional_information_transfer_type> storage_RTE;
 
     renyi_entropy()
@@ -159,7 +192,7 @@ public:
     }
 
     void entropy_sum_Renyi_LeonenkoProzanto (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
         const TYPE alpha, bool log_calculation )
     {
@@ -211,13 +244,13 @@ public:
                     one_minus_alpha * _logarithm ( number_of_data - 1 );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, alpha )] =
+                    results[use_index-1][alpha] =
                         _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
                 }
             } else {
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, alpha )] =
+                    results[use_index-1][alpha] =
                         sum_of_power_of_distances / number_of_data *
                         pow ( number_of_data - 1, one_minus_alpha ) *
                         boost::math::tgamma ( use_index ) /
@@ -231,7 +264,7 @@ public:
     }
 
     void entropy_sum_Shannon_LeonenkoProzanto (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
         bool log_calculation )
     {
@@ -265,7 +298,7 @@ public:
                 } );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
+                    results[use_index-1][static_cast<TYPE> ( 1.0 )] =
                         sum_of_weighted_distances / number_of_data;
                 }
             } else {
@@ -289,14 +322,14 @@ public:
                 auto log_volume = _logarithm ( argument_log );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
+                    results[use_index-1][static_cast<TYPE> ( 1.0 )] =
                         addition_to_entropy + log_volume - digamma;
                 }
             }
         }
     }
 
-    renyi_entropy_storage
+    renyi_entropy_storage_collection
     renyi_entropy_LeonenkoProzanto ( std::vector<std::vector<TYPE>> &dataset,
                                      double metric = 2 )
     {
@@ -305,7 +338,7 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        renyi_entropy_storage results;
+        renyi_entropy_storage_collection results(GetIndices().back());
         int dimension_of_data = dataset[0].size();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -374,19 +407,22 @@ public:
         if ( ! GetMultithreading () ) {
             // calculation of entropy for Renyi case
             // Shannon case already holds entropy
-            for ( auto &item : results ) {
-                auto alpha = std::get<1> ( item.first );
-                if ( alpha != one ) {
-                    auto entropy = _logarithm ( item.second ) / ( 1 - alpha );
-                    item.second = entropy;
+            for ( auto &item_neighbor : results ) {
+                for (auto & item: item_neighbor)
+                {
+                    auto alpha = item.first;
+                    if ( alpha != one ) {
+                        auto entropy = _logarithm ( item.second ) / ( 1 - alpha );
+                        item.second = entropy;
+                    }
                 }
             }
         } else {
-            auto ks = std::views::keys(results);
+            auto ks = std::views::keys(results.back());
             std::vector<renyi_key_type> keys{ ks.begin(), ks.end() };
 
             const auto processor_count = GetNumberOfThreads ();
-            const auto maximal_number_of_jobs = GetAlphas().size();
+            const auto maximal_number_of_jobs = GetAlphas().size() * GetIndices().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
@@ -399,14 +435,17 @@ public:
                     const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
                     //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int key_index : std::ranges::iota_view{start_job, end_job} ) {
-                        const auto key = keys [key_index];
+                        const auto index_neighbor = key_index % GetAlphas().size();
+                        const auto index_alpha = key_index / GetAlphas().size();
 
-                        auto alpha = std::get<1> ( key );
+                        const auto alpha = GetAlphas()[index_alpha];
+                        const auto neighbor = GetIndices()[index_neighbor] - 1;
                         if ( alpha != one ) {
-                            if (results[key]>0)
+                            auto &RTE = results[neighbor][alpha];
+                            if (RTE>0)
                             {
-                                auto entropy = _logarithm ( results[key] ) / ( 1 - alpha );
-                                results[key] = entropy;
+                                auto entropy = _logarithm ( results[neighbor][alpha] ) / ( 1 - alpha );
+                                RTE = entropy;
                             }
                         }
                     }
@@ -433,40 +472,37 @@ public:
         auto elapsed_entropy_calculation =
             end_entropy_calculation - end_distance_calculation;
 
-        auto milliseconds_tree_construction =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_tree_construction =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_tree_construction )
             .count();
-        auto milliseconds_distance_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_distance_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_distance_calculation )
             .count();
-        auto milliseconds_entropy_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_entropy_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_entropy_calculation )
             .count();
 
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Tree constructed in {:.5f} seconds",
-                                 milliseconds_tree_construction / 1000.0 );
+                << "Tree constructed in " << microseconds_tree_construction / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Distances calculated in {:.5f} seconds",
-                                 milliseconds_distance_calculation / 1000.0 );
+                << "Distances calculated in " << microseconds_distance_calculation / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Entropy calculated in {:.5f} seconds",
-                                 milliseconds_entropy_calculation / 1000.0 );
+                << "Entropy calculated in " << microseconds_entropy_calculation / microseconds_in_second << " seconds";
         return results;
     }
 
     void entropy_sum_Renyi_metric (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
         const TYPE alpha, bool log_calculation, TYPE metric )
     {
         std::map<unsigned int, TYPE> entropy;
         TYPE one_minus_alpha = TYPE ( 1.0 ) - alpha;
 
-        for ( const unsigned int use_index : GetIndices() ) {
+        for ( const auto [index_used_index, use_index] : std::views::enumerate(GetIndices()) ) {
             auto const number_of_data =
                 std::accumulate ( distances.begin(), distances.end(), 0,
             [=] ( unsigned int count, auto const &element ) {
@@ -506,7 +542,7 @@ public:
             if ( log_calculation ) {
                 if ( (index_exponent <= 0) && (index_exponent == floor_index_exponent) )
                 {
-                    results[std::make_tuple ( use_index, alpha )] = NAN;
+                    results[index_used_index][alpha] = NAN;
                 }
                 else
                 {
@@ -517,11 +553,11 @@ public:
                                             _logarithm ( number_of_data ) +
                                             one_minus_alpha * _logarithm ( number_of_data - 1 );
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, alpha )] = _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
+                    results[index_used_index][alpha] = _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
                 }
             } else {
                 std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                results[std::make_tuple ( use_index, alpha )] =
+                results[index_used_index][alpha] =
                     sum_of_power_of_distances / number_of_data *
                     pow ( number_of_data - 1, one_minus_alpha ) *
                     boost::math::tgamma ( use_index ) /
@@ -531,11 +567,11 @@ public:
     }
 
     void entropy_sum_Shannon_metric (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
         bool log_calculation, TYPE metric )
     {
-        for ( const unsigned int use_index : GetIndices() ) {
+        for ( const auto [index_used_index, use_index] : std::views::enumerate(GetIndices()) ) {
             auto const number_of_data =
                 std::accumulate ( distances.cbegin(), distances.cend(), 0,
             [=] ( unsigned int count, auto const &element ) {
@@ -564,8 +600,7 @@ public:
                 } );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
-                        sum_of_weighted_distances / number_of_data;
+                    results[index_used_index] [static_cast<TYPE> ( 1.0 ) ] = sum_of_weighted_distances / number_of_data;
                 }
             } else {
                 auto const sum_of_log_distances = std::accumulate (
@@ -586,15 +621,14 @@ public:
                 auto log_volume = _logarithm ( argument_log );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
-                        addition_to_entropy + log_volume - digamma;
+                    results[index_used_index][ static_cast<TYPE> ( 1.0 )] = addition_to_entropy + log_volume - digamma;
                 }
             }
         }
     }
 
 
-    renyi_entropy_storage
+    renyi_entropy_storage_collection
     renyi_entropy_metric ( const Eigen::MatrixXd &dataset, double metric = 2 )
     {
         auto nearest_iterator =
@@ -602,7 +636,7 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        renyi_entropy_storage results;
+        renyi_entropy_storage_collection results(GetIndices().size());
         const int dimension_of_data = dataset.rows();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -679,41 +713,36 @@ public:
         auto elapsed_entropy_calculation =
             end_entropy_calculation - end_distance_calculation;
 
-        auto milliseconds_tree_construction =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_tree_construction =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_tree_construction )
             .count();
-        auto milliseconds_distance_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_distance_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_distance_calculation )
             .count();
-        auto milliseconds_entropy_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_entropy_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_entropy_calculation )
             .count();
 
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Tree constructed in {:.5f} seconds",
-                                 milliseconds_tree_construction / 1000.0 );
+                << "Tree constructed in " << microseconds_tree_construction / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Distances calculated in {:.5f} seconds",
-                                 milliseconds_distance_calculation / 1000.0 );
+                << "Distances calculated in " << microseconds_distance_calculation / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Entropy calculated in {:.5f} seconds",
-                                 milliseconds_entropy_calculation / 1000.0 );
+                << "Entropy calculated in " << microseconds_entropy_calculation / microseconds_in_second << " seconds";
         return results;
     }
 
-    renyi_entropy_storage
-    renyi_entropy_metric ( std::vector<std::vector<TYPE>> &dataset,
-                           double metric = 2 )
+    renyi_entropy_storage_collection renyi_entropy_metric ( std::vector<std::vector<TYPE>> &dataset, double metric = 2 )
     {
         auto nearest_iterator =
             std::max_element ( GetIndices().begin(), GetIndices().end() );
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        renyi_entropy_storage results;
+        renyi_entropy_storage_collection results;
         const int dimension_of_data = dataset[0].size();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -789,32 +818,30 @@ public:
         auto elapsed_entropy_calculation =
             end_entropy_calculation - end_distance_calculation;
 
-        auto milliseconds_tree_construction =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_tree_construction =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_tree_construction )
             .count();
-        auto milliseconds_distance_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_distance_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_distance_calculation )
             .count();
-        auto milliseconds_entropy_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_entropy_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_entropy_calculation )
             .count();
 
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Tree constructed in {:.5f} seconds",
-                                 milliseconds_tree_construction / 1000.0 );
+                << "Tree constructed in " << microseconds_tree_construction / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Distances calculated in {:.5f} seconds",
-                                 milliseconds_distance_calculation / 1000.0 );
+                << "Distances calculated in " << microseconds_distance_calculation / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Entropy calculated in {:.5f} seconds",
-                                 milliseconds_entropy_calculation / 1000.0 );
+                << "Entropy calculated in " << microseconds_entropy_calculation / microseconds_in_second << " seconds";
+
         return results;
     }
 
-    inline void renyi_entropy_LeonenkoProzanto_compensation ( renyi_entropy_storage &results, const int dimension_of_data )
+    inline void renyi_entropy_LeonenkoProzanto_compensation ( renyi_entropy_storage_collection &results, const int dimension_of_data )
     {
         auto one = static_cast<TYPE> ( 1 );
         // calculation of entropy for Renyi case
@@ -829,17 +856,20 @@ public:
         const auto multiplication_factor2 = 0.99;
         const auto threshold2 = exp ( log ( fixed_compesation ) - log ( multiplication_factor2 ) / exponent2 );
 
-        for ( auto &item : results ) {
-            auto alpha = std::get<1> ( item.first );
-            const auto compensation1 = ( alpha < threshold1 ) ? ( multiplication_factor1 * pow ( alpha, exponent1 ) ) : 1;
-            const auto compensation2 = ( alpha > threshold2 ) ? ( multiplication_factor2 * pow ( alpha, exponent2 ) ) : 1;
+        for ( auto &item_neighbor : results ) {
+            for( auto &item : item_neighbor )
+            {
+                auto alpha = item.first;
+                const auto compensation1 = ( alpha < threshold1 ) ? ( multiplication_factor1 * pow ( alpha, exponent1 ) ) : 1;
+                const auto compensation2 = ( alpha > threshold2 ) ? ( multiplication_factor2 * pow ( alpha, exponent2 ) ) : 1;
 
-            if ( alpha != one ) {
-                auto entropy = _logarithm ( item.second ) / ( 1 - alpha ) * compensation1 * compensation2 * fixed_compesation;
-                item.second = entropy;
-            } else {
-                auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
-                item.second = entropy;
+                if ( alpha != one ) {
+                    auto entropy = _logarithm ( item.second ) / ( 1 - alpha ) * compensation1 * compensation2 * fixed_compesation;
+                    item.second = entropy;
+                } else {
+                    auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
+                    item.second = entropy;
+                }
             }
         }
     }
@@ -1006,18 +1036,20 @@ public:
         _logarithm = log;
     }
 
-    static void SaveRenyiEntropy ( renyi_entropy_storage &result, const std::string &file )
+    static void SaveRenyiEntropy ( renyi_entropy_storage_collection &result, const std::string &directory, const std::string &file )
     {
         std::stringstream ss;
-        boost::filesystem::path myFile =
-            boost::filesystem::current_path() / file;
-        boost::filesystem::ofstream ofs ( myFile );
-        boost::archive::binary_oarchive oarch ( ofs );
-        oarch << result;
-        std::cout << ss.str();
+        msgpack::pack(ss, result); //renyi_entropy::renyi_entropy<calculation_type>::storage_RTE(collection_result_RTE, processing_RTE)
+        std::cout << ss.str().size() << std::endl;
+        boost::filesystem::path output_file =
+        boost::filesystem::path(directory) / boost::filesystem::path(file);
+        boost::filesystem::ofstream output_file_handler ( output_file );
+        zstd_ostream zstd_compression_stream{output_file_handler};
+
+        zstd_compression_stream << ss.str();
     }
 
-    static void LoadRenyiEntropy ( renyi_entropy_storage &result, const std::string &file )
+    static void LoadRenyiEntropy ( renyi_entropy_storage_collection &result, const std::string &file )
     {
         boost::filesystem::path myFile =
             boost::filesystem::current_path() / file;
@@ -1026,7 +1058,7 @@ public:
         iarch >> result;
     }
 
-    static conditional_renyi_entropy_strorage renyi_conditional_information_transfer ( const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters )
+    static void renyi_conditional_information_transfer ( result_RTE_t &RTE_result, const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters, std::function< result_RTE_key ( std::string key, unsigned int neighbor) > key_generator )
     {
         bool enhanced_calculation {true};
         if ( parameters.contains ( "enhanced_calculation" ) ) {
@@ -1070,99 +1102,101 @@ public:
             decltype ( entropy_present_X_history_X ) conditional_information_transfer;
 
             auto conditional_information_transfer_calculator = [] ( auto a, auto b, auto c, auto d ) {
-                auto [index_a, alpha_a] = a.first;
-                auto [index_b, alpha_b] = b.first;
-                auto [index_c, alpha_c] = c.first;
-                auto [index_d, alpha_d] = d.first;
-                assert(index_a == index_b);
-                assert(index_b == index_c);
-                assert(index_c == index_d);
+                const auto alpha_a = a.first;
+                const auto alpha_b = b.first;
+                const auto alpha_c = c.first;
+                const auto alpha_d = d.first;
                 assert(alpha_a == alpha_b);
                 assert(alpha_b == alpha_c);
                 assert(alpha_c == alpha_d);
-                return std::tuple<std::tuple<unsigned int, TYPE>, TYPE>(a.first, a.second + b.second - c.second - d.second );
+                return std::tuple<TYPE, TYPE>(alpha_a, a.second + b.second - c.second - d.second );
             };
 
 #ifndef NDEBUG
-            auto keys_view = std::views::keys(entropy_present_X_history_X);
+            auto keys_view = std::views::keys(entropy_present_X_history_X.back());
             std::set<renyi_key_type> keys{ keys_view.begin(), keys_view.end() };
-            keys_view = std::views::keys(entropy_history_X_history_Y);
+            keys_view = std::views::keys(entropy_history_X_history_Y.back());
             keys.insert( keys_view.begin(), keys_view.end() );
-            keys_view = std::views::keys(entropy_joint);
+            keys_view = std::views::keys(entropy_joint.back());
             keys.insert( keys_view.begin(), keys_view.end() );
-            keys_view = std::views::keys(entropy_history_X);
+            keys_view = std::views::keys(entropy_history_X.back());
             keys.insert( keys_view.begin(), keys_view.end() );
 
-            if (keys.size() != std::views::keys(entropy_present_X_history_X).size())
+            if (keys.size() != std::views::keys(entropy_present_X_history_X.back()).size())
             {
-                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_present_X_history_X {} {}", keys.size(), std::views::keys(entropy_present_X_history_X).size() );
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_present_X_history_X {} {}", keys.size(), std::views::keys(entropy_present_X_history_X.back()).size() );
             }
-            if (keys.size() != std::views::keys(entropy_history_X_history_Y).size())
+            if (keys.size() != std::views::keys(entropy_history_X_history_Y.back()).size())
             {
-                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X_history_Y {} {}", keys.size(), std::views::keys(entropy_history_X_history_Y).size() );
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X_history_Y {} {}", keys.size(), std::views::keys(entropy_history_X_history_Y.back()).size() );
             }
-            if (keys.size() != std::views::keys(entropy_joint).size())
+            if (keys.size() != std::views::keys(entropy_joint.back()).size())
             {
-                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_joint {} {}", keys.size(), std::views::keys(entropy_joint).size() );
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_joint {} {}", keys.size(), std::views::keys(entropy_joint.back()).size() );
             }
-            if (keys.size() != std::views::keys(entropy_history_X).size())
+            if (keys.size() != std::views::keys(entropy_history_X.back()).size())
             {
-                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X {} {}", keys.size(), std::views::keys(entropy_history_X).size() );
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X {} {}", keys.size(), std::views::keys(entropy_history_X.back()).size() );
             }
 
             auto keys2(keys);
-            for ( auto item: std::views::keys(entropy_present_X_history_X))
+            for ( auto item: std::views::keys(entropy_present_X_history_X.back()))
             {
                 keys2.erase(item);
             }
             auto keys3(keys);
-            for ( auto item: std::views::keys(entropy_history_X_history_Y))
+            for ( auto item: std::views::keys(entropy_history_X_history_Y.back()))
             {
                 keys3.erase(item);
             }
             auto keys4(keys);
-            for ( auto item: std::views::keys(entropy_joint))
+            for ( auto item: std::views::keys(entropy_joint.back()))
             {
                 keys4.erase(item);
             }
             auto keys5(keys);
-            for ( auto item: std::views::keys(entropy_history_X))
+            for ( auto item: std::views::keys(entropy_history_X.back()))
             {
                 keys5.erase(item);
             }
 
             for ( const auto & key : keys )
             {
-                if (!entropy_present_X_history_X.contains(key))
+                if (!entropy_present_X_history_X.back().contains(key))
                 {
-                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_present_X_history_X", std::get<0>(key), std::get<1>(key));
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_present_X_history_X", (key));
                 }
-                if (!entropy_history_X_history_Y.contains(key))
+                if (!entropy_history_X_history_Y.back().contains(key))
                 {
-                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_history_X_history_Y", std::get<0>(key), std::get<1>(key));
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_history_X_history_Y", (key));
                 }
-                if (!entropy_joint.contains(key))
+                if (!entropy_joint.back().contains(key))
                 {
-                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_joint", std::get<0>(key), std::get<1>(key));
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_joint", (key));
                 }
-                if (!entropy_history_X.contains(key))
+                if (!entropy_history_X.back().contains(key))
                 {
-                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({},{}) is missing entropy_history_X", std::get<0>(key), std::get<1>(key));
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_history_X", (key));
                 }
             }
 #endif
-            //assert(entropy_present_X_history_X.size() == entropy_history_X_history_Y.size());
-            //assert(entropy_history_X_history_Y.size() == entropy_joint.size());
-            //assert(entropy_joint.size() == entropy_history_X.size());
 
             // conditional Renyi entropy
-            auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X );
-            renyi_entropy_storage conditional_information_transfer_result;
-            for (auto [key, item]: sum)
+            for (int neighbor_index = 0; neighbor_index < calculator.GetIndices().size(); ++ neighbor_index)
             {
-                conditional_information_transfer_result[key] = item;
+                const auto & neighbor = calculator.GetIndices()[neighbor_index];
+                auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X[neighbor_index], entropy_history_X_history_Y[neighbor_index], entropy_joint[neighbor_index], entropy_history_X[neighbor_index] );
+                decltype(entropy_present_X_history_X) conditional_information_transfer_result(calculator.GetIndices().size());
+                for (auto [key, item]: sum)
+                {
+                    conditional_information_transfer_result[neighbor_index][key] = item;
+                }
+                RTE_result[ key_generator(conditional_renyi_entropy_label, neighbor) ] = std::move(conditional_information_transfer_result[neighbor_index]);
+                RTE_result[ key_generator(renyi_entropy_X_present_history_label, neighbor) ] = std::move(entropy_present_X_history_X[neighbor_index]);
+                RTE_result[ key_generator(renyi_entropy_XY_history_label, neighbor) ] = std::move(entropy_history_X_history_Y[neighbor_index]);
+                RTE_result[ key_generator(joint_renyi_entropy_label, neighbor) ] = std::move(entropy_joint[neighbor_index]);
+                RTE_result[ key_generator(renyi_entropy_X_history_label, neighbor) ] = std::move(entropy_history_X[neighbor_index]);
             }
-            return conditional_renyi_entropy_strorage {{conditional_renyi_entropy_label, conditional_information_transfer_result}, {renyi_entropy_X_present_history_label, entropy_present_X_history_X}, {renyi_entropy_XY_history_label, entropy_history_X_history_Y}, {joint_renyi_entropy_label, entropy_joint}, {renyi_entropy_X_history_label, entropy_history_X}};
         } else {
 
         }

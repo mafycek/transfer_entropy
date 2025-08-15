@@ -95,29 +95,39 @@ void simple_result_image(renyi_entropy::renyi_entropy<calculation_type>::type_av
 
 	const std::array<std::string, 4> RTE_type_extra_names{"effective", "nonlinear", "ballance", "reverse"};
 
+	std::set<std::tuple<bool, bool, bool, bool, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>>> selected_collection_keys;
+	auto processed_results_key_views = std::views::keys(processed_results);
+	std::vector<renyi_entropy::renyi_entropy<calculation_type>::collection_RTE_results_key> collection_keys{processed_results_key_views.begin(), processed_results_key_views.end()};
+	for (const auto & item: collection_keys)
+	{
+		auto [ballance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, neighbour, future_first, histories_first, histories_second, statistics, type_of_averaging] = item;
+		if ( (type_of_averaging == renyi_entropy::average_runs_neighbors) )
+		{
+			selected_collection_keys.insert(std::make_tuple(ballance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, future_first, histories_first, histories_second));
+		}
+	}
+
 	for (auto& suffix: suffices)
 	{
-		auto collection_result_RTE = processed_results[average_type_selector][selector];
-		auto collection_key_views = std::views::keys(collection_result_RTE);
-		std::vector<renyi_entropy::renyi_entropy<calculation_type>::collection_conditional_information_transfer_key_type> collection_keys{ collection_key_views.begin(), collection_key_views.end() };
-
 		plt.matplotlib_rcParams["text.usetex"] = py::bool_(true);
 
-		for ( auto &[history_key, collection_of_data_for_history] :collection_result_RTE )
+		for (const auto & column_item : selected_collection_keys)
 		{
-			//const auto history_key = (*(collection_result_RTE.begin())).first;
-			const auto first_history = std::get<1>( history_key );
-			const auto first_future = std::get<0>( history_key );
-			const auto second_history = std::get<2>( history_key );
+			auto [RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, first_future, first_history, second_history] = column_item;
+
 			const std::string first_history_label{create_label_from_index(first_history, true)}, future_first_label{create_label_from_index(first_future, true)}, second_history_label{create_label_from_index(second_history, true)};
 			const auto filename_history_suffix{create_label_from_index(first_history, false) + "_" + create_label_from_index(first_future, false) + "_" + create_label_from_index(second_history, false)};
 
-			//const auto selector_directon_type_sample = std::make_tuple(false, true, false, 0);
-			//auto collection_of_data = (*(collection_result_RTE.begin())).second[ selector_directon_type_sample ];
-			//auto collection_of_data = collection_of_data_for_history[ selector_directon_type_sample ];
-			for (auto &[selector_directon_type_sample, collection_of_data]: collection_of_data_for_history)
+			const auto prefix_filename = (RTE_reverse_orientation ? RTE_type_extra_names[3]:"") + (RTE_reverse_orientation && (RTE_balance||RTE_shuffled||RTE_surrogate) ? "_" : "") + (RTE_balance ? RTE_type_extra_names[2]:"") + (RTE_balance&&(RTE_shuffled||RTE_surrogate)  ? "_" : "") + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "_" : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"") + (RTE_reverse_orientation || RTE_balance || RTE_shuffled || RTE_surrogate ? "_" : "");
+			const auto file_output_name{prefix_filename + output_base_name + "_" + filename_history_suffix + "." + suffix};
+			std::cout << file_output_name << std::endl;
+			const std::string RTE_type_extra = std::format("{}", std::string{"\\textrm{"} + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "," : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"")  + "}");
+			const auto RTE_type = "{" +std::format("\\left( R, {} \\right)", RTE_type_extra) + "}";
+
+			auto colormap = plt.matplotlib_colormaps [py::str(color_map)];
+			for (auto neighbour = limits[0]; neighbour <= limits[1] ; ++ neighbour )
 			{
-				auto [RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, RTE_sample] = selector_directon_type_sample;
+				auto collection_of_data = processed_results[ std::make_tuple( RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, neighbour, first_future, first_history, second_history, selector, renyi_entropy::average_runs ) ];
 
 				std::string &source_timeseries{RTE_source_names[0]}, &destination_timeseries{RTE_source_names[1]};
 				if (RTE_reverse_orientation)
@@ -125,53 +135,40 @@ void simple_result_image(renyi_entropy::renyi_entropy<calculation_type>::type_av
 					source_timeseries = RTE_source_names[1];
 					destination_timeseries = RTE_source_names[0];
 				}
-
-				const auto prefix_filename = (RTE_reverse_orientation ? RTE_type_extra_names[3]:"") + (RTE_reverse_orientation && (RTE_balance||RTE_shuffled||RTE_surrogate) ? "_" : "") + (RTE_balance ? RTE_type_extra_names[2]:"") + (RTE_balance&&(RTE_shuffled||RTE_surrogate)  ? "_" : "") + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "_" : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"") + (RTE_reverse_orientation || RTE_balance || RTE_shuffled || RTE_surrogate ? "_" : "");
-				const auto file_output_name{prefix_filename + output_base_name + "_" + filename_history_suffix + "." + suffix};
-				std::cout << file_output_name << std::endl;
-				const std::string RTE_type_extra = std::format("{}", std::string{"\\textrm{"} + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "," : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"")  + "}");
-				const auto RTE_type = "{" +std::format("\\left( R, {} \\right)", RTE_type_extra) + "}";
 				const auto RTE_direction = "{" + std::format("\\alpha: {}\\longrightarrow {}", source_timeseries, destination_timeseries) + "}";
 				const auto ylabel = std::format("$T^{}_{}\\left({},{},{} \\right)$", RTE_type, RTE_direction, first_history_label, future_first_label, second_history_label);
-
-				auto colormap = plt.matplotlib_colormaps [py::str(color_map)];
 				plt.matplotlib_pyplot_xlabel(py::str(xlabel));
 				plt.matplotlib_pyplot_ylabel(py::str(ylabel));
 				plt.matplotlib_pyplot_title(py::str(title));
 
-				std::vector<std::tuple<std::vector<double>, std::vector<double>>> raw_results(limits[1]);
-				auto CRE_key_views = std::views::keys(collection_of_data);
-				std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
-				for (auto & CRE_key: CRE_keys)
+				std::tuple<std::vector<double>, std::vector<double>> raw_results;
+				for (const auto & [alpha, RTE_value]: collection_of_data)
 				{
-					auto [neighbour, alpha] = CRE_key;
-					const auto RTE_value = collection_of_data[CRE_key];
-					std::get<0>(raw_results[neighbour]).push_back(alpha);
-					std::get<1>(raw_results[neighbour]).push_back(RTE_value);
+					std::get<0>(raw_results).push_back(alpha);
+					std::get<1>(raw_results).push_back(RTE_value);
 				}
 
-				for (auto neighbour = limits[0]; neighbour < limits[1]; ++ neighbour)
+				const auto color_position_within_colormap = static_cast<double>(neighbour) / ( static_cast<double>((limits[1] <= 1 ? 2 : limits[1]) - 1 ));
+				auto color = colormap( color_position_within_colormap );
 				{
-					const auto color_position_within_colormap = static_cast<double>(neighbour) / ( static_cast<double>((limits[1] <= 1 ? 2 : limits[1]) - 1 ));
-					auto color = colormap( color_position_within_colormap );
 					py::dict kwargs = py::dict("color"_a = color);
 					if (average_type_selector == renyi_entropy::average_runs)
 					{
 						kwargs [py::str("label")] = py::str(std::format("$k={}$", neighbour));
 					}
-					plt.matplotlib_pyplot_plot(std::get<0>(raw_results[neighbour]), std::get<1>(raw_results[neighbour]), **kwargs);
+					plt.matplotlib_pyplot_plot(std::get<0>(raw_results), std::get<1>(raw_results), **kwargs);
 				}
-				py::dict kwargs = py::dict("loc"_a = py::str("best"), "ncols"_a = py::int_(number_of_columns_in_legent), "fontsize"_a = py::str("xx-small"));
-
-				if (average_type_selector == renyi_entropy::average_runs)
-				{
-					plt.matplotlib_pyplot_legend(**kwargs);
-				}
-				//plt::show();
-				py::dict kwargs_savefig = py::dict("dpi"_a = py::int_(dpi));
-				plt.matplotlib_pyplot_savefig(file_output_name, **kwargs_savefig);
-				plt.matplotlib_pyplot_close();
 			}
+
+			py::dict kwargs = py::dict("loc"_a = py::str("best"), "ncols"_a = py::int_(number_of_columns_in_legent), "fontsize"_a = py::str("xx-small"));
+			if (average_type_selector == renyi_entropy::average_runs)
+			{
+				plt.matplotlib_pyplot_legend(**kwargs);
+			}
+			//plt::show();
+			py::dict kwargs_savefig = py::dict("dpi"_a = py::int_(dpi));
+			plt.matplotlib_pyplot_savefig(file_output_name, **kwargs_savefig);
+			plt.matplotlib_pyplot_close();
 		}
 	}
 }
@@ -211,107 +208,87 @@ void quantile_result_image(renyi_entropy::renyi_entropy<calculation_type>::type_
 
 	const std::array<std::string, 4> RTE_type_extra_names{"effective", "nonlinear", "ballance", "reverse"};
 
+	std::set<std::tuple<bool, bool, bool, bool, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>>> selected_collection_keys;
+	auto processed_results_key_views = std::views::keys(processed_results);
+	std::vector<renyi_entropy::renyi_entropy<calculation_type>::collection_RTE_results_key> collection_keys{processed_results_key_views.begin(), processed_results_key_views.end()};
+	for (const auto & item: collection_keys)
+	{
+		auto [balance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, neighbour, future_first, histories_first, histories_second, statistics, type_of_averaging] = item;
+		if ( (type_of_averaging == renyi_entropy::average_runs_neighbors) )
+		{
+			selected_collection_keys.insert(std::make_tuple(balance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, future_first, histories_first, histories_second));
+		}
+	}
+
 	for (const auto& suffix: suffices)
 	{
-		auto collection_result_RTE = processed_results[average_type_selector][std::get<0>(selector_fills[0])];
-		auto collection_key_views = std::views::keys(collection_result_RTE);
-		std::vector<renyi_entropy::renyi_entropy<calculation_type>::collection_conditional_information_transfer_key_type> collection_keys{ collection_key_views.begin(), collection_key_views.end() };
-
 		plt.matplotlib_rcParams["text.usetex"] = py::bool_(true);
 
-		for ( auto &[history_key, collection_of_data_for_history] :collection_result_RTE )
+		for (const auto & column_item : selected_collection_keys)
 		{
-			const auto first_history = std::get<1>( history_key );
-			const auto first_future = std::get<0>( history_key );
-			const auto second_history = std::get<2>( history_key );
+			auto [RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, first_future, first_history, second_history] = column_item;
+
 			const std::string first_history_label{create_label_from_index(first_history, true)}, future_first_label{create_label_from_index(first_future, true)}, second_history_label{create_label_from_index(second_history, true)};
 			const auto filename_history_suffix{create_label_from_index(first_history, false) + "_" + create_label_from_index(first_future, false) + "_" + create_label_from_index(second_history, false)};
 
-			for (const auto &[selector_directon_type_sample, collection_of_data]: collection_of_data_for_history)
-			{
-				auto [RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, RTE_sample] = selector_directon_type_sample;
+			const auto prefix_filename = (RTE_reverse_orientation ? RTE_type_extra_names[3]:"") + (RTE_reverse_orientation && (RTE_balance||RTE_shuffled||RTE_surrogate) ? "_" : "") + (RTE_balance ? RTE_type_extra_names[2]:"") + (RTE_balance&&(RTE_shuffled||RTE_surrogate)  ? "_" : "") + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "_" : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"") + (RTE_reverse_orientation || RTE_balance || RTE_shuffled || RTE_surrogate ? "_" : "");
+			const auto file_output_name{prefix_filename + output_base_name + "_" + filename_history_suffix + "." + suffix};
+			std::cout << file_output_name << std::endl;
+			const std::string RTE_type_extra = std::format("{}", std::string{"\\textrm{"} + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "," : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"")  + "}");
+			const auto RTE_type = "{" +std::format("\\left( R, {} \\right)", RTE_type_extra) + "}";
 
+			auto colormap = plt.matplotlib_colormaps [py::str(color_map)];
+			plt.matplotlib_pyplot_xlabel(py::str(xlabel));
+			plt.matplotlib_pyplot_title(py::str(title));
+
+			for (auto neighbour = limits[0]; neighbour <= limits[1] ; ++ neighbour )
+			{
 				std::string &source_timeseries{RTE_source_names[0]}, &destination_timeseries{RTE_source_names[1]};
 				if (RTE_reverse_orientation)
 				{
 					source_timeseries = RTE_source_names[1];
 					destination_timeseries = RTE_source_names[0];
 				}
-
-				const auto prefix_filename = (RTE_reverse_orientation ? RTE_type_extra_names[3]:"") + (RTE_reverse_orientation && (RTE_balance||RTE_shuffled||RTE_surrogate) ? "_" : "") + (RTE_balance ? RTE_type_extra_names[2]:"") + (RTE_balance&&(RTE_shuffled||RTE_surrogate)  ? "_" : "") + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "_" : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"") + (RTE_reverse_orientation || RTE_balance || RTE_shuffled || RTE_surrogate ? "_" : "");
-				const auto file_output_name{prefix_filename + output_base_name + "_" + filename_history_suffix + "." + suffix};
-				std::cout << file_output_name << std::endl;
-				const std::string RTE_type_extra = std::format("{}", std::string{"\\textrm{"} + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "," : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"")  + "}");
-				const auto RTE_type = "{" +std::format("\\left( R, {} \\right)", RTE_type_extra) + "}";
 				const auto RTE_direction = "{" + std::format("\\alpha: {}\\longrightarrow {}", source_timeseries, destination_timeseries) + "}";
 				const auto ylabel = std::format("$T^{}_{}\\left({},{},{} \\right)$", RTE_type, RTE_direction, first_history_label, future_first_label, second_history_label);
-
-				auto fill_colormap = plt.matplotlib_colormaps [py::str(color_map)];
-				auto selector_colormap = plt.matplotlib_colormaps [py::str(color_map_selector)];
-				plt.matplotlib_pyplot_xlabel(py::str(xlabel));
 				plt.matplotlib_pyplot_ylabel(py::str(ylabel));
-				plt.matplotlib_pyplot_title(py::str(title));
 
 				for (const auto &[raw_color_index, selector_fill] : std::views::enumerate(selector_fills))
 				{
-					std::vector<std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>> raw_results(1);
-					auto upper_datasset = processed_results[average_type_selector][std::get<0>(selector_fill)][history_key][selector_directon_type_sample];
-					auto lower_datasset = processed_results[average_type_selector][std::get<1>(selector_fill)][history_key][selector_directon_type_sample];
-					auto CRE_key_views = std::views::keys(upper_datasset);
-					std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
-					for (auto & CRE_key: CRE_keys)
+					auto upper_collection_of_data = processed_results[ std::make_tuple( RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, neighbour, first_future, first_history, second_history, std::get<0>(selector_fill), average_type_selector ) ];
+					auto lower_collection_of_data = processed_results[ std::make_tuple( RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, neighbour, first_future, first_history, second_history, std::get<1>(selector_fill), average_type_selector ) ];
+
+					std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> raw_results;
+					for (const auto & [alpha, RTE_upper_value]: upper_collection_of_data)
 					{
-						auto [neighbour, alpha] = CRE_key;
-						const auto upper_RTE_value = upper_datasset[CRE_key];
-						const auto lower_RTE_value = lower_datasset[CRE_key];
-						std::get<0>(raw_results[neighbour]).push_back(alpha);
-						std::get<1>(raw_results[neighbour]).push_back(upper_RTE_value);
-						std::get<2>(raw_results[neighbour]).push_back(lower_RTE_value);
+						std::get<0>(raw_results).push_back(alpha);
+						std::get<1>(raw_results).push_back(RTE_upper_value);
+						auto RTE_lower_value = lower_collection_of_data[alpha];
+						std::get<2>(raw_results).push_back(RTE_lower_value);
 					}
 
-					for (auto neighbour = limits[0]; neighbour < limits[1]; ++ neighbour)
+					const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selector_fills.size()) != 1 ? static_cast<double>(selector_fills.size() - 1 ) : 1);
+					auto color = colormap( color_position_within_colormap );
 					{
-						const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selector_fills.size() - 1 ));
-						auto color = fill_colormap( py::float_(color_position_within_colormap ));
-						py::dict kwargs ("color"_a = color, "linewidth"_a = py::float_(linewidth), "alpha"_a = py::float_(alpha));
+						py::dict kwargs = py::dict("color"_a = color);
 						if (average_type_selector == renyi_entropy::average_runs)
 						{
-							kwargs[py::str("label")] = py::str( std::format("$k={}$", neighbour) );
+							kwargs [py::str("label")] = py::str(std::format("$k={}$", neighbour));
 						}
-						plt.matplotlib_pyplot_fill_between(std::get<0>(raw_results[neighbour]), std::get<1>(raw_results[neighbour]), std::get<2>(raw_results[neighbour]), **kwargs);
+						plt.matplotlib_pyplot_fill_between(std::get<0>(raw_results), std::get<1>(raw_results), std::get<2>(raw_results), **kwargs);
 					}
 				}
-
-				for (const auto &[raw_color_index, selector] : std::views::enumerate(selectors))
-				{
-					std::vector<std::tuple<std::vector<double>, std::vector<double>>> raw_results(1);
-					auto dataset = processed_results[average_type_selector][selector][history_key][selector_directon_type_sample];
-					auto CRE_key_views = std::views::keys(dataset);
-					std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
-					for (auto & CRE_key: CRE_keys)
-					{
-						auto [neighbour, alpha] = CRE_key;
-						const auto data_RTE_value = dataset[CRE_key];
-						std::get<0>(raw_results[neighbour]).push_back(alpha);
-						std::get<1>(raw_results[neighbour]).push_back(data_RTE_value);
-					}
-
-					for (auto neighbour = limits[0]; neighbour < limits[1]; ++ neighbour)
-					{
-						const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selectors.size() - 1 ));
-						const auto color = selector_colormap( color_position_within_colormap );
-						py::dict kwargs ("color"_a = color, "linewidth"_a = py::float_(linewidth), "alpha"_a = py::float_(alpha));
-						if (average_type_selector == renyi_entropy::average_runs)
-						{
-							kwargs ["label"] = py::str (std::format("$k={}$", neighbour));
-						}
-						plt.matplotlib_pyplot_plot(std::get<0>(raw_results[neighbour]), std::get<1>(raw_results[neighbour]), **kwargs);
-					}
-				}
-				py::dict kwargs_savefig = py::dict("dpi"_a = py::int_(dpi));
-				plt.matplotlib_pyplot_savefig(file_output_name, **kwargs_savefig);
-				plt.matplotlib_pyplot_close();
 			}
+
+			py::dict kwargs = py::dict("loc"_a = py::str("best"), "ncols"_a = py::int_(number_of_columns_in_legent), "fontsize"_a = py::str("xx-small"));
+			if (average_type_selector == renyi_entropy::average_runs)
+			{
+				plt.matplotlib_pyplot_legend(**kwargs);
+			}
+			//plt::show();
+			py::dict kwargs_savefig = py::dict("dpi"_a = py::int_(dpi));
+			plt.matplotlib_pyplot_savefig(file_output_name, **kwargs_savefig);
+			plt.matplotlib_pyplot_close();
 		}
 	}
 }
@@ -351,107 +328,117 @@ void deviation_result_image(renyi_entropy::renyi_entropy<calculation_type>::type
 
 	const std::array<std::string, 4> RTE_type_extra_names{"effective", "nonlinear", "ballance", "reverse"};
 
+	std::set<std::tuple<bool, bool, bool, bool, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>>> selected_collection_keys;
+	auto processed_results_key_views = std::views::keys(processed_results);
+	std::vector<renyi_entropy::renyi_entropy<calculation_type>::collection_RTE_results_key> collection_keys{processed_results_key_views.begin(), processed_results_key_views.end()};
+	for (const auto & item: collection_keys)
+	{
+		auto [balance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, neighbour, future_first, histories_first, histories_second, statistics, type_of_averaging] = item;
+		if ( (type_of_averaging == renyi_entropy::average_runs_neighbors) )
+		{
+			selected_collection_keys.insert(std::make_tuple(balance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, future_first, histories_first, histories_second));
+			std::cout << std::format("{} {} {} {} {} {} {}", balance_dataset, swap_datasets, shuffle_indicator, surrogate_indicator, neighbour, statistics, type_of_averaging) << std::endl;
+		}
+	}
+
 	for (const auto& suffix: suffices)
 	{
-		auto collection_result_RTE = processed_results[average_type_selector][std::get<0>(selector_fills[0])];
-		auto collection_key_views = std::views::keys(collection_result_RTE);
-		std::vector<renyi_entropy::renyi_entropy<calculation_type>::collection_conditional_information_transfer_key_type> collection_keys{ collection_key_views.begin(), collection_key_views.end() };
-
-		plt.matplotlib_rcParams["text.usetex"] = py::bool_(true);
-
-		for ( auto &[history_key, collection_of_data_for_history] :collection_result_RTE )
+    plt.matplotlib_rcParams["text.usetex"] = py::bool_(true);
+		for (const auto & column_item : selected_collection_keys)
 		{
-			const auto first_history = std::get<1>( history_key );
-			const auto first_future = std::get<0>( history_key );
-			const auto second_history = std::get<2>( history_key );
+			auto [RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, first_future, first_history, second_history] = column_item;
+
 			const std::string first_history_label{create_label_from_index(first_history, true)}, future_first_label{create_label_from_index(first_future, true)}, second_history_label{create_label_from_index(second_history, true)};
 			const auto filename_history_suffix{create_label_from_index(first_history, false) + "_" + create_label_from_index(first_future, false) + "_" + create_label_from_index(second_history, false)};
 
-			for (const auto &[selector_directon_type_sample, collection_of_data]: collection_of_data_for_history)
-			{
-				auto [RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, RTE_sample] = selector_directon_type_sample;
+			const auto prefix_filename = (RTE_reverse_orientation ? RTE_type_extra_names[3]:"") + (RTE_reverse_orientation && (RTE_balance||RTE_shuffled||RTE_surrogate) ? "_" : "") + (RTE_balance ? RTE_type_extra_names[2]:"") + (RTE_balance&&(RTE_shuffled||RTE_surrogate)  ? "_" : "") + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "_" : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"") + (RTE_reverse_orientation || RTE_balance || RTE_shuffled || RTE_surrogate ? "_" : "");
+			const auto file_output_name{prefix_filename + output_base_name + "_" + filename_history_suffix + "." + suffix};
+			std::cout << file_output_name << std::endl;
+			const std::string RTE_type_extra = std::format("{}", std::string{"\\textrm{"} + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "," : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"")  + "}");
+			const auto RTE_type = "{" +std::format("\\left( R, {} \\right)", RTE_type_extra) + "}";
 
+			auto colormap = plt.matplotlib_colormaps [py::str(color_map)];
+			plt.matplotlib_pyplot_xlabel(py::str(xlabel));
+			plt.matplotlib_pyplot_title(py::str(title));
+
+			for (auto neighbour = limits[0]; neighbour <= limits[1] ; ++ neighbour )
+			{
 				std::string &source_timeseries{RTE_source_names[0]}, &destination_timeseries{RTE_source_names[1]};
 				if (RTE_reverse_orientation)
 				{
 					source_timeseries = RTE_source_names[1];
 					destination_timeseries = RTE_source_names[0];
 				}
-
-				const auto prefix_filename = (RTE_reverse_orientation ? RTE_type_extra_names[3]:"") + (RTE_reverse_orientation && (RTE_balance||RTE_shuffled||RTE_surrogate) ? "_" : "") + (RTE_balance ? RTE_type_extra_names[2]:"") + (RTE_balance&&(RTE_shuffled||RTE_surrogate)  ? "_" : "") + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "_" : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"") + (RTE_reverse_orientation || RTE_balance || RTE_shuffled || RTE_surrogate ? "_" : "");
-				const auto file_output_name{prefix_filename + output_base_name + "_" + filename_history_suffix + "." + suffix};
-				std::cout << file_output_name << std::endl;
-				const std::string RTE_type_extra = std::format("{}", std::string{"\\textrm{"} + (RTE_shuffled ? RTE_type_extra_names[0]:"") + (RTE_shuffled && RTE_surrogate ? "," : "") + (RTE_surrogate ? RTE_type_extra_names[1]:"")  + "}");
-				const auto RTE_type = "{" +std::format("\\left( R, {} \\right)", RTE_type_extra) + "}";
 				const auto RTE_direction = "{" + std::format("\\alpha: {}\\longrightarrow {}", source_timeseries, destination_timeseries) + "}";
 				const auto ylabel = std::format("$T^{}_{}\\left({},{},{} \\right)$", RTE_type, RTE_direction, first_history_label, future_first_label, second_history_label);
-
-				auto fill_colormap = plt.matplotlib_colormaps [py::str(color_map)];
-				auto selector_colormap = plt.matplotlib_colormaps [py::str(color_map_selector)];
-				plt.matplotlib_pyplot_xlabel(py::str(xlabel));
 				plt.matplotlib_pyplot_ylabel(py::str(ylabel));
-				plt.matplotlib_pyplot_title(py::str(title));
 
 				for (const auto &[raw_color_index, selector_fill] : std::views::enumerate(selector_fills))
 				{
-					std::vector<std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>> raw_results(1);
-					auto mean_dataset = processed_results[average_type_selector][std::get<0>(selector_fill)][history_key][selector_directon_type_sample];
-					auto std_dataset = processed_results[average_type_selector][std::get<1>(selector_fill)][history_key][selector_directon_type_sample];
-					auto CRE_key_views = std::views::keys(mean_dataset);
-					std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
-					for (auto & CRE_key: CRE_keys)
+					auto mean_dataset = processed_results[ std::make_tuple( RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, neighbour, first_future, first_history, second_history, std::get<0>(selector_fill), average_type_selector ) ];
+					auto std_dataset = processed_results[ std::make_tuple( RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, neighbour, first_future, first_history, second_history, std::get<1>(selector_fill), average_type_selector ) ];
+
+					std::tuple<std::vector<double>, std::vector<double>, std::vector<double>> raw_results;
+					for (const auto & [alpha, RTE_upper_value]: mean_dataset)
 					{
-						auto [neighbour, alpha] = CRE_key;
-						const auto mean_value = mean_dataset[CRE_key];
-						const auto std_value = mean_dataset[CRE_key];
-						std::get<0>(raw_results[neighbour]).push_back(alpha);
-						std::get<1>(raw_results[neighbour]).push_back(mean_value - std_value);
-						std::get<2>(raw_results[neighbour]).push_back(mean_value + std_value);
+						const auto mean_value = mean_dataset[alpha];
+						const auto std_value = std_dataset[alpha];
+            const auto upper_value = mean_value + std_value;
+            const auto power_value = mean_value - std_value;
+						std::get<0>(raw_results).push_back(alpha);
+						std::get<1>(raw_results).push_back(power_value);
+						std::get<2>(raw_results).push_back(upper_value);
 					}
 
-					for (auto neighbour = limits[0]; neighbour < limits[1]; ++ neighbour)
+					const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selector_fills.size()) != 1 ? static_cast<double>(selector_fills.size() - 1 ) : 1);
 					{
-						const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selector_fills.size() - 1 ));
-						auto color = fill_colormap( py::float_(color_position_within_colormap ));
-						py::dict kwargs ("color"_a = color, "linewidth"_a = py::float_(linewidth), "alpha"_a = py::float_(alpha));
+            auto color = colormap( color_position_within_colormap );
+						py::dict kwargs = py::dict("color"_a = color);
 						if (average_type_selector == renyi_entropy::average_runs)
 						{
 							kwargs [py::str("label")] = py::str(std::format("$k={}$", neighbour));
 						}
-						plt.matplotlib_pyplot_fill_between(std::get<0>(raw_results[neighbour]), std::get<1>(raw_results[neighbour]), std::get<2>(raw_results[neighbour]), **kwargs);
+						plt.matplotlib_pyplot_fill_between(std::get<0>(raw_results), std::get<1>(raw_results), std::get<2>(raw_results), **kwargs);
 					}
 				}
+			}
 
-				for (const auto &[raw_color_index, selector] : std::views::enumerate(selectors))
+			for (auto neighbour = limits[0]; neighbour <= limits[1] ; ++ neighbour )
+			{
+				for (const auto &[raw_color_index, selector_fill] : std::views::enumerate(selectors))
 				{
-					std::vector<std::tuple<std::vector<double>, std::vector<double>>> raw_results(1);
-					auto dataset = processed_results[average_type_selector][selector][history_key][selector_directon_type_sample];
-					auto CRE_key_views = std::views::keys(dataset);
-					std::vector<renyi_entropy::renyi_entropy<calculation_type>::renyi_key_type> CRE_keys{ CRE_key_views.begin(), CRE_key_views.end() };
-					for (auto & CRE_key: CRE_keys)
+					auto mean_dataset = processed_results[ std::make_tuple( RTE_balance, RTE_reverse_orientation, RTE_shuffled, RTE_surrogate, neighbour, first_future, first_history, second_history, (selector_fill), average_type_selector ) ];
+
+					std::tuple<std::vector<double>, std::vector<double>> raw_results;
+					for (const auto & [alpha, mean_value]: mean_dataset)
 					{
-						auto [neighbour, alpha] = CRE_key;
-						const auto data_RTE_value = dataset[CRE_key];
-						std::get<0>(raw_results[neighbour]).push_back(alpha);
-						std::get<1>(raw_results[neighbour]).push_back(data_RTE_value);
+						std::get<0>(raw_results).push_back(alpha);
+						std::get<1>(raw_results).push_back(mean_value);
 					}
 
-					for (auto neighbour = limits[0]; neighbour < limits[1]; ++ neighbour)
+					const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selector_fills.size()) != 1 ? static_cast<double>(selector_fills.size() - 1 ) : 1);
+					auto color = colormap( color_position_within_colormap );
 					{
-						const auto color_position_within_colormap = static_cast<double>(raw_color_index) / ( static_cast<double>(selectors.size() - 1 ));
-						const auto color = selector_colormap( color_position_within_colormap );
-						py::dict kwargs ("color"_a = color, "linewidth"_a = py::float_(linewidth), "alpha"_a = py::float_(alpha));
+						py::dict kwargs = py::dict("color"_a = color);
 						if (average_type_selector == renyi_entropy::average_runs)
 						{
-							kwargs["label"] = std::format("$k={}$", neighbour);
+							kwargs [py::str("label")] = py::str(std::format("$k={}$", neighbour));
 						}
-						plt.matplotlib_pyplot_plot(std::get<0>(raw_results[neighbour]), std::get<1>(raw_results[neighbour]), **kwargs);
+						plt.matplotlib_pyplot_plot(std::get<0>(raw_results), std::get<1>(raw_results), **kwargs);
 					}
 				}
-				py::dict kwargs_savefig = py::dict("dpi"_a = py::int_(dpi));
-				plt.matplotlib_pyplot_savefig(file_output_name, **kwargs_savefig);
-				plt.matplotlib_pyplot_close();
 			}
+
+
+			py::dict kwargs = py::dict("loc"_a = py::str("best"), "ncols"_a = py::int_(number_of_columns_in_legent), "fontsize"_a = py::str("xx-small"));
+			if (average_type_selector == renyi_entropy::average_runs)
+			{
+				plt.matplotlib_pyplot_legend(**kwargs);
+			}
+			//plt::show();
+			py::dict kwargs_savefig = py::dict("dpi"_a = py::int_(dpi));
+			plt.matplotlib_pyplot_savefig(file_output_name, **kwargs_savefig);
+			plt.matplotlib_pyplot_close();
 		}
 	}
 }
@@ -508,11 +495,11 @@ int main ( int argc, char *argv[] )
 			// deserialized object is valid during the msgpack::object_handle instance is alive.
 			msgpack::object deserialized = object_handle_buffer.get();
 
-			//renyi_entropy::renyi_entropy<calculation_type>::storage_RTE
-			renyi_entropy::renyi_entropy<calculation_type>::type_average_result_conditional_information_transfer_type result_conditional_information_transfer;
+			renyi_entropy::renyi_entropy<calculation_type>::storage_RTE result_conditional_information_transfer;
+			//renyi_entropy::renyi_entropy<calculation_type>::type_average_result_conditional_information_transfer_type result_conditional_information_transfer;
 
 			deserialized.convert(result_conditional_information_transfer);
-			auto &processed_results = result_conditional_information_transfer; //std::get<1>(result_conditional_information_transfer);
+			auto &processed_results = std::get<1>(result_conditional_information_transfer);
 
 			{
 				parameter_t parameters_fill{{"output_base_name", "std_RTE"}, {"color_map", "plasma"}, {"average_type_selector", renyi_entropy::average_runs_neighbors}, {"selector_fills", std::vector<std::tuple<std::string, std::string>>{std::tuple<std::string, std::string>{"mean", "standard_deviation"}}}, {"selector", "mean"}, {"color_map_selector", "jet"}, {"alpha", 0.8}, {"limits", std::array<unsigned int, 2>{0, 1}}};

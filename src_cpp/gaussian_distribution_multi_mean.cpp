@@ -135,7 +135,7 @@ int main ( int argc, char *argv[] )
         std::cout << item_alpha << " ";
         for ( const auto &item_index : calculator.GetIndices() )
         {
-            auto result_entropy = result[std::make_tuple ( item_index, item_alpha )];
+            auto result_entropy = result[item_index][ item_alpha ];
             std::cout << result_entropy << " ";
         }
         std::cout << random_samples::Renyi_entropy_normal_distribution (
