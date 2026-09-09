@@ -263,4 +263,87 @@ void sample_alpha_stable_distribution ( Eigen::MatrixXd &dataset,
     }
 }
 
+// A_{t+1} \ = \ a A_{t} \ + \ \varepsilon^{A}_t
+// B^I_{t+1} \ = \ b B^I_{t} \ + \  \eta A_{t} \ + \ \varepsilon^{B^I}_t
+void AB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double eta, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double> initial_confition)
+{
+    constexpr unsigned int A = 0;
+    constexpr unsigned int B = 1;
+    dataset.conservativeResize ( 2, number_samples );
+    dataset(A, 0) = std::get<A>(initial_confition);
+    dataset(B, 0) = std::get<B>(initial_confition);
+    for (unsigned int sample = 1; sample < number_samples; ++ sample)
+    {
+        auto epsilon_A = std::get<A>(random_generator)();
+        auto epsilon_B = std::get<B>(random_generator)();
+        dataset(A, sample) = alpha * dataset(A, sample - 1) + epsilon_A;
+        dataset(B, sample) = beta * dataset(B, sample - 1) + eta * dataset(A, sample - 1) + epsilon_B;
+    }
+}
+
+// C_{t+1} \ = \  a C_t \ + \ \varepsilon^C_t
+// B^{II}_{t+1} \ = \  bB^{II}_t \ + \  eta C^3_t \ + \  \varepsilon^{B^{II}}_t
+void CB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double eta, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double> initial_confition, double lambda)
+{
+    constexpr unsigned int C = 0;
+    constexpr unsigned int B = 1;
+    dataset.conservativeResize ( 2, number_samples );
+    dataset(C, 0) = std::get<C>(initial_confition);
+    dataset(B, 0) = std::get<B>(initial_confition);
+    for (unsigned int sample = 1; sample < number_samples; ++ sample)
+    {
+        auto epsilon_C = std::get<C>(random_generator)();
+        auto epsilon_B = std::get<B>(random_generator)();
+        dataset(C, sample) = alpha * dataset(C, sample - 1) + epsilon_C;
+        dataset(B, sample) = beta * dataset(B, sample - 1) + eta * signbit(dataset(C, sample - 1)) * pow(abs(dataset(C, sample - 1)), lambda) + epsilon_B;
+    }
+}
+
+// A_{t+1}\ = \ aA_{t} \ + \ \varepsilon^A_t
+// D_{t+1} \ = \ aD_{t} \ + \  \varepsilon^D_t
+// B^{III}_{t+1} \ = \ bB^{III}_{t} \ + \ \eta_1 A_{t} \ + \  \eta_2 D_{t} \ + \  \varepsilon^{B^{III}}_t
+void ADB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double gamma, double eta1, double eta2, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double, double> initial_confition)
+{
+    constexpr unsigned int A = 0;
+    constexpr unsigned int D = 1;
+    constexpr unsigned int B = 2;
+    dataset.conservativeResize ( 3, number_samples );
+    dataset(A, 0) = std::get<A>(initial_confition);
+    dataset(D, 0) = std::get<D>(initial_confition);
+    dataset(B, 0) = std::get<B>(initial_confition);
+    for (unsigned int sample = 1; sample < number_samples; ++ sample)
+    {
+        auto epsilon_A = std::get<A>(random_generator)();
+        auto epsilon_D = std::get<D>(random_generator)();
+        auto epsilon_B = std::get<B>(random_generator)();
+        dataset(A, sample) = alpha * dataset(A, sample - 1) + epsilon_A;
+        dataset(D, sample) = beta * dataset(D, sample - 1) + epsilon_D;
+        dataset(B, sample) = gamma * dataset(B, sample - 1) + eta1 * dataset(A, sample - 1) + eta2 * dataset(D, sample - 1) + epsilon_B;
+    }
+}
+
+// A_{t+1} \ = \  aA_{t} \ + \  \varepsilon^A_t
+// C_{t+1} \ = \  cC_{t} \ + \  \varepsilon^C_t
+// B^{IV}_{t+1}  \ = \ bB^{IV}_{t} \ + \  \eta A_{t} \ + \  \kappa C^3_{t} \ + \ \varepsilon^{B^{IV}}_t
+void ACB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double gamma, double eta1, double eta2, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double, double> initial_confition, double lambda)
+{
+    constexpr unsigned int A = 0;
+    constexpr unsigned int C = 1;
+    constexpr unsigned int B = 2;
+    dataset.conservativeResize ( 3, number_samples );
+    dataset(A, 0) = std::get<A>(initial_confition);
+    dataset(C, 0) = std::get<C>(initial_confition);
+    dataset(B, 0) = std::get<B>(initial_confition);
+    for (unsigned int sample = 1; sample < number_samples; ++ sample)
+    {
+        auto epsilon_A = std::get<A>(random_generator)();
+        auto epsilon_C = std::get<C>(random_generator)();
+        auto epsilon_B = std::get<B>(random_generator)();
+        dataset(A, sample) = alpha * dataset(A, sample - 1) + epsilon_A;
+        dataset(C, sample) = beta * dataset(C, sample - 1) + epsilon_C;
+        dataset(B, sample) = gamma * dataset(B, sample - 1) + eta1 * dataset(A, sample - 1) + eta2 * signbit(dataset(C, sample - 1)) * pow(abs(dataset(C, sample - 1)), lambda) + epsilon_B;
+    }
+}
+
+
 } // namespace random_samples

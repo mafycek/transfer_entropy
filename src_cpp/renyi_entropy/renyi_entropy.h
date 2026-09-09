@@ -10,6 +10,8 @@
 #include <iostream>
 #include <map>
 #include <unordered_map>
+#include <set>
+#include <unordered_set>
 #include <numeric>
 #include <sstream>
 #include <vector>
@@ -23,27 +25,80 @@
 #include <typeinfo>
 #include <generator>
 #include <latch>
+#include <cmath>
+#include <numbers>
+
+#include <real2DFFT.H>
+#include <complexFFT.H>
 
 #include <boost/log/trivial.hpp>
+
 #include <boost/math/special_functions/digamma.hpp>
 #include <boost/math/special_functions/gamma.hpp>
+
 #include <boost/serialization/map.hpp>
+
 #include <boost/tuple/tuple.hpp>
+
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/zlib.hpp>
+#include <boost/iostreams/filter/zstd.hpp>
+#include <boost/iostreams/filter/lzma.hpp>
+#include <boost/iostreams/filter/bzip2.hpp>
 
 #include <eigen3/Eigen/Core>
 
 #include "KDTree.cpp"
 
-//#include "ndarray.h"
+#include "msgpack.hpp"
+
+namespace bio = boost::iostreams;
+
+struct hash_tuple {
+
+    template <class T1, class T2>
+
+    size_t operator()(
+        const std::tuple<T1, T2>& x)
+        const
+    {
+        return std::get<0>(x)
+               ^ std::get<1>(x);
+    }
+};
 
 namespace renyi_entropy
 {
+
+const auto microseconds_in_second =
+        static_cast<double> (std::chrono::duration_cast<std::chrono::microseconds> (1s).count());
+
+struct zstd_ostream : boost::iostreams::filtering_ostream
+{
+    zstd_ostream(std::ostream& os)
+    {
+        bio::zstd_params zstd_params ( 13 );
+        bio::filtering_ostream::push( bio::zstd_compressor{zstd_params} );
+        bio::filtering_ostream::push( os );
+    }
+};
+
+inline extern const std::string conditional_renyi_entropy_label{"CRE"};
+inline extern const std::string renyi_entropy_X_present_history_label{"RE_ph_X"};
+inline extern const std::string renyi_entropy_XY_history_label{"RE_h_XY"};
+inline extern const std::string joint_renyi_entropy_label{"RE_ph_XY"};
+inline extern const std::string renyi_entropy_X_history_label{"RE_h_X"};
+inline extern const std::string average_runs{"average_runs"};
+inline extern const std::string average_runs_neighbors{"average_runs_neighbors"};
+inline extern const std::vector<const std::string*> RTE_types {&conditional_renyi_entropy_label, &renyi_entropy_X_present_history_label, &renyi_entropy_XY_history_label, &joint_renyi_entropy_label, &renyi_entropy_X_history_label};
 
 template<typename Scalar, typename Matrix>
 inline std::vector< std::vector<Scalar> > fromEigenMatrix ( const Matrix & M )
@@ -70,9 +125,10 @@ TYPE volume_of_hypersphere ( TYPE radius, TYPE metric, unsigned int dimension )
         pow ( std::numbers::pi_v<double>, ( dimension - 2 ) / 2. );
     for ( unsigned int angular_momentum_index = 1;
             angular_momentum_index < dimension - 1; ++angular_momentum_index ) {
+        auto nominator = boost::math::lgamma ( 0.5 + ( dimension - ( angular_momentum_index + 1 ) ) / metric );
+        auto denominator= boost::math::lgamma ( ( dimension + metric - ( angular_momentum_index + 1 ) ) / metric );
         noncomplete_angular_part *=
-            exp ( boost::math::lgamma ( 0.5 + ( dimension - ( angular_momentum_index + 1 ) ) / metric ) -
-            boost::math::lgamma ( ( dimension + metric - ( angular_momentum_index + 1 ) ) / metric ) );
+            exp ( nominator - denominator );
     }
 
     return static_part * radius_part * complete_angular_part *
@@ -83,11 +139,26 @@ template <typename TYPE>
 class renyi_entropy
 {
 public:
-    typedef std::map<std::tuple<unsigned int, TYPE>, TYPE> renyi_entropy_storage; // , renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage, renyi_entropy_storage
-    typedef std::unordered_map<std::string, renyi_entropy_storage> conditional_renyi_entropy_strorage;
+    typedef TYPE renyi_key_type;
+    typedef std::map<renyi_key_type, TYPE> renyi_entropy_storage;
+    typedef std::vector<renyi_entropy_storage> renyi_entropy_storage_collection;
+    typedef std::unordered_map<std::string, std::vector<renyi_entropy_storage>> conditional_renyi_entropy_strorage;
+    typedef std::tuple<std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>> collection_conditional_information_transfer_key_type;
+    typedef std::tuple<bool, bool, bool, unsigned int> conditional_information_transfer_key_type;
+    typedef std::tuple<bool, bool, bool, bool, unsigned int> result_conditional_information_transfer_key_type;
+    typedef std::tuple<bool, bool, bool, unsigned int, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>, std::string, unsigned int> result_RTE_key;
+    typedef std::tuple<bool, bool, bool, bool, unsigned int, std::vector<unsigned int>, std::vector<unsigned int>, std::vector<unsigned int>, std::string, std::string> collection_RTE_results_key;
+    typedef std::map<conditional_information_transfer_key_type, conditional_renyi_entropy_strorage> result_conditional_information_transfer_type;
+    typedef std::map<result_conditional_information_transfer_key_type, renyi_entropy_storage> processed_conditional_information_transfer_type;
+    typedef std::map<collection_conditional_information_transfer_key_type, result_conditional_information_transfer_type> collection_result_conditional_information_transfer_type;
+    typedef std::map<result_RTE_key, renyi_entropy_storage> result_RTE_t;
+    typedef std::map<collection_conditional_information_transfer_key_type, processed_conditional_information_transfer_type> collection_processed_conditional_information_transfer_type;
+    typedef std::map<std::string, collection_processed_conditional_information_transfer_type> average_result_conditional_information_transfer_type;
+    typedef std::map<collection_RTE_results_key, renyi_entropy_storage> type_average_result_conditional_information_transfer_type;
+    typedef std::tuple<collection_result_conditional_information_transfer_type, type_average_result_conditional_information_transfer_type> storage_RTE;
 
     renyi_entropy()
-        : _multithreading ( false )
+        : _multithreading ( false ), _number_of_threads(std::thread::hardware_concurrency())
     {}
 
     ~renyi_entropy()
@@ -121,7 +192,7 @@ public:
     }
 
     void entropy_sum_Renyi_LeonenkoProzanto (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
         const TYPE alpha, bool log_calculation )
     {
@@ -173,13 +244,13 @@ public:
                     one_minus_alpha * _logarithm ( number_of_data - 1 );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, alpha )] =
+                    results[use_index-1][alpha] =
                         _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
                 }
             } else {
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, alpha )] =
+                    results[use_index-1][alpha] =
                         sum_of_power_of_distances / number_of_data *
                         pow ( number_of_data - 1, one_minus_alpha ) *
                         boost::math::tgamma ( use_index ) /
@@ -193,7 +264,7 @@ public:
     }
 
     void entropy_sum_Shannon_LeonenkoProzanto (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
         bool log_calculation )
     {
@@ -227,7 +298,7 @@ public:
                 } );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
+                    results[use_index-1][static_cast<TYPE> ( 1.0 )] =
                         sum_of_weighted_distances / number_of_data;
                 }
             } else {
@@ -251,14 +322,14 @@ public:
                 auto log_volume = _logarithm ( argument_log );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
+                    results[use_index-1][static_cast<TYPE> ( 1.0 )] =
                         addition_to_entropy + log_volume - digamma;
                 }
             }
         }
     }
 
-    renyi_entropy_storage
+    renyi_entropy_storage_collection
     renyi_entropy_LeonenkoProzanto ( std::vector<std::vector<TYPE>> &dataset,
                                      double metric = 2 )
     {
@@ -267,7 +338,7 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        renyi_entropy_storage results;
+        renyi_entropy_storage_collection results(GetIndices().back());
         int dimension_of_data = dataset[0].size();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -296,7 +367,7 @@ public:
                 }
             }
         } else {
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto maximal_number_of_jobs = GetAlphas().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
@@ -336,19 +407,22 @@ public:
         if ( ! GetMultithreading () ) {
             // calculation of entropy for Renyi case
             // Shannon case already holds entropy
-            for ( auto &item : results ) {
-                auto alpha = std::get<1> ( item.first );
-                if ( alpha != one ) {
-                    auto entropy = _logarithm ( item.second ) / ( 1 - alpha );
-                    item.second = entropy;
+            for ( auto &item_neighbor : results ) {
+                for (auto & item: item_neighbor)
+                {
+                    auto alpha = item.first;
+                    if ( alpha != one ) {
+                        auto entropy = _logarithm ( item.second ) / ( 1 - alpha );
+                        item.second = entropy;
+                    }
                 }
             }
         } else {
-            auto ks = std::views::keys(results);
-            std::vector<std::tuple<unsigned int, TYPE>> keys{ ks.begin(), ks.end() };
+            auto ks = std::views::keys(results.back());
+            std::vector<renyi_key_type> keys{ ks.begin(), ks.end() };
 
-            const auto processor_count = std::thread::hardware_concurrency();
-            const auto maximal_number_of_jobs = GetAlphas().size();
+            const auto processor_count = GetNumberOfThreads ();
+            const auto maximal_number_of_jobs = GetAlphas().size() * GetIndices().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
@@ -361,14 +435,17 @@ public:
                     const int end_job = ( jobs_to_process * ( thread_count + 1 ) ) + ( ( 0 <= thread_count ) && ( thread_count < excess_jobs_to_process ) ? thread_count + 1 : excess_jobs_to_process );
                     //std::cout << thread_count << " " << start_job << " " << end_job << std::endl;
                     for ( int key_index : std::ranges::iota_view{start_job, end_job} ) {
-                        const auto key = keys [key_index];
+                        const auto index_neighbor = key_index % GetAlphas().size();
+                        const auto index_alpha = key_index / GetAlphas().size();
 
-                        auto alpha = std::get<1> ( key );
+                        const auto alpha = GetAlphas()[index_alpha];
+                        const auto neighbor = GetIndices()[index_neighbor] - 1;
                         if ( alpha != one ) {
-                            if (results[key]>0)
+                            auto &RTE = results[neighbor][alpha];
+                            if (RTE>0)
                             {
-                                auto entropy = _logarithm ( results[key] ) / ( 1 - alpha );
-                                results[key] = entropy;
+                                auto entropy = _logarithm ( results[neighbor][alpha] ) / ( 1 - alpha );
+                                RTE = entropy;
                             }
                         }
                     }
@@ -395,40 +472,37 @@ public:
         auto elapsed_entropy_calculation =
             end_entropy_calculation - end_distance_calculation;
 
-        auto milliseconds_tree_construction =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_tree_construction =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_tree_construction )
             .count();
-        auto milliseconds_distance_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_distance_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_distance_calculation )
             .count();
-        auto milliseconds_entropy_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_entropy_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_entropy_calculation )
             .count();
 
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Tree constructed in {:.5f} seconds",
-                                 milliseconds_tree_construction / 1000.0 );
+                << "Tree constructed in " << microseconds_tree_construction / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Distances calculated in {:.5f} seconds",
-                                 milliseconds_distance_calculation / 1000.0 );
+                << "Distances calculated in " << microseconds_distance_calculation / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Entropy calculated in {:.5f} seconds",
-                                 milliseconds_entropy_calculation / 1000.0 );
+                << "Entropy calculated in " << microseconds_entropy_calculation / microseconds_in_second << " seconds";
         return results;
     }
 
     void entropy_sum_Renyi_metric (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, const std::vector<std::vector<TYPE>> &distances,
         const TYPE alpha, bool log_calculation, TYPE metric )
     {
         std::map<unsigned int, TYPE> entropy;
         TYPE one_minus_alpha = TYPE ( 1.0 ) - alpha;
 
-        for ( const unsigned int use_index : GetIndices() ) {
+        for ( const auto [index_used_index, use_index] : std::views::enumerate(GetIndices()) ) {
             auto const number_of_data =
                 std::accumulate ( distances.begin(), distances.end(), 0,
             [=] ( unsigned int count, auto const &element ) {
@@ -468,7 +542,7 @@ public:
             if ( log_calculation ) {
                 if ( (index_exponent <= 0) && (index_exponent == floor_index_exponent) )
                 {
-                    results[std::make_tuple ( use_index, alpha )] = NAN;
+                    results[index_used_index][alpha] = NAN;
                 }
                 else
                 {
@@ -479,11 +553,11 @@ public:
                                             _logarithm ( number_of_data ) +
                                             one_minus_alpha * _logarithm ( number_of_data - 1 );
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, alpha )] = _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
+                    results[index_used_index][alpha] = _exp ( multiplicator + _logarithm ( sum_of_power_of_distances ) );
                 }
             } else {
                 std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                results[std::make_tuple ( use_index, alpha )] =
+                results[index_used_index][alpha] =
                     sum_of_power_of_distances / number_of_data *
                     pow ( number_of_data - 1, one_minus_alpha ) *
                     boost::math::tgamma ( use_index ) /
@@ -493,11 +567,11 @@ public:
     }
 
     void entropy_sum_Shannon_metric (
-        renyi_entropy_storage &results,
+        renyi_entropy_storage_collection &results,
         int dimension_of_data, std::vector<std::vector<TYPE>> &distances,
         bool log_calculation, TYPE metric )
     {
-        for ( const unsigned int use_index : GetIndices() ) {
+        for ( const auto [index_used_index, use_index] : std::views::enumerate(GetIndices()) ) {
             auto const number_of_data =
                 std::accumulate ( distances.cbegin(), distances.cend(), 0,
             [=] ( unsigned int count, auto const &element ) {
@@ -526,8 +600,7 @@ public:
                 } );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
-                        sum_of_weighted_distances / number_of_data;
+                    results[index_used_index] [static_cast<TYPE> ( 1.0 ) ] = sum_of_weighted_distances / number_of_data;
                 }
             } else {
                 auto const sum_of_log_distances = std::accumulate (
@@ -548,15 +621,14 @@ public:
                 auto log_volume = _logarithm ( argument_log );
                 {
                     std::lock_guard<std::recursive_mutex> lock ( _result_mutex );
-                    results[std::make_tuple ( use_index, static_cast<TYPE> ( 1.0 ) )] =
-                        addition_to_entropy + log_volume - digamma;
+                    results[index_used_index][ static_cast<TYPE> ( 1.0 )] = addition_to_entropy + log_volume - digamma;
                 }
             }
         }
     }
 
 
-    renyi_entropy_storage
+    renyi_entropy_storage_collection
     renyi_entropy_metric ( const Eigen::MatrixXd &dataset, double metric = 2 )
     {
         auto nearest_iterator =
@@ -564,8 +636,8 @@ public:
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        renyi_entropy_storage results;
-        const int dimension_of_data = dataset.cols();
+        renyi_entropy_storage_collection results(GetIndices().size());
+        const int dimension_of_data = dataset.rows();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
         auto end_tree_construction_calculation =
@@ -593,7 +665,7 @@ public:
                 }
             }
         } else {
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto maximal_number_of_jobs = GetAlphas().size();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
@@ -641,41 +713,36 @@ public:
         auto elapsed_entropy_calculation =
             end_entropy_calculation - end_distance_calculation;
 
-        auto milliseconds_tree_construction =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_tree_construction =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_tree_construction )
             .count();
-        auto milliseconds_distance_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_distance_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_distance_calculation )
             .count();
-        auto milliseconds_entropy_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_entropy_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_entropy_calculation )
             .count();
 
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Tree constructed in {:.5f} seconds",
-                                 milliseconds_tree_construction / 1000.0 );
+                << "Tree constructed in " << microseconds_tree_construction / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Distances calculated in {:.5f} seconds",
-                                 milliseconds_distance_calculation / 1000.0 );
+                << "Distances calculated in " << microseconds_distance_calculation / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Entropy calculated in {:.5f} seconds",
-                                 milliseconds_entropy_calculation / 1000.0 );
+                << "Entropy calculated in " << microseconds_entropy_calculation / microseconds_in_second << " seconds";
         return results;
     }
 
-    renyi_entropy_storage
-    renyi_entropy_metric ( std::vector<std::vector<TYPE>> &dataset,
-                           double metric = 2 )
+    renyi_entropy_storage_collection renyi_entropy_metric ( std::vector<std::vector<TYPE>> &dataset, double metric = 2 )
     {
         auto nearest_iterator =
             std::max_element ( GetIndices().begin(), GetIndices().end() );
         // calculation how large of index of distance needs to be calculated
         // + 1 for skipping 0-neighbor
         auto nearest = ( *nearest_iterator ) + 1;
-        renyi_entropy_storage results;
+        renyi_entropy_storage_collection results;
         const int dimension_of_data = dataset[0].size();
         auto start_calculation = std::chrono::high_resolution_clock::now();
         auto kdtree = create_KDtree ( dataset );
@@ -705,7 +772,7 @@ public:
             }
         } else {
             const auto maximal_number_of_jobs = GetAlphas().size();
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
@@ -751,32 +818,30 @@ public:
         auto elapsed_entropy_calculation =
             end_entropy_calculation - end_distance_calculation;
 
-        auto milliseconds_tree_construction =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_tree_construction =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_tree_construction )
             .count();
-        auto milliseconds_distance_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_distance_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_distance_calculation )
             .count();
-        auto milliseconds_entropy_calculation =
-            std::chrono::duration_cast<std::chrono::milliseconds> (
+        auto microseconds_entropy_calculation =
+            std::chrono::duration_cast<std::chrono::microseconds> (
                 elapsed_entropy_calculation )
             .count();
 
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Tree constructed in {:.5f} seconds",
-                                 milliseconds_tree_construction / 1000.0 );
+                << "Tree constructed in " << microseconds_tree_construction / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Distances calculated in {:.5f} seconds",
-                                 milliseconds_distance_calculation / 1000.0 );
+                << "Distances calculated in " << microseconds_distance_calculation / microseconds_in_second << " seconds";
         BOOST_LOG_TRIVIAL ( trace )
-                << std::format ( "Entropy calculated in {:.5f} seconds",
-                                 milliseconds_entropy_calculation / 1000.0 );
+                << "Entropy calculated in " << microseconds_entropy_calculation / microseconds_in_second << " seconds";
+
         return results;
     }
 
-    inline void renyi_entropy_LeonenkoProzanto_compensation ( renyi_entropy_storage &results, const int dimension_of_data )
+    inline void renyi_entropy_LeonenkoProzanto_compensation ( renyi_entropy_storage_collection &results, const int dimension_of_data )
     {
         auto one = static_cast<TYPE> ( 1 );
         // calculation of entropy for Renyi case
@@ -791,17 +856,20 @@ public:
         const auto multiplication_factor2 = 0.99;
         const auto threshold2 = exp ( log ( fixed_compesation ) - log ( multiplication_factor2 ) / exponent2 );
 
-        for ( auto &item : results ) {
-            auto alpha = std::get<1> ( item.first );
-            const auto compensation1 = ( alpha < threshold1 ) ? ( multiplication_factor1 * pow ( alpha, exponent1 ) ) : 1;
-            const auto compensation2 = ( alpha > threshold2 ) ? ( multiplication_factor2 * pow ( alpha, exponent2 ) ) : 1;
+        for ( auto &item_neighbor : results ) {
+            for( auto &item : item_neighbor )
+            {
+                auto alpha = item.first;
+                const auto compensation1 = ( alpha < threshold1 ) ? ( multiplication_factor1 * pow ( alpha, exponent1 ) ) : 1;
+                const auto compensation2 = ( alpha > threshold2 ) ? ( multiplication_factor2 * pow ( alpha, exponent2 ) ) : 1;
 
-            if ( alpha != one ) {
-                auto entropy = _logarithm ( item.second ) / ( 1 - alpha ) * compensation1 * compensation2 * fixed_compesation;
-                item.second = entropy;
-            } else {
-                auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
-                item.second = entropy;
+                if ( alpha != one ) {
+                    auto entropy = _logarithm ( item.second ) / ( 1 - alpha ) * compensation1 * compensation2 * fixed_compesation;
+                    item.second = entropy;
+                } else {
+                    auto entropy = item.second * compensation1 * compensation2 * fixed_compesation;
+                    item.second = entropy;
+                }
             }
         }
     }
@@ -823,7 +891,7 @@ public:
             }
         } else {
             const auto maximal_number_of_jobs = dataset.size();
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto real_thread_count = ( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs % real_thread_count };
@@ -882,7 +950,7 @@ public:
         else
         {
             const auto maximal_number_of_jobs = dataset.cols();
-            const auto processor_count = std::thread::hardware_concurrency();
+            const auto processor_count = GetNumberOfThreads ();
             const auto real_thread_count = static_cast<unsigned int>( processor_count >= maximal_number_of_jobs ? maximal_number_of_jobs : processor_count );
             const auto jobs_to_process { maximal_number_of_jobs / real_thread_count };
             const auto excess_jobs_to_process { maximal_number_of_jobs - jobs_to_process * real_thread_count };
@@ -968,18 +1036,20 @@ public:
         _logarithm = log;
     }
 
-    static void SaveRenyiEntropy ( renyi_entropy_storage &result, const std::string &file )
+    static void SaveRenyiEntropy ( renyi_entropy_storage_collection &result, const std::string &directory, const std::string &file )
     {
         std::stringstream ss;
-        boost::filesystem::path myFile =
-            boost::filesystem::current_path() / file;
-        boost::filesystem::ofstream ofs ( myFile );
-        boost::archive::binary_oarchive oarch ( ofs );
-        oarch << result;
-        std::cout << ss.str();
+        msgpack::pack(ss, result); //renyi_entropy::renyi_entropy<calculation_type>::storage_RTE(collection_result_RTE, processing_RTE)
+        std::cout << ss.str().size() << std::endl;
+        boost::filesystem::path output_file =
+        boost::filesystem::path(directory) / boost::filesystem::path(file);
+        boost::filesystem::ofstream output_file_handler ( output_file );
+        zstd_ostream zstd_compression_stream{output_file_handler};
+
+        zstd_compression_stream << ss.str();
     }
 
-    static void LoadRenyiEntropy ( renyi_entropy_storage &result, const std::string &file )
+    static void LoadRenyiEntropy ( renyi_entropy_storage_collection &result, const std::string &file )
     {
         boost::filesystem::path myFile =
             boost::filesystem::current_path() / file;
@@ -988,7 +1058,7 @@ public:
         iarch >> result;
     }
 
-    static conditional_renyi_entropy_strorage renyi_conditional_information_transfer ( const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters )
+    static void renyi_conditional_information_transfer ( result_RTE_t &RTE_result, const Eigen::MatrixXd &y_future, const Eigen::MatrixXd &y_history, const Eigen::MatrixXd &z_history, std::map<std::string, std::any> parameters, std::function< result_RTE_key ( std::string key, unsigned int neighbor) > key_generator )
     {
         bool enhanced_calculation {true};
         if ( parameters.contains ( "enhanced_calculation" ) ) {
@@ -1010,9 +1080,9 @@ public:
             auto multithreading = std::any_cast<bool> ( parameters["multithreading"] );
             calculator.SetMultithreading ( multithreading );
         }
-        calculator.SetExp ( exp );
-        calculator.SetLog ( log );
-        calculator.SetPower ( pow );
+        calculator.SetExp ( [&] (double x) { return exp(x);} );
+        calculator.SetLog ( [&] (double x) { return log(x);} );
+        calculator.SetPower ( [&] (double x, double y) { return pow(x, y);} );
 
         if ( enhanced_calculation ) {
             Eigen::MatrixXd joint_dataset ( y_future.rows() + y_history.rows(), y_future.cols() );
@@ -1032,26 +1102,101 @@ public:
             decltype ( entropy_present_X_history_X ) conditional_information_transfer;
 
             auto conditional_information_transfer_calculator = [] ( auto a, auto b, auto c, auto d ) {
-                auto [index_a, alpha_a] = a.first;
-                auto [index_b, alpha_b] = b.first;
-                auto [index_c, alpha_c] = c.first;
-                auto [index_d, alpha_d] = d.first;
-                assert(index_a == index_b);
-                assert(index_b == index_c);
-                assert(index_c == index_d);
+                const auto alpha_a = a.first;
+                const auto alpha_b = b.first;
+                const auto alpha_c = c.first;
+                const auto alpha_d = d.first;
                 assert(alpha_a == alpha_b);
                 assert(alpha_b == alpha_c);
                 assert(alpha_c == alpha_d);
-                return std::tuple<std::tuple<unsigned int, TYPE>, TYPE>(a.first, a.second + b.second - c.second - d.second );
+                return std::tuple<TYPE, TYPE>(alpha_a, a.second + b.second - c.second - d.second );
             };
 
-            auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X, entropy_history_X_history_Y, entropy_joint, entropy_history_X );
-            renyi_entropy_storage conditional_information_transfer_result;
-            for (auto [key, item]: sum)
+#ifndef NDEBUG
+            auto keys_view = std::views::keys(entropy_present_X_history_X.back());
+            std::set<renyi_key_type> keys{ keys_view.begin(), keys_view.end() };
+            keys_view = std::views::keys(entropy_history_X_history_Y.back());
+            keys.insert( keys_view.begin(), keys_view.end() );
+            keys_view = std::views::keys(entropy_joint.back());
+            keys.insert( keys_view.begin(), keys_view.end() );
+            keys_view = std::views::keys(entropy_history_X.back());
+            keys.insert( keys_view.begin(), keys_view.end() );
+
+            if (keys.size() != std::views::keys(entropy_present_X_history_X.back()).size())
             {
-                conditional_information_transfer_result[key] = item;
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_present_X_history_X {} {}", keys.size(), std::views::keys(entropy_present_X_history_X.back()).size() );
             }
-            return conditional_renyi_entropy_strorage {{"CRE", conditional_information_transfer_result}, {"RE_ph_X", entropy_present_X_history_X}, {"RE_h_XY", entropy_history_X_history_Y}, {"RE_ph_XY", entropy_joint}, {"RE_h_X", entropy_history_X}};
+            if (keys.size() != std::views::keys(entropy_history_X_history_Y.back()).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X_history_Y {} {}", keys.size(), std::views::keys(entropy_history_X_history_Y.back()).size() );
+            }
+            if (keys.size() != std::views::keys(entropy_joint.back()).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_joint {} {}", keys.size(), std::views::keys(entropy_joint.back()).size() );
+            }
+            if (keys.size() != std::views::keys(entropy_history_X.back()).size())
+            {
+                BOOST_LOG_TRIVIAL ( debug ) << std::format("entropy_history_X {} {}", keys.size(), std::views::keys(entropy_history_X.back()).size() );
+            }
+
+            auto keys2(keys);
+            for ( auto item: std::views::keys(entropy_present_X_history_X.back()))
+            {
+                keys2.erase(item);
+            }
+            auto keys3(keys);
+            for ( auto item: std::views::keys(entropy_history_X_history_Y.back()))
+            {
+                keys3.erase(item);
+            }
+            auto keys4(keys);
+            for ( auto item: std::views::keys(entropy_joint.back()))
+            {
+                keys4.erase(item);
+            }
+            auto keys5(keys);
+            for ( auto item: std::views::keys(entropy_history_X.back()))
+            {
+                keys5.erase(item);
+            }
+
+            for ( const auto & key : keys )
+            {
+                if (!entropy_present_X_history_X.back().contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_present_X_history_X", (key));
+                }
+                if (!entropy_history_X_history_Y.back().contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_history_X_history_Y", (key));
+                }
+                if (!entropy_joint.back().contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_joint", (key));
+                }
+                if (!entropy_history_X.back().contains(key))
+                {
+                    BOOST_LOG_TRIVIAL ( debug ) << std::format("key({}) is missing entropy_history_X", (key));
+                }
+            }
+#endif
+
+            // conditional Renyi entropy
+            for (int neighbor_index = 0; neighbor_index < calculator.GetIndices().size(); ++ neighbor_index)
+            {
+                const auto & neighbor = calculator.GetIndices()[neighbor_index];
+                auto sum = std::views::zip_transform ( conditional_information_transfer_calculator, entropy_present_X_history_X[neighbor_index], entropy_history_X_history_Y[neighbor_index], entropy_joint[neighbor_index], entropy_history_X[neighbor_index] );
+                decltype(entropy_present_X_history_X) conditional_information_transfer_result(calculator.GetIndices().size());
+                for (auto [key, item]: sum)
+                {
+                    conditional_information_transfer_result[neighbor_index][key] = item;
+                }
+                RTE_result[ key_generator(conditional_renyi_entropy_label, neighbor) ] = std::move(conditional_information_transfer_result[neighbor_index]);
+                RTE_result[ key_generator(renyi_entropy_X_present_history_label, neighbor) ] = std::move(entropy_present_X_history_X[neighbor_index]);
+                RTE_result[ key_generator(renyi_entropy_XY_history_label, neighbor) ] = std::move(entropy_history_X_history_Y[neighbor_index]);
+                RTE_result[ key_generator(joint_renyi_entropy_label, neighbor) ] = std::move(entropy_joint[neighbor_index]);
+                RTE_result[ key_generator(renyi_entropy_X_history_label, neighbor) ] = std::move(entropy_history_X[neighbor_index]);
+            }
         } else {
 
         }
@@ -1158,6 +1303,8 @@ public:
             marginal_solution_1 = marginal_solution_1.transpose();
             marginal_solution_2 = marginal_solution_2.transpose();
         }
+        unsigned int dimension_timeseries_1 = marginal_solution_1.cols();
+        unsigned int dimension_timeseries_2 = marginal_solution_2.cols();
 
         if ( parameters.contains ( "postselection_y_fut" ) ) {
             postselection_y_fut = std::any_cast<unsigned int> ( parameters["postselection_y_fut"] );
@@ -1182,8 +1329,8 @@ public:
         }
 
         //std::cout << marginal_solution_1 << std::endl;
-        marginal_solution_1_selected = marginal_solution_1.block ( skip_first, 0, marginal_solution_1.rows() - skip_last, marginal_solution_1.cols() );
-        marginal_solution_2_selected = marginal_solution_2.block ( skip_first, 0, marginal_solution_2.rows() - skip_last, marginal_solution_2.cols() );
+        marginal_solution_1_selected = marginal_solution_1.block ( skip_first, 0, marginal_solution_1.rows() - skip_last, dimension_timeseries_1 );
+        marginal_solution_2_selected = marginal_solution_2.block ( skip_first, 0, marginal_solution_2.rows() - skip_last, dimension_timeseries_2 );
 
         const Eigen::MatrixXd matrix;
 
@@ -1198,6 +1345,7 @@ public:
         auto max_join_histories_x_y = std::max_element ( join_histories_x_y.begin(), join_histories_x_y.end() );
         auto max_future_index_x = std::max_element ( future_index_x.begin(), future_index_x.end() );
         auto max_history_index_x =  std::max_element ( history_index_x.begin(), history_index_x.end() );
+        auto max_history_index_y =  std::max_element ( history_index_y.begin(), history_index_y.end() );
 
         if ( parameters.contains ( "history_index_x" ) ) {
             std::vector<unsigned int> indices;
@@ -1219,7 +1367,7 @@ public:
         auto samples_marginal_1 = samples_from_arrays ( marginal_solution_1_selected, parameters );
 
         //std::cout << samples_marginal_1->rows() << " " << samples_marginal_1->cols() << *samples_marginal_1 << std::endl;
-        auto separator_row_x = ( * max_history_index_x ) * history_index_x.size();
+        auto separator_row_x = dimension_timeseries_1 * history_index_x.size(); //bug number of original dimension of data
         Eigen::MatrixXd y_fut, y_history, x_hist;
         y_history = ( *samples_marginal_1 ) ( Eigen::seq ( 0, separator_row_x ), Eigen::all );
         y_fut = ( *samples_marginal_1 ) ( Eigen::seq ( separator_row_x, samples_marginal_1->rows() - 1 ), Eigen::all );
@@ -1230,7 +1378,7 @@ public:
         if ( parameters.contains ( "history_index_y" ) ) {
             std::vector<unsigned int> indices;
             for ( unsigned int item : history_index_y ) {
-                indices.push_back ( ( * max_future_index_x )- item );
+                indices.push_back ( ( * max_history_index_y ) - item );
             }
             parameters["select_indices"] = indices;
         }
@@ -1238,24 +1386,97 @@ public:
         auto samples_marginal_2 = samples_from_arrays ( marginal_solution_2_selected, parameters );
         x_hist = *(samples_marginal_2.get());
 
+        if ( parameters.contains ( "transpose" ) ) {
+            marginal_solution_1 = marginal_solution_1.transpose();
+            marginal_solution_2 = marginal_solution_2.transpose();
+        }
         return std::tuple ( y_fut, y_history, x_hist );
     }
 
     static Eigen::MatrixXd shuffle_sample ( const Eigen::MatrixXd &dataset )
     {
         std::random_device random_device_instance;
-        std::mt19937 random_generator (random_device_instance());
+        std::seed_seq rng_seed{random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance(), random_device_instance()};
+        std::mt19937 random_generator (rng_seed);
         // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
-        Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
+        //Eigen::MatrixXd final_dataset ( dataset.cols(), dataset.rows() );
 
-        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm ( dataset.rows() );
+        Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm ( dataset.cols() );
         perm.setIdentity();
         std::shuffle ( perm.indices().data(), perm.indices().data() + perm.indices().size(), random_generator );
-        auto result = perm * dataset;
+        // permutate columns
+        //dataset.transpose();
+        auto result = dataset * perm;
+        //std::cout << dataset << "\nres:\n" << result << std::endl;
         return result;
     }
 
-    static std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> prepare_dataset ( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, unsigned int selection_1, unsigned int selection_2 )
+    static Eigen::MatrixXd surrogate_sample ( const Eigen::MatrixXd &dataset )
+    {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> dis(-std::numbers::pi, std::numbers::pi);
+
+        Eigen::MatrixXd result(dataset.rows(), dataset.cols());
+
+        int count = dataset.cols();
+        std::vector<double> phases(count / 2);
+        for (int i = 1; i < count / 2; ++i)
+        {
+            double phase = dis(gen);
+        }
+
+        for (unsigned int row = 0; row < dataset.rows(); ++ row )
+        {
+            complexFFTData fftData(count);
+            complexFFT fft(&fftData);
+
+            for ( unsigned int column = 0 ; column < count; ++ column )
+            {
+                c_re(fftData.in[column]) = static_cast<double>(dataset(row, column) );
+                c_im(fftData.in[column]) = static_cast<double>(0);
+            }
+
+            // forward transform
+            fft.fwdTransform();
+
+            // power spectrum
+            fftData.compPowerSpec();
+
+            for (int i = 1; i < count / 2; ++ i)
+            {
+                double phase = phases[i];
+                double real_shift = cos(phase);
+                double imag_shift = sin(phase);
+                c_re(fftData.out[i]) = sqrt( fftData.power_spectrum[i] ) * real_shift;
+                c_im(fftData.out[i]) = sqrt( fftData.power_spectrum[i] ) * imag_shift;
+
+                c_re(fftData.out[count - i]) = c_re(fftData.out[i]);
+                c_im(fftData.out[count - i]) = - c_im(fftData.out[i]);
+            }
+
+            // inverse transform
+            fft.invTransform();
+
+            // normalization
+            for (int i = 0; i < count; ++ i)
+            {
+                c_re(fftData.in[i]) /= count;
+                c_im(fftData.in[i]) /= count;
+            }
+
+            for ( unsigned int column = 0 ; column < count; ++ column )
+            {
+                result(row, column) = c_re(fftData.in[column]);
+                assert(std::fabs(c_im(fftData.in[column])) < 1e-10);
+
+                //std::cout << c_re(fftData.in[column]) << " + i* " << c_im(fftData.in[column]) << std::endl;
+            }
+        }
+        return result;
+    }
+
+    static std::tuple<Eigen::MatrixXd, Eigen::MatrixXd> prepare_dataset ( const Eigen::MatrixXd &joint_dataset, bool swap_datasets, bool shuffle_dataset, bool surrogate_dataset, unsigned int selection_1, unsigned int selection_2 )
     {
         auto marginal_solution_1 = joint_dataset ( Eigen::seqN ( 0, selection_1 ), Eigen::all );
         auto marginal_solution_2 = joint_dataset ( Eigen::seqN ( selection_1, selection_2 ), Eigen::all );
@@ -1267,14 +1488,19 @@ public:
             std::swap ( swaped_marginal_solution_1, swaped_marginal_solution_2 );
         }
 
-        Eigen::MatrixXd shuffled_dataset;
+        Eigen::MatrixXd modified_dataset;
         if ( shuffle_dataset ) {
-            shuffled_dataset = shuffle_sample ( *swaped_marginal_solution_1 );
-        } else {
-            shuffled_dataset = * swaped_marginal_solution_1;
+            modified_dataset = shuffle_sample ( *swaped_marginal_solution_1 );
+        }
+        else if ( surrogate_dataset ) {
+            modified_dataset = surrogate_sample ( *swaped_marginal_solution_1 );
+        }
+        else
+        {
+            modified_dataset = * swaped_marginal_solution_1;
         }
 
-        return std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd> ( shuffled_dataset, *swaped_marginal_solution_2 );
+        return std::tuple<const Eigen::MatrixXd, const Eigen::MatrixXd> ( modified_dataset, *swaped_marginal_solution_2 );
     }
 
     static std::shared_ptr<const Eigen::MatrixXd> samples_from_arrays ( Eigen::MatrixXd &data, std::map<std::string, std::any> parameters )
@@ -1385,8 +1611,20 @@ public:
         _multithreading = multithreading;
     }
 
+    const unsigned int GetNumberOfThreads ()
+    {
+        return _number_of_threads;
+    }
+
+    void SetNumberOfThreads ( unsigned int number_of_threads )
+    {
+        _number_of_threads = number_of_threads;
+    }
+
 protected:
     bool _multithreading;
+
+    unsigned int _number_of_threads;
 
     std::recursive_mutex _result_mutex;
 
