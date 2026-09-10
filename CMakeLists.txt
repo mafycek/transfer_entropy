@@ -20,8 +20,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(MPFR REQUIRED)
 find_package(GMP REQUIRED)
 find_package(absl)
+find_package(PythonLibs REQUIRED)
 
+include_directories(${PYTHON_INCLUDE_DIRS})
 include_directories(${EIGEN_INCLUDE_DIR})
+link_libraries(${PYTHON_LIBRARIES})
 
 add_subdirectory(third-party)
 add_subdirectory(src_cpp)
