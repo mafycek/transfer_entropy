@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <list>
 
 template <typename S, typename T>
 void convert_array ( const S &array, std::vector<T> &values,

@@ -101,7 +101,8 @@ int main ( int argc, char *argv[] )
         dataset.push_back ( std::vector<multiprecision_type> {random_double() } );
 
     std::vector<multiprecision_type> alphas;
-    for ( multiprecision_type alpha = 0.05; alpha <= 5;
+    const double max_alpha = 5;
+    for ( multiprecision_type alpha = 0.05; alpha <= max_alpha;
             alpha += multiprecision_type ( 0.01 ) )
     {
         alphas.push_back ( alpha );
@@ -116,30 +117,34 @@ int main ( int argc, char *argv[] )
     calculator.SetLog ( log_m );
     calculator.SetPower ( power_m );
 
-    auto result = calculator.renyi_entropy_LeonenkoProzanto ( dataset, 2 );
-
-    std::stringstream ss;
-    boost::filesystem::path myFile =
-        boost::filesystem::current_path() / "myfile.dat";
-    boost::filesystem::ofstream ofs ( myFile );
-    boost::archive::binary_oarchive oarch ( ofs );
-    // oarch << result;
-    std::cout << ss.str();
-
-    std::cout << std::setprecision (
-                  std::numeric_limits<multiprecision_type>::max_digits10 )
-              << std::endl;
-    Eigen::MatrixXd sigma{{sigma_gaussion_distribution}};
-    for ( const auto &item_alpha : calculator.GetAlphas() )
+    for ( auto & metric: std::vector<double>{0.5, 1, 1.5, 1.7, 1.8, 1.9, 2, 2.1, 2.2, 2.3, 2.5, 3})
     {
-        std::cout << item_alpha << " ";
-        for ( const auto &item_index : calculator.GetIndices() )
+        renyi_entropy::renyi_entropy<multiprecision_type>::renyi_entropy_storage_collection result;
+        calculator.renyi_entropy_LeonenkoProzanto ( result, dataset, metric );
+
+        std::stringstream ss;
+        boost::filesystem::path myFile =
+            boost::filesystem::current_path() / "myfile.dat";
+        boost::filesystem::ofstream ofs ( myFile );
+        boost::archive::binary_oarchive oarch ( ofs );
+        // oarch << result;
+        std::cout << ss.str();
+
+        std::cout << std::setprecision (
+                    std::numeric_limits<multiprecision_type>::max_digits10 )
+                << std::endl;
+        Eigen::MatrixXd sigma{{sigma_gaussion_distribution}};
+        for ( const auto &item_alpha : calculator.GetAlphas() )
         {
-            auto result_entropy = result[item_index][ item_alpha ];
-            std::cout << result_entropy << " ";
+            std::cout << item_alpha << " " << metric << " ";
+            for ( const auto &item_index : calculator.GetIndices() )
+            {
+                auto result_entropy = result[item_index][ item_alpha ];
+                std::cout << result_entropy << " ";
+            }
+            std::cout << random_samples::Renyi_entropy_normal_distribution (
+                        static_cast<double> ( item_alpha ), sigma )
+                    << std::endl;
         }
-        std::cout << random_samples::Renyi_entropy_normal_distribution (
-                      static_cast<double> ( item_alpha ), sigma )
-                  << std::endl;
     }
 }

@@ -57,3 +57,4 @@ void ADB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double gam
 void ACB_process(Eigen::MatrixXd &dataset, double alpha, double beta, double gamma, double eta1, double eta2, unsigned int number_samples, std::tuple<std::function<double ()>, std::function<double ()>, std::function<double ()>> random_generator, std::tuple<double, double, double> initial_confition = std::tuple<double, double, double>({0.,0.,0,}), double lambda=3);
 
 } // namespace random_samples
+// kate: indent-mode cstyle; indent-width 1; replace-tabs on; 

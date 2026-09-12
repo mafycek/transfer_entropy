@@ -28,10 +28,7 @@ const auto microseconds_in_second =
 
 int main ( int argc, char *argv[] )
 {
-
-    std::vector<std::string> methods{"LeonenkoProzanto",
-                                     "LeonenkoWithGeneralizedMetric"};
-
+    std::vector<std::string> methods {"LeonenkoProzanto", "LeonenkoWithGeneralizedMetric"};
     std::vector<std::string> random_noise_types
     {
         "uncorrelated_normal",    "correlated_normal",
@@ -42,7 +39,7 @@ int main ( int argc, char *argv[] )
     boost::program_options::options_description desc ( "Allowed options" );
     std::string version ( "1.0.0" );
     desc.add_options() 
-    ( "help", "Gaussian distribution analyzed by Renyi entropy" ) 
+    ( "help,h", "Gaussian distribution analyzed by Renyi entropy" )
     ( "version", "Version of the program" ) 
     ( "dimension", boost::program_options::value<unsigned int>()->default_value ( 2 ), "Dimension" ) 
     ( "neighborhood", boost::program_options::value<unsigned int>()->default_value ( 21 ), "Maximal neighborhood" ) 
@@ -68,7 +65,7 @@ int main ( int argc, char *argv[] )
     bool multithreading = false;
     if ( vm.count ( "multithreading" ) )
     {
-        multithreading = true;
+        multithreading = false;
     }
 
     // show version of the program
@@ -78,7 +75,7 @@ int main ( int argc, char *argv[] )
         return 1;
     }
 
-    const double alpha_max = 5;
+    const double alpha_max = 2;
     const double mean_gaussion_distribution = 0;
     const double sigma_gaussion_distribution = 1;
     const unsigned int dimension = vm["dimension"].as<unsigned int>();
@@ -93,7 +90,7 @@ int main ( int argc, char *argv[] )
               << ", random_noise_type= " << random_noise_type
               << ", method=" << method << std::endl;
 
-    const double delta_alpha = 0.005;
+    const double delta_alpha = 0.1;
     Eigen::MatrixXd sigma;
     std::vector<std::vector<double>> dataset;
     Eigen::MatrixXd dataset2;
@@ -234,14 +231,18 @@ int main ( int argc, char *argv[] )
         .count();
     BOOST_LOG_TRIVIAL ( trace ) << "Dataset generated in " << microseconds_elapsed_edata_generation / microseconds_in_second << " seconds";
 
+    const double lower_one_limit = 0.999;
+    const double upper_one_limit = 1.001;
     std::vector<double> alphas;
-    for ( double alpha = delta_alpha; alpha < 1; alpha += delta_alpha )
+    for ( double alpha = delta_alpha; alpha < lower_one_limit; alpha += delta_alpha )
     {
         alphas.push_back ( alpha );
     }
-    alphas.push_back ( 0.999 );
+    alphas.push_back ( lower_one_limit );
+    alphas.push_back ( 0.99999 );
     alphas.push_back ( 1 );
-    alphas.push_back ( 1.001 );
+    alphas.push_back ( 1.00001 );
+    alphas.push_back ( upper_one_limit );
     for ( double alpha = 1 + delta_alpha; alpha < alpha_max;
             alpha += delta_alpha )
     {
@@ -265,31 +266,31 @@ int main ( int argc, char *argv[] )
     renyi_entropy::renyi_entropy<double>::renyi_entropy_storage_collection result;
     if ( method == methods[0] )
     {
-        result = calculator.renyi_entropy_LeonenkoProzanto ( dataset, 2 );
+        calculator.renyi_entropy_LeonenkoProzanto ( result, dataset, metric );
     }
     else if ( method == methods[1] )
     {
-        result = calculator.renyi_entropy_metric ( dataset, metric );
+        calculator.renyi_entropy_metric ( result, dataset, metric );
     }
 
     renyi_entropy::renyi_entropy<double>::SaveRenyiEntropy ( result, ".", "myfile.dat" );
 
     for ( const auto &item_alpha : calculator.GetAlphas() )
     {
-        std::cout << item_alpha << " ";
-        for ( const auto &item_index : calculator.GetIndices() )
+        std::cout << item_alpha << " " << metric << " ";
+        for ( const auto &[item_count, item_index] :  std::views::enumerate(calculator.GetIndices()) )
         {
-            auto result_entropy = result[item_index][item_alpha];
+            auto result_entropy = result[item_count][item_alpha];
             std::cout << result_entropy << " ";
         }
         auto theoretical_renyi_entropy =
             renyi_entropy_function ( static_cast<double> ( item_alpha ), sigma );
         std::cout << theoretical_renyi_entropy << " ";
-        for ( const auto &item_index : calculator.GetIndices() )
+        for ( const auto &[item_count, item_index] : std::views::enumerate(calculator.GetIndices()) )
         {
             auto result_relative_entropy =
                 theoretical_renyi_entropy /
-                result[item_index][item_alpha];
+                result[item_count][item_alpha];
             std::cout << result_relative_entropy << " ";
         }
         std::cout << std::endl;

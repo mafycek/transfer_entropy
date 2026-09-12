@@ -3,7 +3,7 @@ file(GLOB SOURCES *.cpp)
 
 project(random_samples VERSION 1.0.0)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 
 add_subdirectory(prototype)
 add_subdirectory(python_support)
@@ -34,6 +34,12 @@ target_link_libraries(renyi_entropy_calculator PUBLIC
         ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_STATIC renyi_entropy_STATIC python_wrapper_STATIC cpptrace::cpptrace
 )
 
+add_executable(renyi_entropy_processing renyi_entropy_processing_main.cpp utils.cpp cpptrace_helper.cpp)
+target_include_directories(renyi_entropy_processing PUBLIC ${CMAKE_SOURCE_DIR}/third-party/ndarray/include ${CMAKE_SOURCE_DIR}/third-party/KDTree ${CMAKE_SOURCE_DIR}/third-party/cpp-btree ${CMAKE_SOURCE_DIR}/third-party/msgpack-c/include ${CMAKE_SOURCE_DIR}/third-party/cpptrace/include ${CMAKE_SOURCE_DIR}/third-party/pybind11/include renyi_entropy random_samples python_support)
+target_link_libraries(renyi_entropy_processing PUBLIC
+        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_STATIC renyi_entropy_STATIC python_wrapper_STATIC cpptrace::cpptrace
+)
+
 add_executable(test_utils test_utils.cpp utils.cpp)
 target_include_directories(test_utils PUBLIC ${CMAKE_SOURCE_DIR}/third-party/ndarray/include ${CMAKE_SOURCE_DIR}/third-party/KDTree ${CMAKE_SOURCE_DIR}/third-party/cpp-btree)
 target_link_libraries(test_utils PUBLIC
@@ -48,4 +54,10 @@ target_link_libraries(test_samples_store PUBLIC
 
 add_executable(renyi_entropy_figures renyi_entropy_figures_main.cpp cpptrace_helper.cpp)
 target_include_directories(renyi_entropy_figures PUBLIC ${CMAKE_SOURCE_DIR}/third-party/cpptrace/include ${CMAKE_SOURCE_DIR}/third-party/KDTree ${CMAKE_SOURCE_DIR}/third-party/msgpack-c/include ${CMAKE_SOURCE_DIR}/third-party/DataFrame/include ${CMAKE_SOURCE_DIR}/third-party/fmt/include ${CMAKE_SOURCE_DIR}/third-party/matplotlib-cpp ${Python_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/third-party/pybind11/include python_support renyi_entropy)
-target_link_libraries(renyi_entropy_figures PUBLIC python_wrapper_STATIC ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace )
+target_link_libraries(renyi_entropy_figures PUBLIC python_wrapper_STATIC ${Boost_LIBRARIES} GTest::gtest GTest::gtest_main Eigen3::Eigen cpptrace::cpptrace)
+
+add_executable(test_function_cache test_function_cache.cpp)
+target_include_directories(test_function_cache PUBLIC renyi_entropy)
+target_link_libraries(test_function_cache PUBLIC
+        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main cpptrace::cpptrace random_samples_SHARED
+)
