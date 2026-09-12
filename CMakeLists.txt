@@ -8,18 +8,20 @@ set(CMAKE_CXX_STANDARD 26)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 list(APPEND PKG_CONFIG_PATH /usr/lib/x86_64-linux-gnu/pkgconfig )
+cmake_policy(SET CMP0167 NEW)
 
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++2b" COMPILER_SUPPORTS_CXX2B)
 
-set(Boost_USE_STATIC_LIBS   ON)
+#set(Boost_USE_STATIC_LIBS   OFF)
 
 find_package(ICU COMPONENTS data i18n uc REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(zstd REQUIRED)
 find_package(GTest)
 find_package (Eigen3 REQUIRED)
-find_package(Boost 1.70 COMPONENTS filesystem serialization log program_options iostreams REQUIRED) #system
+set(boost_system_DIR /usr/lib/cmake/)
+find_package(Boost 1.90 COMPONENTS filesystem serialization log program_options REQUIRED)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 find_package(MPFR REQUIRED)
 find_package(GMP REQUIRED)
