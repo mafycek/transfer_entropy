@@ -13,7 +13,7 @@ add_subdirectory(renyi_entropy)
 add_executable(test_renyi_entropy_gaussian_distribution gaussian_distribution_mean.cpp)
 target_include_directories(test_renyi_entropy_gaussian_distribution PUBLIC ${PROJECT_SOURCE_DIR}/third-party/ndarray/include ${PROJECT_SOURCE_DIR}/third-party/KDTree ${PROJECT_SOURCE_DIR}/third-party/cpp-btree renyi_entropy random_samples)
 target_link_libraries(test_renyi_entropy_gaussian_distribution PUBLIC
-        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen random_samples_STATIC renyi_entropy_STATIC
+        ${Boost_LIBRARIES} KDTree GTest::gtest GTest::gtest_main Eigen3::Eigen ${MPFR_LIBRARY} random_samples_STATIC renyi_entropy_STATIC
 )
 
 add_executable(test_renyi_entropy_multi_gaussian_distribution gaussian_distribution_multi_mean.cpp)
@@ -31,7 +31,7 @@ target_link_libraries(binary_file_test PUBLIC
 add_executable(renyi_entropy_calculator renyi_entropy_calculator_main.cpp utils.cpp cpptrace_helper.cpp)
 target_include_directories(renyi_entropy_calculator PUBLIC ${CMAKE_SOURCE_DIR}/third-party/ndarray/include ${CMAKE_SOURCE_DIR}/third-party/KDTree ${CMAKE_SOURCE_DIR}/third-party/cpp-btree ${CMAKE_SOURCE_DIR}/third-party/msgpack-c/include ${CMAKE_SOURCE_DIR}/third-party/cpptrace/include ${CMAKE_SOURCE_DIR}/third-party/pybind11/include renyi_entropy random_samples python_support)
 target_link_libraries(renyi_entropy_calculator PUBLIC 
-        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_STATIC renyi_entropy_STATIC python_wrapper_STATIC cpptrace::cpptrace
+        ${Boost_LIBRARIES} KDTree stable_SHARED random_samples_STATIC renyi_entropy_STATIC python_wrapper_STATIC cpptrace::cpptrace ${MPFR_LIBRARY}
 )
 
 add_executable(renyi_entropy_processing renyi_entropy_processing_main.cpp utils.cpp cpptrace_helper.cpp)

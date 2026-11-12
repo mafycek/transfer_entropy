@@ -2,14 +2,12 @@
 
 #include "generic_python_wrapper.h"
 
-namespace python_wrappers
-{
+namespace python_wrappers {
 
 /**
  * @todo Wrapper of pandas
  */
-class pandas_wrapper : public generic_python_wrapper
-{
+class pandas_wrapper : public generic_python_wrapper {
 public:
   py::object pandas;
   py::object pandas_dataframe;
@@ -21,7 +19,6 @@ public:
   pandas_wrapper();
 
   ~pandas_wrapper();
-
 };
 
-}
+} // namespace python_wrappers

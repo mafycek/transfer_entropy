@@ -27,3 +27,6 @@
 [submodule "third-party/cpptrace"]
 	path = third-party/cpptrace
 	url = https://github.com/jeremy-rifkin/cpptrace.git
+[submodule "third-party/mongo-cxx-driver"]
+	path = third-party/mongo-cxx-driver
+	url = https://github.com/mongodb/mongo-cxx-driver.git

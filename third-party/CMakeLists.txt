@@ -6,6 +6,7 @@ add_subdirectory(msgpack-c)
 
 add_subdirectory(cpptrace)
 add_subdirectory(pybind11)
+add_subdirectory(mongo-cxx-driver)
 
 #include_directories(BEFORE ndarray/include)
 include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/cpp-btree/btree)
@@ -16,3 +17,5 @@ include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/cpptrace/include)
 include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/fmt/include)
 include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/matplotlib-cpp/include)
 include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/pybind11/include)
+include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/mongo-cxx-driver/src/bsoncxx/include/bsoncxx/v_noabi)
+include_directories(PUBLIC ${CMAKE_SOURCE_DIR}/third-party/mongo-cxx-driver/src/mongocxx/include/mongocxx/v_noabi)

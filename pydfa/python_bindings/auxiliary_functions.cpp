@@ -101,7 +101,7 @@ std::string & GetOutputBaseDir ( )
 int SetOutputBaseDir ( )
 {
     char * home;
-    home = getenv ("HOME");
+    home = getenv ( "HOME" );
 
     if ( home == nullptr )
     {
@@ -118,7 +118,7 @@ int SetOutputBaseDir ( )
 }
 
 
-int MakeFileName ( std::string & output , const std::string & general_dir , const std::string & specific_dir , const std::string & file )
+int MakeFileName ( std::string & output, const std::string & general_dir, const std::string & specific_dir, const std::string & file )
 {
     output = general_dir + specific_dir + "/" + file;
 
@@ -126,7 +126,7 @@ int MakeFileName ( std::string & output , const std::string & general_dir , cons
 }
 
 
-int MakeFileName ( std::string & output , const std::string & file )
+int MakeFileName ( std::string & output, const std::string & file )
 {
     output = GetOutputDir ( ) + file;
 
@@ -134,7 +134,7 @@ int MakeFileName ( std::string & output , const std::string & file )
 }
 
 
-int MakeFileName ( std::string & output , const std::string & file , const std::string & suffix )
+int MakeFileName ( std::string & output, const std::string & file, const std::string & suffix )
 {
     output = GetOutputDir ( ) + file + suffix;
 
@@ -142,11 +142,11 @@ int MakeFileName ( std::string & output , const std::string & file , const std::
 }
 
 
-int MakeFileName ( std::string & output , const std::string & file , int number , const std::string & suffix )
+int MakeFileName ( std::string & output, const std::string & file, int number, const std::string & suffix )
 {
     char number_char [ 100 ];
 
-    sprintf ( number_char , "%i" , number );
+    sprintf ( number_char, "%i", number );
 
     output = GetOutputDir ( ) + "/" + file + "-" + number_char + suffix;
 
@@ -154,23 +154,23 @@ int MakeFileName ( std::string & output , const std::string & file , int number 
 }
 
 
-int GetExtremesFileData1stRowInteger ( char * input , int * minimum , int * maximum , int * rows)
+int GetExtremesFileData1stRowInteger ( char * input, int * minimum, int * maximum, int * rows )
 {
     FILE * input_file;
 // opening output stream
-    if ( nullptr == ( input_file = fopen ( input , "r" ) ) )
+    if ( nullptr == ( input_file = fopen ( input, "r" ) ) )
     {
         return 1;
     }
 
 // analyzing data
     long counter = 0;
-    int min = INT_MAX , max = INT_MIN;
+    int min = INT_MAX, max = INT_MIN;
     for ( ; ! feof ( input_file ) ; )
     {
         int event;
         char character = 65;
-        fscanf ( input_file , "%i" , & event );
+        fscanf ( input_file, "%i", & event );
 // searching for new line
         for ( ; ! feof ( input_file ) || character != '\n' ; )
         {
@@ -215,23 +215,23 @@ int GetExtremesFileData1stRowInteger ( char * input , int * minimum , int * maxi
 }
 
 
-int GetExtremesFileData1stColumnInteger ( char * input , int * minimum , int * maximum , int * rows )
+int GetExtremesFileData1stColumnInteger ( char * input, int * minimum, int * maximum, int * rows )
 {
     FILE * input_file;
 // opening output stream
-    if ( nullptr == ( input_file = fopen ( input , "r" ) ) )
+    if ( nullptr == ( input_file = fopen ( input, "r" ) ) )
     {
         return 1;
     }
 
 // analyzing data
     long counter = 0;
-    int min = INT_MAX , max = INT_MIN;
+    int min = INT_MAX, max = INT_MIN;
     for ( ; ! feof ( input_file ) ; )
     {
         int event;
         char character = 65;
-        fscanf ( input_file , "%i" , & event );
+        fscanf ( input_file, "%i", & event );
 // searching for new line
         for ( ; ! feof ( input_file ) && character != '\n' ; )
         {
@@ -275,23 +275,23 @@ int GetExtremesFileData1stColumnInteger ( char * input , int * minimum , int * m
     return 0;
 }
 
-int GetExtremesFileData1stColumnDouble ( char * input , double * minimum , double * maximum , int * rows )
+int GetExtremesFileData1stColumnDouble ( char * input, double * minimum, double * maximum, int * rows )
 {
     FILE * input_file;
 // opening output stream
-    if ( nullptr == ( input_file = fopen ( input , "r" ) ) )
+    if ( nullptr == ( input_file = fopen ( input, "r" ) ) )
     {
         return 1;
     }
 
 // analyzing data
     long counter = 0;
-    double min = 1.7e308 , max = -1.7e308;
+    double min = 1.7e308, max = -1.7e308;
     for ( ; ! feof ( input_file ) ; )
     {
         double event;
         char character = 65;
-        fscanf ( input_file , "%lg" , & event );
+        fscanf ( input_file, "%lg", & event );
         // searching for new line
         for ( ; ! feof ( input_file ) && character != '\n' ; )
         {
@@ -336,10 +336,10 @@ int GetExtremesFileData1stColumnDouble ( char * input , double * minimum , doubl
 }
 
 
-int Load1stColumnDoubleToArray ( char * input , double * * array , int * elements )
+int Load1stColumnDoubleToArray ( char * input, double * * array, int * elements )
 {
     int rows;
-    auxiliary_functions :: GetExtremesFileData1stColumnDouble ( input , nullptr , nullptr , & rows);
+    auxiliary_functions :: GetExtremesFileData1stColumnDouble ( input, nullptr, nullptr, & rows );
     double * data_array = ( double * ) malloc ( sizeof ( double ) * ( rows + 1 ) );
 
     if ( data_array == nullptr )
@@ -349,7 +349,7 @@ int Load1stColumnDoubleToArray ( char * input , double * * array , int * element
 
     FILE * input_file;
 
-    if ( nullptr == ( input_file = fopen ( input , "r" ) ) )
+    if ( nullptr == ( input_file = fopen ( input, "r" ) ) )
     {
         return 1;
     }
@@ -359,7 +359,7 @@ int Load1stColumnDoubleToArray ( char * input , double * * array , int * element
     {
         double event;
         char character = 65;
-        fscanf ( input_file , "%lg" , & event );
+        fscanf ( input_file, "%lg", & event );
         data_array [ counter ] = event;
 // searching for new line
         for ( ; ! feof ( input_file ) && character != '\n' ; )
@@ -395,13 +395,13 @@ int DestroyDoubleArray ( double * array )
 }
 
 
-int compare_TYPE_OF_NODE ( const void * a , const void * b )
+int compare_TYPE_OF_NODE ( const void * a, const void * b )
 {
     return ( ( TYPE_OF_NODE * ) a ) [ 0 ] > ( ( TYPE_OF_NODE * ) b ) [ 0 ];
 }
 
 
-int compare_double ( const void * a , const void * b )
+int compare_double ( const void * a, const void * b )
 {
     if ( ( * ( double * ) a ) > ( * ( double * ) b ) )
     {
@@ -419,13 +419,13 @@ int compare_double ( const void * a , const void * b )
 }
 
 
-int compare_int ( const void * a , const void * b )
+int compare_int ( const void * a, const void * b )
 {
     return ( ( * ( int * ) a ) - ( * ( int * ) b ) );
 }
 
 
-int compare_complex_double ( const void * a , const void * b )
+int compare_complex_double ( const void * a, const void * b )
 {
     if ( ( * ( std::complex<double> * ) a ) . real ( ) > ( * ( std::complex<double> * ) b ) . real () )
     {

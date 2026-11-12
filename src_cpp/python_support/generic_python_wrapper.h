@@ -10,14 +10,12 @@
 namespace py = pybind11;
 using namespace pybind11::literals;
 
-namespace python_wrappers
-{
+namespace python_wrappers {
 
 /**
  * @todo write docs
  */
-class generic_python_wrapper
-{
+class generic_python_wrapper {
 protected:
   static bool _initialized;
 
@@ -27,4 +25,4 @@ public:
   ~generic_python_wrapper();
 };
 
-}
+} // namespace python_wrappers

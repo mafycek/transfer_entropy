@@ -5,16 +5,16 @@
 #include <iostream>
 #include <string>
 
-#include <sys/wait.h>
+#include <csignal>
 #include <cstring>
 #include <signal.h>
-#include <csignal>
+#include <sys/wait.h>
 #include <unistd.h>
 
 void trace();
 
-void handler(int signo, siginfo_t* info, void* context);
+void handler(int signo, siginfo_t *info, void *context);
 
 void warmup_cpptrace();
 
-void segfault_handler_cpptrace ();
+void segfault_handler_cpptrace();

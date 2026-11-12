@@ -4,12 +4,9 @@
 #include "matplotlib_wrapper.h"
 #pragma GCC diagnostic pop
 
-namespace python_wrappers
-{
+namespace python_wrappers {
 
-matplotlib_wrapper::matplotlib_wrapper()
-: generic_python_wrapper()
-{
+matplotlib_wrapper::matplotlib_wrapper() : generic_python_wrapper() {
   matplotlib = py::module_::import("matplotlib");
   matplotlib_pyplot = py::module_::import("matplotlib.pyplot");
   matplotlib_colormap = py::module_::import("matplotlib.cm");
@@ -69,8 +66,6 @@ matplotlib_wrapper::matplotlib_wrapper()
   matplotlib_colormaps = matplotlib.attr("colormaps");
 }
 
-matplotlib_wrapper::~matplotlib_wrapper()
-{
-}
+matplotlib_wrapper::~matplotlib_wrapper() {}
 
-}
+} // namespace python_wrappers

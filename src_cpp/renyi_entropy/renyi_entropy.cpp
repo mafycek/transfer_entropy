@@ -5,4 +5,4 @@
 #include "renyi_entropy.h"
 
 namespace renyi_entropy {} // namespace renyi_entropy
-// kate: indent-mode cstyle; indent-width 4; replace-tabs on; 
+// kate: indent-mode cstyle; indent-width 2; replace-tabs on; 

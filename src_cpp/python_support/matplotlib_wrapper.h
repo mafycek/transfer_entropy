@@ -2,15 +2,12 @@
 
 #include "generic_python_wrapper.h"
 
-
 /**
  * @todo Wrapper for matplotlib functions
  */
-namespace python_wrappers
-{
+namespace python_wrappers {
 
-class matplotlib_wrapper : public generic_python_wrapper
-{
+class matplotlib_wrapper : public generic_python_wrapper {
 public:
   // matplotlib imports
   py::object matplotlib;
@@ -75,7 +72,6 @@ public:
   matplotlib_wrapper();
 
   ~matplotlib_wrapper();
-
 };
 
-}
+} // namespace python_wrappers

@@ -12,361 +12,312 @@
 
 #include "renyi_entropy.h"
 
-double distance ( const std::vector<double> &a, const std::vector<double> &b )
-{
-    if ( a.size() == b.size() )
-    {
-        double distance = 0;
-        for ( int i = 0; i < a.size(); ++i )
-        {
-            distance += pow ( a[i] - b[i], 2 );
-        }
-        return sqrt ( distance );
+double distance(const std::vector<double> &a, const std::vector<double> &b) {
+  if (a.size() == b.size()) {
+    double distance = 0;
+    for (int i = 0; i < a.size(); ++i) {
+      distance += pow(a[i] - b[i], 2);
     }
-    return NAN;
+    return sqrt(distance);
+  }
+  return NAN;
 }
 
-TEST ( RenyiEntropy, SimpleTest )
-{
-    std::vector<std::vector<double>> dataset{{1, 1, 1}, {2, 1, 1}, {1, 1, 2},
-        {2, 1, 2}, {3, 1, 1}, {1, 1, 3},
-        {3, 3, 1}, {3, 3, 3}};
-    renyi_entropy::renyi_entropy<double> calculator;
-    auto tree = calculator.create_KDtree ( dataset );
+TEST(RenyiEntropy, SimpleTest) {
+  std::vector<std::vector<double>> dataset{{1, 1, 1}, {2, 1, 1}, {1, 1, 2},
+                                           {2, 1, 2}, {3, 1, 1}, {1, 1, 3},
+                                           {3, 3, 1}, {3, 3, 3}};
+  renyi_entropy::renyi_entropy<double> calculator;
+  auto tree = calculator.create_KDtree(dataset);
 
-    int nearest = 5;
-    std::vector<std::vector<double>> distances;
-    for ( const auto &point : dataset )
-    {
-        auto points = tree.nearest_points ( point, nearest );
-        std::vector<double> distance_vector;
-        for ( int i = 0; i < nearest; ++i )
-        {
-            distance_vector.push_back ( distance ( point, points[i] ) );
-        }
-        distances.push_back ( distance_vector );
+  int nearest = 5;
+  std::vector<std::vector<double>> distances;
+  for (const auto &point : dataset) {
+    auto points = tree.nearest_points(point, nearest);
+    std::vector<double> distance_vector;
+    for (int i = 0; i < nearest; ++i) {
+      distance_vector.push_back(distance(point, points[i]));
     }
-    const int use_index = 2;
-    auto maximum_distance_element =
-        std::max_element ( distances.begin(), distances.end(),
-                           [use_index] ( const auto &first, const auto &second )
-    {
-        if ( first[use_index] > second[use_index] )
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    } );
-    auto maximum_distance = ( *maximum_distance_element ) [use_index];
+    distances.push_back(distance_vector);
+  }
+  const int use_index = 2;
+  auto maximum_distance_element =
+      std::max_element(distances.begin(), distances.end(),
+                       [use_index](const auto &first, const auto &second) {
+                         if (first[use_index] > second[use_index]) {
+                           return true;
+                         } else {
+                           return false;
+                         }
+                       });
+  auto maximum_distance = (*maximum_distance_element)[use_index];
 
-    std::cout << maximum_distance << std::endl;
+  std::cout << maximum_distance << std::endl;
 
-    std::vector<double> alpha{0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2};
-    std::vector<unsigned int> indices{1, 2, 3, 4, 5};
-    calculator.SetAlpha ( alpha );
-    calculator.SetIndices ( indices );
-    calculator.SetExp ( [&] ( double x )
-    {
-        return exp ( x );
-    } );
-    calculator.SetLog ( [&] ( double x )
-    {
-        return log ( x );
-    } );
-    calculator.SetPower ( [&] ( double x, double y )
-    {
-        return pow ( x, y );
-    } );
+  std::vector<double> alpha{0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2};
+  std::vector<unsigned int> indices{1, 2, 3, 4, 5};
+  calculator.SetAlpha(alpha);
+  calculator.SetIndices(indices);
+  calculator.SetExp([&](double x) { return exp(x); });
+  calculator.SetLog([&](double x) { return log(x); });
+  calculator.SetPower([&](double x, double y) { return pow(x, y); });
 
-    renyi_entropy::renyi_entropy<double>::renyi_entropy_storage_collection result;
-    calculator.renyi_entropy_LeonenkoProzanto (result, dataset, 2 );
-    std::stringstream ss;
-    boost::filesystem::path myFile =
-        boost::filesystem::current_path() / "myfile.dat";
-    boost::filesystem::ofstream ofs ( myFile );
-    boost::archive::binary_oarchive oarch ( ofs );
-    //oarch << result;
-    std::cout << ss.str();
+  renyi_entropy::renyi_entropy<double>::renyi_entropy_storage_collection result;
+  calculator.renyi_entropy_LeonenkoProzanto(result, dataset, 2);
+  std::stringstream ss;
+  boost::filesystem::path myFile =
+      boost::filesystem::current_path() / "myfile.dat";
+  boost::filesystem::ofstream ofs(myFile);
+  boost::archive::binary_oarchive oarch(ofs);
+  // oarch << result;
+  std::cout << ss.str();
 
-    EXPECT_EQ ( 0, 0 );
+  EXPECT_EQ(0, 0);
 }
 
-TEST ( RenyiEntropy, EigenSimpleTest )
-{
-    unsigned int dimension{10};
-    Eigen::MatrixXd dataset = Eigen::MatrixXd::Identity ( dimension, dimension );
+TEST(RenyiEntropy, EigenSimpleTest) {
+  unsigned int dimension{10};
+  Eigen::MatrixXd dataset = Eigen::MatrixXd::Identity(dimension, dimension);
 
-    renyi_entropy::renyi_entropy<double> calculator;
-    auto tree = calculator.create_KDtree ( dataset );
+  renyi_entropy::renyi_entropy<double> calculator;
+  auto tree = calculator.create_KDtree(dataset);
 }
 
-TEST ( RenyiEntropy, Volumes )
-{
-    unsigned int max_dimension = 10;
-    for ( unsigned dimensions = 2; dimensions <= max_dimension; ++dimensions )
-    {
-        auto volume_unit_sphere =
-            renyi_entropy::volume_of_hypersphere<double> ( 1, 2, dimensions );
-        auto volume_unit_sphere2 =
-            pow ( std::numbers::pi_v<double>, dimensions / 2.0 ) /
-            boost::math::tgamma ( dimensions / 2.0 + 1 );
+TEST(RenyiEntropy, Volumes) {
+  unsigned int max_dimension = 10;
+  for (unsigned dimensions = 2; dimensions <= max_dimension; ++dimensions) {
+    auto volume_unit_sphere =
+        renyi_entropy::volume_of_hypersphere<double>(1, 2, dimensions);
+    auto volume_unit_sphere2 =
+        pow(std::numbers::pi_v<double>, dimensions / 2.0) /
+        boost::math::tgamma(dimensions / 2.0 + 1);
 
-        std::cout << volume_unit_sphere << " " << volume_unit_sphere2 << std::endl;
-        // EXPECT_EQ(volume_unit_sphere, volume_unit_sphere2);
+    std::cout << volume_unit_sphere << " " << volume_unit_sphere2 << std::endl;
+    // EXPECT_EQ(volume_unit_sphere, volume_unit_sphere2);
+  }
+}
+
+TEST(RenyiEntropy, SamplesFromArrays) {
+  unsigned int columns{100}, rows{2};
+  Eigen::MatrixXd dataset(columns, rows);
+  for (unsigned int i = 0; i < columns; ++i) {
+    for (unsigned int j = 0; j < rows; ++j) {
+      dataset(i, j) = i + j * 0.5;
     }
+  }
+
+  std::map<std::string, std::any> parameters;
+  parameters["select_indices"] = std::vector<unsigned int>({0, 1, 2, 3, 4, 5});
+
+  auto prepared_renyi_dataset =
+      renyi_entropy::renyi_entropy<double>::samples_from_arrays(dataset,
+                                                                parameters);
+  std::cout << prepared_renyi_dataset->transpose() << std::endl;
 }
 
-TEST ( RenyiEntropy, SamplesFromArrays )
-{
-    unsigned int columns{100}, rows{2};
-    Eigen::MatrixXd dataset ( columns, rows );
-    for ( unsigned int i = 0; i < columns; ++i )
+TEST(RenyiEntropy, CoroutineSamplesFromArrays) {
+  unsigned int columns{100}, rows{2};
+  Eigen::MatrixXd dataset(columns, rows);
+  for (unsigned int i = 0; i < columns; ++i) {
+    for (unsigned int j = 0; j < rows; ++j) {
+      dataset(i, j) = i + j * 0.5;
+    }
+  }
+
+  std::map<std::string, std::any> parameters;
+  parameters["select_indices"] = std::vector<unsigned int>({0, 1, 2, 3, 4, 5});
+
+  for (auto item :
+       renyi_entropy::renyi_entropy<double>::generator_samples_from_arrays(
+           dataset, parameters)) {
+    std::cout << item->transpose() << std::endl;
+  }
+}
+
+TEST(RenyiEntropy, PreparesDataset2D) {
+  unsigned int columns{100}, rows{2};
+  Eigen::MatrixXd dataset(rows, columns);
+  {
+    int count = 0;
+    for (unsigned int i = 0; i < columns; ++i) {
+      for (unsigned int j = 0; j < rows; ++j) {
+        dataset(j, i) = count;
+        ++count;
+      }
+    }
+  }
+  std::cout << dataset << std::endl;
+
+  {
+    std::vector<unsigned int> selection_x{0};
+    std::vector<unsigned int> selection_y{1};
+    std::vector<unsigned int> selection_z{};
+    auto [dataset1, dataset2, dataset3] =
+        renyi_entropy::renyi_entropy<double>::prepare_dataset(
+            dataset, false, false, false, selection_x, selection_y,
+            selection_z);
+    for (unsigned int i = 0; i < columns; ++i) {
+      EXPECT_EQ(dataset1(0, i), dataset(0, i));
+      EXPECT_EQ(dataset2(0, i), dataset(1, i));
+    }
+  }
+
+  {
+    auto [dataset_swap1, dataset_swap2] =
+        renyi_entropy::renyi_entropy<double>::prepare_dataset(
+            dataset, true, false, false, 1, 1);
+    for (unsigned int i = 0; i < columns; ++i) {
+      EXPECT_EQ(dataset_swap2(0, i), dataset(0, i));
+      EXPECT_EQ(dataset_swap1(0, i), dataset(1, i));
+    }
+  }
+
+  {
+    auto [dataset_shuffled1, dataset_shuffled2] =
+        renyi_entropy::renyi_entropy<double>::prepare_dataset(
+            dataset, false, true, false, 1, 1);
+    for (unsigned int i = 0; i < columns; ++i) {
+      auto data1 = static_cast<unsigned int>(dataset_shuffled1(0, i));
+      auto data2 = static_cast<unsigned int>(dataset_shuffled2(0, i));
+      EXPECT_EQ(data1 % 2, 0);
+      EXPECT_EQ(data2 % 2, 1);
+    }
+  }
+
+  {
+    auto [dataset_shuffled1, dataset_shuffled2] =
+        renyi_entropy::renyi_entropy<double>::prepare_dataset(
+            dataset, true, true, false, 1, 1);
+    for (unsigned int i = 0; i < columns; ++i) {
+      auto data1 = static_cast<unsigned int>(dataset_shuffled1(0, i));
+      auto data2 = static_cast<unsigned int>(dataset_shuffled2(0, i));
+      EXPECT_EQ(data2 % 2, 0);
+      EXPECT_EQ(data1 % 2, 1);
+    }
+  }
+}
+
+TEST(RenyiEntropy, PreparesDatasetND) {
+  unsigned int maximum_number_rows{10};
+  for (unsigned int number_rows = 3; number_rows < maximum_number_rows;
+       ++number_rows) {
+    unsigned int columns{100}, rows{number_rows};
+    Eigen::MatrixXd dataset(rows, columns);
     {
-        for ( unsigned int j = 0; j < rows; ++j )
-        {
-            dataset ( i, j ) = i + j * 0.5;
+      int count = 0;
+      for (unsigned int i = 0; i < columns; ++i) {
+        for (unsigned int j = 0; j < rows; ++j) {
+          dataset(j, i) = count;
+          ++count;
         }
-    }
-
-    std::map<std::string, std::any> parameters;
-    parameters["select_indices"] = std::vector<unsigned int> ( {0, 1, 2, 3, 4, 5} );
-
-    auto prepared_renyi_dataset =
-        renyi_entropy::renyi_entropy<double>::samples_from_arrays ( dataset,
-                parameters );
-    std::cout << prepared_renyi_dataset->transpose() << std::endl;
-}
-
-TEST ( RenyiEntropy, CoroutineSamplesFromArrays )
-{
-    unsigned int columns{100}, rows{2};
-    Eigen::MatrixXd dataset ( columns, rows );
-    for ( unsigned int i = 0; i < columns; ++i )
-    {
-        for ( unsigned int j = 0; j < rows; ++j )
-        {
-            dataset ( i, j ) = i + j * 0.5;
-        }
-    }
-
-    std::map<std::string, std::any> parameters;
-    parameters["select_indices"] = std::vector<unsigned int> ( {0, 1, 2, 3, 4, 5} );
-
-    for ( auto item :
-            renyi_entropy::renyi_entropy<double>::generator_samples_from_arrays (
-                dataset, parameters ) )
-    {
-        std::cout << item->transpose() << std::endl;
-    }
-}
-
-TEST ( RenyiEntropy, PreparesDataset2D )
-{
-    unsigned int columns{100}, rows{2};
-    Eigen::MatrixXd dataset ( rows, columns );
-    {
-        int count = 0;
-        for ( unsigned int i = 0; i < columns; ++i )
-        {
-            for ( unsigned int j = 0; j < rows; ++j )
-            {
-                dataset ( j, i ) = count;
-                ++count;
-            }
-        }
+      }
     }
     std::cout << dataset << std::endl;
 
-    {
-        std::vector<unsigned int> selection_x{0};
-        std::vector<unsigned int> selection_y{1};
-        std::vector<unsigned int> selection_z{};
-        auto [dataset1, dataset2, dataset3] =
-            renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, false,
-                    false, false, selection_x, selection_y, selection_z );
-        for ( unsigned int i = 0; i < columns; ++i )
-        {
-            EXPECT_EQ ( dataset1 ( 0, i ), dataset ( 0, i ) );
-            EXPECT_EQ ( dataset2 ( 0, i ), dataset ( 1, i ) );
+    for (unsigned int separation_row = 1; separation_row < number_rows - 1;
+         ++separation_row) {
+      {
+        auto [dataset1, dataset2] =
+            renyi_entropy::renyi_entropy<double>::prepare_dataset(
+                dataset, false, false, false, separation_row,
+                number_rows - separation_row);
+        // std::cout << dataset1 <<  std::endl <<  std::endl << dataset2 <<
+        // std::endl;
+        for (unsigned int i = 0; i < columns; ++i) {
+          for (unsigned int row_number = 0; row_number < separation_row;
+               ++row_number) {
+            EXPECT_EQ(dataset1(row_number, i), dataset(row_number, i));
+          }
+          for (unsigned int row_number = separation_row;
+               row_number < number_rows; ++row_number) {
+            EXPECT_EQ(dataset2(row_number - separation_row, i),
+                      dataset(row_number, i));
+          }
         }
-    }
+      }
 
-    {
+      {
         auto [dataset_swap1, dataset_swap2] =
-            renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, true,
-                    false, false, 1, 1 );
-        for ( unsigned int i = 0; i < columns; ++i )
-        {
-            EXPECT_EQ ( dataset_swap2 ( 0, i ), dataset ( 0, i ) );
-            EXPECT_EQ ( dataset_swap1 ( 0, i ), dataset ( 1, i ) );
+            renyi_entropy::renyi_entropy<double>::prepare_dataset(
+                dataset, true, false, false, separation_row,
+                number_rows - separation_row);
+        for (unsigned int i = 0; i < columns; ++i) {
+          for (unsigned int row_number = 0; row_number < separation_row;
+               ++row_number) {
+            EXPECT_EQ(dataset_swap2(row_number, i), dataset(row_number, i));
+          }
+          for (unsigned int row_number = separation_row;
+               row_number < number_rows; ++row_number) {
+            EXPECT_EQ(dataset_swap1(row_number - separation_row, i),
+                      dataset(row_number, i));
+          }
         }
-    }
+      }
 
-    {
+      {
         auto [dataset_shuffled1, dataset_shuffled2] =
-            renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, false,
-                    true, false, 1, 1 );
-        for ( unsigned int i = 0; i < columns; ++i )
-        {
-            auto data1 = static_cast<unsigned int> ( dataset_shuffled1 ( 0, i ) );
-            auto data2 = static_cast<unsigned int> ( dataset_shuffled2 ( 0, i ) );
-            EXPECT_EQ ( data1 % 2, 0 );
-            EXPECT_EQ ( data2 % 2, 1 );
+            renyi_entropy::renyi_entropy<double>::prepare_dataset(
+                dataset, false, true, false, separation_row,
+                number_rows - separation_row);
+        // std::cout << dataset_shuffled1 <<  std::endl <<  std::endl <<
+        // dataset_shuffled2 << std::endl;
+        for (unsigned int i = 0; i < columns; ++i) {
+          for (unsigned int row_number = 0; row_number < separation_row;
+               ++row_number) {
+            auto data1 =
+                static_cast<unsigned int>(dataset_shuffled1(row_number, i));
+            EXPECT_EQ(data1 % number_rows, row_number);
+          }
+          for (unsigned int row_number = separation_row;
+               row_number < number_rows; ++row_number) {
+            auto data2 = static_cast<unsigned int>(
+                dataset_shuffled2(row_number - separation_row, i));
+            EXPECT_EQ(data2 % number_rows, row_number);
+          }
         }
-    }
+      }
 
-    {
+      {
         auto [dataset_shuffled1, dataset_shuffled2] =
-            renyi_entropy::renyi_entropy<double>::prepare_dataset ( dataset, true,
-                    true, false, 1, 1 );
-        for ( unsigned int i = 0; i < columns; ++i )
-        {
-            auto data1 = static_cast<unsigned int> ( dataset_shuffled1 ( 0, i ) );
-            auto data2 = static_cast<unsigned int> ( dataset_shuffled2 ( 0, i ) );
-            EXPECT_EQ ( data2 % 2, 0 );
-            EXPECT_EQ ( data1 % 2, 1 );
+            renyi_entropy::renyi_entropy<double>::prepare_dataset(
+                dataset, true, true, false, separation_row,
+                number_rows - separation_row);
+        // std::cout << dataset_shuffled1 <<  std::endl <<  std::endl <<
+        // dataset_shuffled2 << std::endl;
+        for (unsigned int i = 0; i < columns; ++i) {
+          for (unsigned int row_number = 0; row_number < separation_row;
+               ++row_number) {
+            auto data2 =
+                static_cast<unsigned int>(dataset_shuffled2(row_number, i));
+            EXPECT_EQ(data2 % number_rows, row_number);
+          }
+          for (unsigned int row_number = separation_row;
+               row_number < number_rows; ++row_number) {
+            auto data1 = static_cast<unsigned int>(
+                dataset_shuffled1(row_number - separation_row, i));
+            EXPECT_EQ(data1 % number_rows, row_number);
+          }
         }
+      }
     }
+  }
 }
 
-TEST ( RenyiEntropy, PreparesDatasetND )
-{
-    unsigned int maximum_number_rows{10};
-    for ( unsigned int number_rows = 3; number_rows < maximum_number_rows;
-            ++number_rows )
-    {
-        unsigned int columns{100}, rows{number_rows};
-        Eigen::MatrixXd dataset ( rows, columns );
-        {
-            int count = 0;
-            for ( unsigned int i = 0; i < columns; ++i )
-            {
-                for ( unsigned int j = 0; j < rows; ++j )
-                {
-                    dataset ( j, i ) = count;
-                    ++count;
-                }
-            }
-        }
-        std::cout << dataset << std::endl;
+TEST(RenyiEntropy, SurrogateSample) {
+  unsigned int columns{100}, rows{1};
+  Eigen::MatrixXd dataset(rows, columns);
 
-        for ( unsigned int separation_row = 1; separation_row < number_rows - 1;
-                ++separation_row )
-        {
-            {
-                auto [dataset1, dataset2] =
-                    renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, false, false, false, separation_row,
-                        number_rows - separation_row );
-                // std::cout << dataset1 <<  std::endl <<  std::endl << dataset2 << std::endl;
-                for ( unsigned int i = 0; i < columns; ++i )
-                {
-                    for ( unsigned int row_number = 0; row_number < separation_row;
-                            ++row_number )
-                    {
-                        EXPECT_EQ ( dataset1 ( row_number, i ), dataset ( row_number, i ) );
-                    }
-                    for ( unsigned int row_number = separation_row;
-                            row_number < number_rows; ++row_number )
-                    {
-                        EXPECT_EQ ( dataset2 ( row_number - separation_row, i ),
-                                    dataset ( row_number, i ) );
-                    }
-                }
-            }
+  auto surrogate_dataset =
+      renyi_entropy::renyi_entropy<double>::surrogate_sample(dataset);
+  auto dataset_power_spectrum =
+      renyi_entropy::renyi_entropy<double>::power_spectrum(dataset);
+  auto surrogate_dataset_power_spectrum =
+      renyi_entropy::renyi_entropy<double>::power_spectrum(surrogate_dataset);
 
-            {
-                auto [dataset_swap1, dataset_swap2] =
-                    renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, true, false, false, separation_row,
-                        number_rows - separation_row );
-                for ( unsigned int i = 0; i < columns; ++i )
-                {
-                    for ( unsigned int row_number = 0; row_number < separation_row;
-                            ++row_number )
-                    {
-                        EXPECT_EQ ( dataset_swap2 ( row_number, i ), dataset ( row_number, i ) );
-                    }
-                    for ( unsigned int row_number = separation_row;
-                            row_number < number_rows; ++row_number )
-                    {
-                        EXPECT_EQ ( dataset_swap1 ( row_number - separation_row, i ),
-                                    dataset ( row_number, i ) );
-                    }
-                }
-            }
-
-            {
-                auto [dataset_shuffled1, dataset_shuffled2] =
-                    renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, false, true, false, separation_row,
-                        number_rows - separation_row );
-                // std::cout << dataset_shuffled1 <<  std::endl <<  std::endl << dataset_shuffled2 << std::endl;
-                for ( unsigned int i = 0; i < columns; ++i )
-                {
-                    for ( unsigned int row_number = 0; row_number < separation_row;
-                            ++row_number )
-                    {
-                        auto data1 =
-                            static_cast<unsigned int> ( dataset_shuffled1 ( row_number, i ) );
-                        EXPECT_EQ ( data1 % number_rows, row_number );
-                    }
-                    for ( unsigned int row_number = separation_row;
-                            row_number < number_rows; ++row_number )
-                    {
-                        auto data2 = static_cast<unsigned int> (
-                                         dataset_shuffled2 ( row_number - separation_row, i ) );
-                        EXPECT_EQ ( data2 % number_rows, row_number );
-                    }
-                }
-            }
-
-            {
-                auto [dataset_shuffled1, dataset_shuffled2] =
-                    renyi_entropy::renyi_entropy<double>::prepare_dataset (
-                        dataset, true, true, false, separation_row,
-                        number_rows - separation_row );
-                // std::cout << dataset_shuffled1 <<  std::endl <<  std::endl << dataset_shuffled2 << std::endl;
-                for ( unsigned int i = 0; i < columns; ++i )
-                {
-                    for ( unsigned int row_number = 0; row_number < separation_row;
-                            ++row_number )
-                    {
-                        auto data2 =
-                            static_cast<unsigned int> ( dataset_shuffled2 ( row_number, i ) );
-                        EXPECT_EQ ( data2 % number_rows, row_number );
-                    }
-                    for ( unsigned int row_number = separation_row;
-                            row_number < number_rows; ++row_number )
-                    {
-                        auto data1 = static_cast<unsigned int> (
-                                         dataset_shuffled1 ( row_number - separation_row, i ) );
-                        EXPECT_EQ ( data1 % number_rows, row_number );
-                    }
-                }
-            }
-        }
-    }
+  const int count = dataset_power_spectrum.cols();
+  for (int i = 0; i < count; ++i) {
+    std::cout << count << " " << dataset_power_spectrum(0, i) << " "
+              << surrogate_dataset_power_spectrum(0, i) << std::endl;
+  }
 }
-
-
-TEST ( RenyiEntropy, SurrogateSample )
-{
-    unsigned int columns{100}, rows{1};
-    Eigen::MatrixXd dataset ( rows, columns );
-
-    auto surrogate_dataset = renyi_entropy::renyi_entropy<double>::surrogate_sample ( dataset );
-    auto dataset_power_spectrum = renyi_entropy::renyi_entropy<double>::power_spectrum ( dataset );
-    auto surrogate_dataset_power_spectrum = renyi_entropy::renyi_entropy<double>::power_spectrum ( surrogate_dataset );
-
-    const int count = dataset_power_spectrum.cols();
-    for ( int i = 0; i < count; ++ i )
-    {
-        std::cout << count << " " << dataset_power_spectrum ( 0, i ) << " " << surrogate_dataset_power_spectrum ( 0, i ) << std::endl;
-    }
-
-}
-// kate: indent-mode cstyle; indent-width 4; replace-tabs on; 
+// kate: indent-mode cstyle; indent-width 2; replace-tabs on; 

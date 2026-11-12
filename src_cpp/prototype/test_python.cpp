@@ -14,16 +14,12 @@ using namespace pybind11::literals;
 
 PYBIND11_MAKE_OPAQUE(std::map<std::tuple<std::string, std::string>, double>)
 
-TEST ( PyBind11, matplotlib )
-{
+TEST(PyBind11, matplotlib) {
   Py_Initialize();
 
-  if ( !Py_IsInitialized() )
-  {
+  if (!Py_IsInitialized()) {
     throw std::runtime_error("Unable to initialize Python interpreter!");
-  }
-  else
-  {
+  } else {
     std::cout << Py_GetVersion() << std::endl;
     std::cout << Py_GetPlatform() << std::endl;
     std::cout << Py_GetCopyright() << std::endl;
@@ -42,7 +38,8 @@ TEST ( PyBind11, matplotlib )
   py::object matplotlib_pyplot_draw = matplotlib_pyplot.attr("draw");
   py::object matplotlib_pyplot_pause = matplotlib_pyplot.attr("pause");
   py::object matplotlib_pyplot_figure = matplotlib_pyplot.attr("figure");
-  py::object matplotlib_pyplot_fignum_exists = matplotlib_pyplot.attr("fignum_exists");
+  py::object matplotlib_pyplot_fignum_exists =
+      matplotlib_pyplot.attr("fignum_exists");
   py::object matplotlib_pyplot_plot = matplotlib_pyplot.attr("plot");
   py::object matplotlib_pyplot_quiver = matplotlib_pyplot.attr("quiver");
   py::object matplotlib_pyplot_contour = matplotlib_pyplot.attr("contour");
@@ -52,7 +49,8 @@ TEST ( PyBind11, matplotlib )
   py::object matplotlib_pyplot_semilogy = matplotlib_pyplot.attr("semilogy");
   py::object matplotlib_pyplot_loglog = matplotlib_pyplot.attr("loglog");
   py::object matplotlib_pyplot_fill = matplotlib_pyplot.attr("fill");
-  py::object matplotlib_pyplot_fill_between = matplotlib_pyplot.attr("fill_between");
+  py::object matplotlib_pyplot_fill_between =
+      matplotlib_pyplot.attr("fill_between");
   py::object matplotlib_pyplot_hist = matplotlib_pyplot.attr("hist");
   py::object matplotlib_pyplot_scatter = matplotlib_pyplot.attr("scatter");
   py::object matplotlib_pyplot_spy = matplotlib_pyplot.attr("spy");
@@ -76,12 +74,14 @@ TEST ( PyBind11, matplotlib )
   py::object matplotlib_pyplot_annotate = matplotlib_pyplot.attr("annotate");
   py::object matplotlib_pyplot_clf = matplotlib_pyplot.attr("clf");
   py::object matplotlib_pyplot_errorbar = matplotlib_pyplot.attr("errorbar");
-  py::object matplotlib_pyplot_tight_layout = matplotlib_pyplot.attr("tight_layout");
+  py::object matplotlib_pyplot_tight_layout =
+      matplotlib_pyplot.attr("tight_layout");
   py::object matplotlib_pyplot_stem = matplotlib_pyplot.attr("stem");
   py::object matplotlib_pyplot_xkcd = matplotlib_pyplot.attr("xkcd");
   py::object matplotlib_pyplot_suptitle = matplotlib_pyplot.attr("suptitle");
   py::object matplotlib_pyplot_bar = matplotlib_pyplot.attr("bar");
-  py::object matplotlib_pyplot_subplots_adjust = matplotlib_pyplot.attr("subplots_adjust");
+  py::object matplotlib_pyplot_subplots_adjust =
+      matplotlib_pyplot.attr("subplots_adjust");
   py::object matplotlib_pyplot_imshow = matplotlib_pyplot.attr("imshow");
   py::object matplotlib_pyplot_colorbar = matplotlib_pyplot.attr("colorbar");
   py::object matplotlib_pyplot_rcParams = matplotlib_pyplot.attr("rcParams");
@@ -106,12 +106,13 @@ TEST ( PyBind11, matplotlib )
   matplotlib_pyplot_plot(x, y);
   matplotlib_pyplot_show();
 
-  auto fill_colormap = matplotlib_colormaps [py::str("jet")];
-  auto color = fill_colormap( py::float_(0.1 ));
-  py::dict kwargs ("color"_a = color, "linewidth"_a = py::float_(3.), "alpha"_a = py::float_(0.7));
+  auto fill_colormap = matplotlib_colormaps[py::str("jet")];
+  auto color = fill_colormap(py::float_(0.1));
+  py::dict kwargs("color"_a = color, "linewidth"_a = py::float_(3.),
+                  "alpha"_a = py::float_(0.7));
   matplotlib_pyplot_fill_between(x, y1, y2, **kwargs);
 
-  auto color2 = fill_colormap( py::float_(0.9 ));
+  auto color2 = fill_colormap(py::float_(0.9));
   kwargs[py::str("color")] = color2;
   matplotlib_pyplot_fill_between(x, z1, z2, **kwargs);
 
@@ -119,16 +120,12 @@ TEST ( PyBind11, matplotlib )
   matplotlib_pyplot_close();
 }
 
-TEST ( PyBind11, pandas )
-{
+TEST(PyBind11, pandas) {
   Py_Initialize();
 
-  if ( !Py_IsInitialized() )
-  {
+  if (!Py_IsInitialized()) {
     throw std::runtime_error("Unable to initialize Python interpreter!");
-  }
-  else
-  {
+  } else {
     std::cout << Py_GetVersion() << std::endl;
     std::cout << Py_GetPlatform() << std::endl;
     std::cout << Py_GetCopyright() << std::endl;
@@ -139,36 +136,46 @@ TEST ( PyBind11, pandas )
   py::object pandas = py::module_::import("pandas");
   py::object pandas_dataframe = pandas.attr("DataFrame");
   py::object pandas_multiindex = pandas.attr("MultiIndex");
-  py::object pandas_multiindex_from_tuples = pandas_multiindex.attr("from_tuples");
+  py::object pandas_multiindex_from_tuples =
+      pandas_multiindex.attr("from_tuples");
 
-  auto column_multiindex = pandas_multiindex_from_tuples("tuples"_a=std::list<py::tuple>{py::make_tuple(py::str("A"), py::make_tuple(0, 1, 2)), py::make_tuple(py::str("A"), py::make_tuple(0, 1, 2, 3)), py::make_tuple(py::str("B"), py::make_tuple(0, 1, 2, 3, 4))}, "names"_a=std::list<py::str>{py::str("AA"), py::str("BB")});
-  auto indexn_multiindex = pandas_multiindex_from_tuples("tuples"_a=std::list<py::tuple>{py::make_tuple(py::str("A"), py::make_tuple(0, 1)), py::make_tuple(py::str("A"), py::make_tuple(0)), py::make_tuple(py::str("B"), py::make_tuple(0, 1, 2))}, "names"_a=std::list<py::str>{py::str("aa"), py::str("bb")});
-  auto empty_dataframe = pandas_dataframe("index"_a=indexn_multiindex, "columns"_a=column_multiindex);
+  auto column_multiindex = pandas_multiindex_from_tuples(
+      "tuples"_a =
+          std::list<py::tuple>{
+              py::make_tuple(py::str("A"), py::make_tuple(0, 1, 2)),
+              py::make_tuple(py::str("A"), py::make_tuple(0, 1, 2, 3)),
+              py::make_tuple(py::str("B"), py::make_tuple(0, 1, 2, 3, 4))},
+      "names"_a = std::list<py::str>{py::str("AA"), py::str("BB")});
+  auto indexn_multiindex = pandas_multiindex_from_tuples(
+      "tuples"_a =
+          std::list<py::tuple>{
+              py::make_tuple(py::str("A"), py::make_tuple(0, 1)),
+              py::make_tuple(py::str("A"), py::make_tuple(0)),
+              py::make_tuple(py::str("B"), py::make_tuple(0, 1, 2))},
+      "names"_a = std::list<py::str>{py::str("aa"), py::str("bb")});
+  auto empty_dataframe = pandas_dataframe("index"_a = indexn_multiindex,
+                                          "columns"_a = column_multiindex);
   py::print(empty_dataframe);
 
-  std::map<py::tuple, py::float_ > column_dataset{{py::make_tuple("a", "b"), py::float_(1.)}};
-  py::object dataset = py::cast( column_dataset );
+  std::map<py::tuple, py::float_> column_dataset{
+      {py::make_tuple("a", "b"), py::float_(1.)}};
+  py::object dataset = py::cast(column_dataset);
   py::print(dataset);
   py::dict column;
-  column [ py::make_tuple( 'a', 'v' ) ] = py::cast( column_dataset );
+  column[py::make_tuple('a', 'v')] = py::cast(column_dataset);
   py::object dataframe = pandas_dataframe();
   py::object dataframe_join = dataframe.attr("join");
   py::print(dataframe_join);
   dataframe_join(column);
   py::print(dataframe);
-
 }
 
-TEST ( PyBind11, vectorTest )
-{
+TEST(PyBind11, vectorTest) {
   Py_Initialize();
 
-  if ( !Py_IsInitialized() )
-  {
+  if (!Py_IsInitialized()) {
     throw std::runtime_error("Unable to initialize Python interpreter!");
-  }
-  else
-  {
+  } else {
     std::cout << Py_GetVersion() << std::endl;
     std::cout << Py_GetPlatform() << std::endl;
     std::cout << Py_GetCopyright() << std::endl;
@@ -181,5 +188,4 @@ TEST ( PyBind11, vectorTest )
   dataset.push_back(6);
   auto tuple = py::tuple(py::cast(dataset));
   py::print(tuple);
-
 }

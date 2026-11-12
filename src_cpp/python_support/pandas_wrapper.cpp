@@ -4,12 +4,9 @@
 #include "pandas_wrapper.h"
 #pragma GCC diagnostic pop
 
-namespace python_wrappers
-{
+namespace python_wrappers {
 
-pandas_wrapper::pandas_wrapper()
-: generic_python_wrapper()
-{
+pandas_wrapper::pandas_wrapper() : generic_python_wrapper() {
   pandas = py::module_::import("pandas");
 
   pandas_dataframe = pandas.attr("DataFrame");
@@ -19,8 +16,6 @@ pandas_wrapper::pandas_wrapper()
   pandas_concat = pandas.attr("concat");
 }
 
-pandas_wrapper::~pandas_wrapper()
-{
-}
+pandas_wrapper::~pandas_wrapper() {}
 
-}
+} // namespace python_wrappers

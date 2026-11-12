@@ -31,7 +31,7 @@ namespace debug
 {
 
 #ifdef DEBUG
-std::string debug_filename("debug.log");
+std::string debug_filename ( "debug.log" );
 #endif
 
 std::ofstream debug_stream;
@@ -47,32 +47,32 @@ unsigned int debug_level = 8;
 std::ofstream & DebugLog ( unsigned int level )
 {
 #ifdef DEBUG
-	if ( ( debug_level >= level ) && ( debug_stream.is_open() ) )
-	{
-		debug_output_mutex.lock();
-		debug_stream << "Level " << level << " : " ;
-		debug_output_mutex.unlock();
-	}
+    if ( ( debug_level >= level ) && ( debug_stream.is_open() ) )
+    {
+        debug_output_mutex.lock();
+        debug_stream << "Level " << level << " : " ;
+        debug_output_mutex.unlock();
+    }
 #endif
-	return debug_stream;
+    return debug_stream;
 }
 
 
 void OpenDebugStream ()
 {
 #ifdef DEBUG
-	std::string debug_full_filename;
-	auxiliary_functions:: MakeFileName ( debug_full_filename , debug_filename );
-	debug_stream.open(debug_full_filename.data());
-	std::locale::global(std::locale(""));
-	debug_stream.imbue(std::locale());
+    std::string debug_full_filename;
+    auxiliary_functions:: MakeFileName ( debug_full_filename, debug_filename );
+    debug_stream.open ( debug_full_filename.data() );
+    std::locale::global ( std::locale ( "" ) );
+    debug_stream.imbue ( std::locale() );
 #endif
 }
 
 void CloseDebugStream ()
 {
 #ifdef DEBUG
-	debug_stream.close();
+    debug_stream.close();
 #endif
 }
 

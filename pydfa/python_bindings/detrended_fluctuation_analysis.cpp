@@ -20,11 +20,11 @@ namespace detrended_fluctuation_analysis
 
 void enqueue_thread_for_cleanup_template ( )
 {
-	boost::mutex::scoped_lock lock(DFASynchronization::GetDFASynchronization().GetAddJobsMutex () );
+    boost::mutex::scoped_lock lock ( DFASynchronization::GetDFASynchronization().GetAddJobsMutex () );
 
-	DFASynchronization::GetDFASynchronization().GetFinishedJobs().push_back ( boost::this_thread::get_id() );
+    DFASynchronization::GetDFASynchronization().GetFinishedJobs().push_back ( boost::this_thread::get_id() );
 
-	DFASynchronization::GetDFASynchronization().GetAddJobsCV().notify_one ();
+    DFASynchronization::GetDFASynchronization().GetAddJobsCV().notify_one ();
 }
 
 }

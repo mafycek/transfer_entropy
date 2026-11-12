@@ -76,20 +76,20 @@ double factorial ( int i )
 }
 
 
-double pythagoras_hypotenuse ( double a , double b )
+double pythagoras_hypotenuse ( double a, double b )
 {
-    return gsl_hypot ( a , b );
+    return gsl_hypot ( a, b );
 }
 
 
-double conditional_sign ( double a , double b )
+double conditional_sign ( double a, double b )
 {
     return ( ( b ) >= 0.0 ? fabs ( a ) : - fabs ( a ) );
 }
 
 
 //#define INDEX_VECTOR(v,i,N) *(v+i)
-double & INDEX_VECTOR ( double * v , int i , int N )
+double & INDEX_VECTOR ( double * v, int i, int N )
 {
     int index = i;
     return ( * ( v + index ) );
@@ -97,14 +97,14 @@ double & INDEX_VECTOR ( double * v , int i , int N )
 
 
 //#define INDEX_MATRIX(A,i,j,N) *(A+j*N+i)
-double & INDEX_MATRIX ( double * A , int i , int j , int N )
+double & INDEX_MATRIX ( double * A, int i, int j, int N )
 {
     int index = i * N + j;
     return ( * ( A + index ) );
 }
 
 
-std :: complex<double> & INDEX_MATRIX ( std :: complex<double> * A , int i , int j , int N )
+std :: complex<double> & INDEX_MATRIX ( std :: complex<double> * A, int i, int j, int N )
 {
     int index = i * N + j;
     std :: complex<double> & element = * ( A + index );
@@ -112,20 +112,20 @@ std :: complex<double> & INDEX_MATRIX ( std :: complex<double> * A , int i , int
 }
 
 
-int ROTATE ( double * a , int  i , int  j , int  k , int  l , const int N , double * s , double * tau )
+int ROTATE ( double * a, int  i, int  j, int  k, int  l, const int N, double * s, double * tau )
 {
-    double g = INDEX_MATRIX ( a , i , j , N );
-    double h = INDEX_MATRIX ( a , k , l , N);
-    INDEX_MATRIX ( a , i , j , N ) = g - ( * s ) * ( h + g * ( * tau )  );
+    double g = INDEX_MATRIX ( a, i, j, N );
+    double h = INDEX_MATRIX ( a, k, l, N );
+    INDEX_MATRIX ( a, i, j, N ) = g - ( * s ) * ( h + g * ( * tau ) );
 // 	INDEX_MATRIX ( a , j , i , N ) = INDEX_MATRIX ( a , i , j , N );
-    INDEX_MATRIX ( a , k , l , N ) = h + ( * s ) * ( g - h * ( * tau ) );
+    INDEX_MATRIX ( a, k, l, N ) = h + ( * s ) * ( g - h * ( * tau ) );
 // 	INDEX_MATRIX ( a , l , k , N ) = INDEX_MATRIX ( a , k , l , N );
 
     return 0;
 }
 
 
-int Jakobi_eigenvalue_method_with_eigenvectors ( const int N , double * A , double * eigenvalue , double * eigenvectors , int * number_of_iterations )
+int Jakobi_eigenvalue_method_with_eigenvectors ( const int N, double * A, double * eigenvalue, double * eigenvectors, int * number_of_iterations )
 {
     int i;
     int j;
@@ -151,15 +151,15 @@ int Jakobi_eigenvalue_method_with_eigenvectors ( const int N , double * A , doub
     {
         for ( iq = 0 ; iq < N ; iq ++ )
         {
-            INDEX_MATRIX ( eigenvectors , ip , iq , N ) = 0.0;
+            INDEX_MATRIX ( eigenvectors, ip, iq, N ) = 0.0;
         }
-        INDEX_MATRIX ( eigenvectors , ip , ip , N ) = 1.0;
+        INDEX_MATRIX ( eigenvectors, ip, ip, N ) = 1.0;
     }
 
     for ( ip = 0 ; ip < N ; ip ++ )
     {
-        b [ ip ] = INDEX_MATRIX ( A , ip , ip , N );
-        INDEX_VECTOR ( eigenvalue , ip , N ) = INDEX_MATRIX ( A , ip , ip , N );
+        b [ ip ] = INDEX_MATRIX ( A, ip, ip, N );
+        INDEX_VECTOR ( eigenvalue, ip, N ) = INDEX_MATRIX ( A, ip, ip, N );
         z [ ip ] = 0.0;
     }
 
@@ -172,7 +172,7 @@ int Jakobi_eigenvalue_method_with_eigenvectors ( const int N , double * A , doub
         {
             for ( iq = ip + 1 ; iq <= N - 1 ; iq ++ )
             {
-                sm += fabs ( INDEX_MATRIX ( A , ip , iq , N ) );
+                sm += fabs ( INDEX_MATRIX ( A, ip, iq, N ) );
             }
         }
 
@@ -197,24 +197,24 @@ int Jakobi_eigenvalue_method_with_eigenvectors ( const int N , double * A , doub
         {
             for ( iq = ip + 1 ; iq <= N - 1 ; iq ++ )
             {
-                g = 100.0 * fabs ( INDEX_MATRIX ( A , ip , iq , N ) );
+                g = 100.0 * fabs ( INDEX_MATRIX ( A, ip, iq, N ) );
 
                 if ( ( ( i > 4 ) && ( fabs ( eigenvalue [ ip ] + g ) == fabs ( eigenvalue [ ip ] ) ) ) && ( fabs ( eigenvalue [ iq ] + g ) == fabs ( eigenvalue [ iq ] ) ) )
                 {
-                    INDEX_MATRIX ( A , ip , iq , N ) = 0.0;
+                    INDEX_MATRIX ( A, ip, iq, N ) = 0.0;
                 }
                 else
                 {
-                    if ( fabs ( INDEX_MATRIX ( A , ip , iq , N ) ) > tresh )
+                    if ( fabs ( INDEX_MATRIX ( A, ip, iq, N ) ) > tresh )
                     {
                         h = eigenvalue [ iq ] - eigenvalue [ ip ];
                         if ( ( fabs ( h ) + g ) == fabs ( h ) )
                         {
-                            t = INDEX_MATRIX ( A , ip , iq , N ) / h;
+                            t = INDEX_MATRIX ( A, ip, iq, N ) / h;
                         }
                         else
                         {
-                            theta = h / 2.0 / INDEX_MATRIX ( A , ip , iq , N );
+                            theta = h / 2.0 / INDEX_MATRIX ( A, ip, iq, N );
 
                             if ( theta > 0.0 )
                             {
@@ -228,29 +228,29 @@ int Jakobi_eigenvalue_method_with_eigenvectors ( const int N , double * A , doub
                         c = 1.0 / sqrt ( 1.0 + t * t );
                         s = t * c;
                         tau = ( 1.0 - c ) / s;
-                        h = t * INDEX_MATRIX ( A , ip , iq , N );
+                        h = t * INDEX_MATRIX ( A, ip, iq, N );
                         z [ ip ] -= h;
                         z [ iq ] += h;
                         eigenvalue [ ip ] -= h;
                         eigenvalue [ iq ] += h;
-                        INDEX_MATRIX ( A , ip , iq , N ) = 0.0;
-                        INDEX_MATRIX ( A , iq , ip , N ) = 0.0;
+                        INDEX_MATRIX ( A, ip, iq, N ) = 0.0;
+                        INDEX_MATRIX ( A, iq, ip, N ) = 0.0;
 
                         for ( j = 0 ; j <= ip -1 ; j ++ )
                         {
-                            ROTATE ( A , j , ip , j , iq , N , & s , & tau );
+                            ROTATE ( A, j, ip, j, iq, N, & s, & tau );
                         }
                         for ( j = ip + 1 ; j  <= iq - 1 ; j ++ )
                         {
-                            ROTATE (  A , ip , j , j , iq , N , & s , & tau );
+                            ROTATE ( A, ip, j, j, iq, N, & s, & tau );
                         }
                         for ( j = iq + 1 ; j < N ; j ++ )
                         {
-                            ROTATE ( A , ip , j , iq , j , N , & s , & tau );
+                            ROTATE ( A, ip, j, iq, j, N, & s, & tau );
                         }
                         for ( j = 0 ; j < N ; j ++ )
                         {
-                            ROTATE ( eigenvectors , j , ip , j , iq , N , & s , & tau );
+                            ROTATE ( eigenvectors, j, ip, j, iq, N, & s, & tau );
                         }
                         ( * number_of_iterations ) ++;
                     }
@@ -264,12 +264,12 @@ int Jakobi_eigenvalue_method_with_eigenvectors ( const int N , double * A , doub
             z [ ip ] = 0.0;
         }
     }
-    fprintf ( stdout , "Jakobi_eigenvalue_method: Error! \n" );
+    fprintf ( stdout, "Jakobi_eigenvalue_method: Error! \n" );
     return 1;
 }
 
 
-int Jakobi_eigenvalue_method ( const int N , double * A , double * eigenvalue , int * number_of_iterations )
+int Jakobi_eigenvalue_method ( const int N, double * A, double * eigenvalue, int * number_of_iterations )
 {
     int i;
     int j;
@@ -293,8 +293,8 @@ int Jakobi_eigenvalue_method ( const int N , double * A , double * eigenvalue , 
 
     for ( ip = 0 ; ip < N ; ip ++ )
     {
-        b [ ip ] = INDEX_MATRIX ( A , ip , ip , N );
-        INDEX_VECTOR ( eigenvalue , ip , N ) = INDEX_MATRIX ( A , ip , ip , N );
+        b [ ip ] = INDEX_MATRIX ( A, ip, ip, N );
+        INDEX_VECTOR ( eigenvalue, ip, N ) = INDEX_MATRIX ( A, ip, ip, N );
         z [ ip ] = 0.0;
     }
 
@@ -307,7 +307,7 @@ int Jakobi_eigenvalue_method ( const int N , double * A , double * eigenvalue , 
         {
             for ( iq = ip + 1 ; iq <= N - 1 ; iq ++ )
             {
-                sm += fabs ( INDEX_MATRIX ( A , ip , iq , N ) );
+                sm += fabs ( INDEX_MATRIX ( A, ip, iq, N ) );
             }
         }
 
@@ -332,24 +332,24 @@ int Jakobi_eigenvalue_method ( const int N , double * A , double * eigenvalue , 
         {
             for ( iq = ip + 1 ; iq <= N - 1 ; iq ++ )
             {
-                g = 100.0 * fabs ( INDEX_MATRIX ( A , ip , iq , N ) );
+                g = 100.0 * fabs ( INDEX_MATRIX ( A, ip, iq, N ) );
 
                 if ( ( i > 4 ) && ( fabs ( eigenvalue [ ip ] + g ) == fabs ( eigenvalue [ ip ] ) ) && ( fabs ( eigenvalue [ iq ] + g ) == fabs ( eigenvalue [ iq ] ) ) )
                 {
-                    INDEX_MATRIX ( A , ip , iq , N ) = 0.0;
+                    INDEX_MATRIX ( A, ip, iq, N ) = 0.0;
                 }
                 else
                 {
-                    if ( fabs ( INDEX_MATRIX ( A , ip , iq , N ) ) > tresh )
+                    if ( fabs ( INDEX_MATRIX ( A, ip, iq, N ) ) > tresh )
                     {
                         h = eigenvalue [ iq ] - eigenvalue [ ip ];
                         if ( fabs ( h ) + g == fabs ( h ) )
                         {
-                            t = INDEX_MATRIX ( A , ip , iq , N ) / h;
+                            t = INDEX_MATRIX ( A, ip, iq, N ) / h;
                         }
                         else
                         {
-                            theta = h / 2.0 / INDEX_MATRIX ( A , ip , iq , N );
+                            theta = h / 2.0 / INDEX_MATRIX ( A, ip, iq, N );
 
                             if ( theta > 0.0 )
                             {
@@ -363,25 +363,25 @@ int Jakobi_eigenvalue_method ( const int N , double * A , double * eigenvalue , 
                         c = 1.0 / sqrt ( 1.0 + t * t );
                         s = t * c;
                         tau = ( 1.0 - c ) / s;
-                        h = t * INDEX_MATRIX ( A , ip , iq , N );
+                        h = t * INDEX_MATRIX ( A, ip, iq, N );
                         z [ ip ] -= h;
                         z [ iq ] += h;
                         eigenvalue [ ip ] -= h;
                         eigenvalue [ iq ] += h;
-                        INDEX_MATRIX ( A , ip , iq , N ) = 0.0;
-                        INDEX_MATRIX ( A , iq , ip , N ) = 0.0;
+                        INDEX_MATRIX ( A, ip, iq, N ) = 0.0;
+                        INDEX_MATRIX ( A, iq, ip, N ) = 0.0;
 
                         for ( j = 0 ; j <= ip -1 ; j ++ )
                         {
-                            ROTATE ( A , j , ip , j , iq , N , & s , & tau );
+                            ROTATE ( A, j, ip, j, iq, N, & s, & tau );
                         }
                         for ( j = ip + 1 ; j  <= iq - 1 ; j ++ )
                         {
-                            ROTATE (  A , ip , j , j , iq , N , & s , & tau );
+                            ROTATE ( A, ip, j, j, iq, N, & s, & tau );
                         }
                         for ( j = iq + 1 ; j < N ; j ++ )
                         {
-                            ROTATE ( A , ip , j , iq , j , N , & s , & tau );
+                            ROTATE ( A, ip, j, iq, j, N, & s, & tau );
                         }
                         ( * number_of_iterations ) ++;
                     }
@@ -395,15 +395,15 @@ int Jakobi_eigenvalue_method ( const int N , double * A , double * eigenvalue , 
             z [ ip ] = 0.0;
         }
     }
-    fprintf ( stdout , "Jakobi_eigenvalue_method: Error! \n" );
+    fprintf ( stdout, "Jakobi_eigenvalue_method: Error! \n" );
     return 1;
 }
 
 
-int Householder_reduction ( const int N , double * A , double * diagonal , double * extradiagonal )
+int Householder_reduction ( const int N, double * A, double * diagonal, double * extradiagonal )
 {
-    int l , k , j = 0 , i;
-    double scale , hh , h , g , f;
+    int l, k, j = 0, i;
+    double scale, hh, h, g, f;
 
     for ( i = N - 1 ; i >= 1 ; i -- )
     {
@@ -415,61 +415,61 @@ int Householder_reduction ( const int N , double * A , double * diagonal , doubl
         {
             for ( k = 0 ; k <= l ; k ++ )
             {
-                scale += fabs ( INDEX_MATRIX ( A , i , k , N ) );
+                scale += fabs ( INDEX_MATRIX ( A, i, k, N ) );
             }
 
             if ( scale == 0.0 )
             {
-                extradiagonal [ i ] = INDEX_MATRIX ( A , i , l , N );
+                extradiagonal [ i ] = INDEX_MATRIX ( A, i, l, N );
             }
             else
             {
                 for ( k = 0 ; k <= l ; k ++ )
                 {
-                    INDEX_MATRIX ( A , i , k , N ) /= scale;
-                    h += ( INDEX_MATRIX ( A , i , k , N ) * INDEX_MATRIX ( A , i , k , N ) );
+                    INDEX_MATRIX ( A, i, k, N ) /= scale;
+                    h += ( INDEX_MATRIX ( A, i, k, N ) * INDEX_MATRIX ( A, i, k, N ) );
                 }
             }
-            f = INDEX_MATRIX ( A , i , l , N );
+            f = INDEX_MATRIX ( A, i, l, N );
             g = ( f >= 0.0 ? - sqrt ( h ) : sqrt ( h ) );
             extradiagonal [ i ] = scale * g;
             h -= f * g;
-            INDEX_MATRIX ( A , i , l , N ) = f - g;
+            INDEX_MATRIX ( A, i, l, N ) = f - g;
             f = 0.0;
 
             for ( j = 0 ; j <= l ; j ++ )
             {
-                INDEX_MATRIX ( A , j , i , N ) = INDEX_MATRIX ( A , i , j , N ) / h;
+                INDEX_MATRIX ( A, j, i, N ) = INDEX_MATRIX ( A, i, j, N ) / h;
                 g = 0.0;
 
                 for ( k = 0 ; k <= j ; k ++ )
                 {
-                    g += ( INDEX_MATRIX ( A , j , k , N ) * INDEX_MATRIX ( A , i , k , N ) );
+                    g += ( INDEX_MATRIX ( A, j, k, N ) * INDEX_MATRIX ( A, i, k, N ) );
                 }
                 for ( k = j +1 ; k <= l ; k ++ )
                 {
-                    g += ( INDEX_MATRIX ( A , k , j , N ) * INDEX_MATRIX ( A , i , k , N ) );
+                    g += ( INDEX_MATRIX ( A, k, j, N ) * INDEX_MATRIX ( A, i, k, N ) );
                 }
                 extradiagonal [ j ] = g / h;
-                f += extradiagonal [ j ] * INDEX_MATRIX ( A , i , j , N );
+                f += extradiagonal [ j ] * INDEX_MATRIX ( A, i, j, N );
             }
-            hh = f / ( 2.0 * h);
+            hh = f / ( 2.0 * h );
 
             for ( j = 0 ; j <= l ; j ++ )
             {
-                f = INDEX_MATRIX ( A , i , j , N );
+                f = INDEX_MATRIX ( A, i, j, N );
                 g = extradiagonal [ j ] - hh * f;
                 extradiagonal [ j ] = g;
 
                 for ( k = 0 ; k <= j ; k ++ )
                 {
-                    INDEX_MATRIX ( A , j , k , N ) -= ( f * extradiagonal [ k ] + g * INDEX_MATRIX ( A , i , k , N ) );
+                    INDEX_MATRIX ( A, j, k, N ) -= ( f * extradiagonal [ k ] + g * INDEX_MATRIX ( A, i, k, N ) );
                 }
             }
         }
         else
         {
-            extradiagonal [ i ] = INDEX_MATRIX ( A , i , l , N );
+            extradiagonal [ i ] = INDEX_MATRIX ( A, i, l, N );
         }
         diagonal [ i ] = h;
     }
@@ -488,31 +488,31 @@ int Householder_reduction ( const int N , double * A , double * diagonal , doubl
 
                 for ( k = 0 ; k <= l ; k ++ )
                 {
-                    g += ( INDEX_MATRIX ( A , i , k , N ) * INDEX_MATRIX ( A , k , j , N ) );
+                    g += ( INDEX_MATRIX ( A, i, k, N ) * INDEX_MATRIX ( A, k, j, N ) );
                 }
                 for ( k = 0 ; k <= l ; k ++ )
                 {
-                    INDEX_MATRIX ( A , k , j , N ) -= g * INDEX_MATRIX ( A , k , i , N );
+                    INDEX_MATRIX ( A, k, j, N ) -= g * INDEX_MATRIX ( A, k, i, N );
                 }
             }
         }
-        diagonal [ i ] = INDEX_MATRIX ( A , i , j , N );
-        INDEX_MATRIX ( A , i , i , N ) = 1.0;
+        diagonal [ i ] = INDEX_MATRIX ( A, i, j, N );
+        INDEX_MATRIX ( A, i, i, N ) = 1.0;
 
         for ( j = 0 ; j <= l ; j ++ )
         {
-            INDEX_MATRIX ( A , j , i , N ) = 0.0;
-            INDEX_MATRIX ( A , i , j , N ) = 0.0;
+            INDEX_MATRIX ( A, j, i, N ) = 0.0;
+            INDEX_MATRIX ( A, i, j, N ) = 0.0;
         }
     }
     return 0;
 }
 
 
-int QL_algorithm_for_tridiagonal_with_eigenvectors ( int N , double * diagonal , double * extradiagonal , double * eigenvectors )
+int QL_algorithm_for_tridiagonal_with_eigenvectors ( int N, double * diagonal, double * extradiagonal, double * eigenvectors )
 {
-    int m , l , iter , i , k;
-    double s , r , p , g , f , dd , c , b;
+    int m, l, iter, i, k;
+    double s, r, p, g, f, dd, c, b;
 
     for ( i = 1 ; i <= N - 1 ; i ++ )
     {
@@ -537,11 +537,11 @@ int QL_algorithm_for_tridiagonal_with_eigenvectors ( int N , double * diagonal ,
             {
                 if ( iter ++ == 30 )
                 {
-                    fprintf ( stdout , "QL_algorithm_for_tridiagonal_with_eigenstd :: vectors: Error! \n" );
+                    fprintf ( stdout, "QL_algorithm_for_tridiagonal_with_eigenstd :: vectors: Error! \n" );
                 }
                 g = ( diagonal [ l + 1 ] - diagonal [ l ] ) / ( 2.0 * extradiagonal [ l ] );
-                r = pythagoras_hypotenuse ( g , 1.0 );
-                g = diagonal [ m ] - diagonal [ l ] + extradiagonal [ l ] / ( g + conditional_sign ( r , g ) );
+                r = pythagoras_hypotenuse ( g, 1.0 );
+                g = diagonal [ m ] - diagonal [ l ] + extradiagonal [ l ] / ( g + conditional_sign ( r, g ) );
                 s = 1.0;
                 c = 1.0;
                 p = 0.0;
@@ -550,7 +550,7 @@ int QL_algorithm_for_tridiagonal_with_eigenvectors ( int N , double * diagonal ,
                 {
                     f = s * extradiagonal [ i ];
                     b = c * extradiagonal [ i ];
-                    r = pythagoras_hypotenuse ( f , g );
+                    r = pythagoras_hypotenuse ( f, g );
                     extradiagonal [ i + 1 ] = r;
                     if ( r == 0.0 )
                     {
@@ -569,9 +569,9 @@ int QL_algorithm_for_tridiagonal_with_eigenvectors ( int N , double * diagonal ,
 
                     for ( k = 0 ; k <= N - 1 ; k ++ )
                     {
-                        f = INDEX_MATRIX ( eigenvectors , k , i + 1 , N );
-                        INDEX_MATRIX ( eigenvectors , k , i + 1 , N ) = s * INDEX_MATRIX ( eigenvectors , k , i , N ) + c * f;
-                        INDEX_MATRIX ( eigenvectors , k , i , N ) = c * INDEX_MATRIX ( eigenvectors , k , i , N ) - s * f;
+                        f = INDEX_MATRIX ( eigenvectors, k, i + 1, N );
+                        INDEX_MATRIX ( eigenvectors, k, i + 1, N ) = s * INDEX_MATRIX ( eigenvectors, k, i, N ) + c * f;
+                        INDEX_MATRIX ( eigenvectors, k, i, N ) = c * INDEX_MATRIX ( eigenvectors, k, i, N ) - s * f;
                     }
                 }
                 if ( ( r == 0.0 ) && ( i >= 0 ) )
@@ -589,13 +589,13 @@ int QL_algorithm_for_tridiagonal_with_eigenvectors ( int N , double * diagonal ,
 }
 
 
-int QL_algorithm_and_household_reduction_with_eigenvectors ( int N , double * A , double * eigenvalues , double * eigenvectors  )
+int QL_algorithm_and_household_reduction_with_eigenvectors ( int N, double * A, double * eigenvalues, double * eigenvectors )
 {
     double * extradiagonal = ( double * ) malloc ( sizeof ( double ) * N );
 
-    Householder_reduction ( N , A , eigenvalues , extradiagonal );
+    Householder_reduction ( N, A, eigenvalues, extradiagonal );
 
-    QL_algorithm_for_tridiagonal_with_eigenvectors ( N , eigenvalues , extradiagonal , eigenvectors );
+    QL_algorithm_for_tridiagonal_with_eigenvectors ( N, eigenvalues, extradiagonal, eigenvectors );
 
     free ( extradiagonal );
 
@@ -603,7 +603,7 @@ int QL_algorithm_and_household_reduction_with_eigenvectors ( int N , double * A 
 }
 
 
-int RealMatrixMultiplication ( double * A , int columns_A , int rows_A , double * B , int columns_B , int rows_B , double * C , int columns_C , int rows_C )
+int RealMatrixMultiplication ( double * A, int columns_A, int rows_A, double * B, int columns_B, int rows_B, double * C, int columns_C, int rows_C )
 {
     if ( ( columns_A != rows_B ) || ( columns_B != columns_C ) || ( rows_C != rows_A ) )
     {
@@ -616,10 +616,10 @@ int RealMatrixMultiplication ( double * A , int columns_A , int rows_A , double 
         {
             for ( int j = 0 ; j < rows_A ; j ++ )
             {
-                INDEX_MATRIX ( C , j , i , columns_B ) = 0.0;
+                INDEX_MATRIX ( C, j, i, columns_B ) = 0.0;
                 for ( int k = 0 ; k < columns_A ; k ++ )
                 {
-                    INDEX_MATRIX ( C , j , i , columns_C ) += ( INDEX_MATRIX ( A , j , k , columns_A ) * INDEX_MATRIX ( B , k , i , columns_B ) );
+                    INDEX_MATRIX ( C, j, i, columns_C ) += ( INDEX_MATRIX ( A, j, k, columns_A ) * INDEX_MATRIX ( B, k, i, columns_B ) );
                 }
             }
         }
@@ -628,7 +628,7 @@ int RealMatrixMultiplication ( double * A , int columns_A , int rows_A , double 
 }
 
 
-int ComplexMatrixMultiplication ( std :: complex<double> * A , int columns_A , int rows_A , std :: complex<double> * B , int columns_B , int rows_B , std :: complex<double> * C , int columns_C , int rows_C )
+int ComplexMatrixMultiplication ( std :: complex<double> * A, int columns_A, int rows_A, std :: complex<double> * B, int columns_B, int rows_B, std :: complex<double> * C, int columns_C, int rows_C )
 {
     if ( ( columns_A != rows_B ) || ( columns_B != columns_C ) || ( rows_C != rows_A ) )
     {
@@ -641,12 +641,12 @@ int ComplexMatrixMultiplication ( std :: complex<double> * A , int columns_A , i
         {
             for ( int j = 0 ; j < rows_A ; j ++ )
             {
-                std :: complex<double> & element = INDEX_MATRIX ( C , i , j , columns_C );
+                std :: complex<double> & element = INDEX_MATRIX ( C, i, j, columns_C );
                 element = 0.0;
                 for ( int k = 0 ; k < columns_A ; k ++ )
                 {
-                    std :: complex<double> & element_1 = INDEX_MATRIX ( A , i , k , columns_A );
-                    std :: complex<double> & element_2 = INDEX_MATRIX ( B , k , j , columns_B );
+                    std :: complex<double> & element_1 = INDEX_MATRIX ( A, i, k, columns_A );
+                    std :: complex<double> & element_2 = INDEX_MATRIX ( B, k, j, columns_B );
                     element += ( element_1 * element_2 );
                 }
             }
@@ -656,7 +656,7 @@ int ComplexMatrixMultiplication ( std :: complex<double> * A , int columns_A , i
 }
 
 
-int ComplexErrorPrintMatrix ( std :: complex<double> * A , int columns_A , int rows_A )
+int ComplexErrorPrintMatrix ( std :: complex<double> * A, int columns_A, int rows_A )
 {
     for ( int count_i = 0 ; count_i < columns_A ; count_i ++ )
     {
@@ -664,19 +664,19 @@ int ComplexErrorPrintMatrix ( std :: complex<double> * A , int columns_A , int r
         {
             int index = count_i * columns_A + count_j;
             std :: complex<double> & element = A [ index ];
-            fprintf ( stderr , "%.2f +%.2f i" , real ( element ) , imag ( element ) );
+            fprintf ( stderr, "%.2f +%.2f i", real ( element ), imag ( element ) );
             if ( count_j < columns_A - 1 )
             {
-                fprintf ( stderr , " ," );
+                fprintf ( stderr, " ," );
             }
         }
-        fprintf ( stderr , "\n" );
+        fprintf ( stderr, "\n" );
     }
     return 0;
 }
 
 
-int ComplexMatrixTransposition ( std :: complex<double> * A , int columns_A , int rows_A , std :: complex<double> * B , int columns_B , int rows_B )
+int ComplexMatrixTransposition ( std :: complex<double> * A, int columns_A, int rows_A, std :: complex<double> * B, int columns_B, int rows_B )
 {
     if ( ( columns_A != rows_B ) || ( rows_A != columns_B ) )
     {
@@ -689,7 +689,7 @@ int ComplexMatrixTransposition ( std :: complex<double> * A , int columns_A , in
         {
             for ( int j = 0 ; j < rows_A ; j ++ )
             {
-                INDEX_MATRIX ( B , j , i , columns_B ) = INDEX_MATRIX ( A , i , j , columns_A );
+                INDEX_MATRIX ( B, j, i, columns_B ) = INDEX_MATRIX ( A, i, j, columns_A );
             }
         }
         return 0;
@@ -697,7 +697,7 @@ int ComplexMatrixTransposition ( std :: complex<double> * A , int columns_A , in
 }
 
 
-int ComplexMatrixConjugation ( std :: complex<double> * A , int columns_A , int rows_A , std :: complex<double> * B , int columns_B , int rows_B )
+int ComplexMatrixConjugation ( std :: complex<double> * A, int columns_A, int rows_A, std :: complex<double> * B, int columns_B, int rows_B )
 {
     if ( ( columns_A != columns_B ) || ( rows_A != rows_B ) )
     {
@@ -710,8 +710,8 @@ int ComplexMatrixConjugation ( std :: complex<double> * A , int columns_A , int 
         {
             for ( int j = 0 ; j < rows_A ; j ++ )
             {
-                std :: complex<double> element = INDEX_MATRIX ( A , i , j , columns_A );
-                INDEX_MATRIX ( B , i , j , columns_B ) = conj ( element );
+                std :: complex<double> element = INDEX_MATRIX ( A, i, j, columns_A );
+                INDEX_MATRIX ( B, i, j, columns_B ) = conj ( element );
             }
         }
         return 0;
@@ -719,7 +719,7 @@ int ComplexMatrixConjugation ( std :: complex<double> * A , int columns_A , int 
 }
 
 
-int ComplexMatrixHermitianConjugation ( std :: complex<double> * A , int columns_A , int rows_A , std :: complex<double> * B , int columns_B , int rows_B )
+int ComplexMatrixHermitianConjugation ( std :: complex<double> * A, int columns_A, int rows_A, std :: complex<double> * B, int columns_B, int rows_B )
 {
     if ( ( columns_A != rows_B ) || ( rows_A != columns_B ) )
     {
@@ -732,8 +732,8 @@ int ComplexMatrixHermitianConjugation ( std :: complex<double> * A , int columns
         {
             for ( int j = 0 ; j < rows_A ; j ++ )
             {
-                std :: complex<double> element = INDEX_MATRIX ( A , j , i , columns_A );
-                INDEX_MATRIX ( B , i , j , columns_B ) = conj ( element );
+                std :: complex<double> element = INDEX_MATRIX ( A, j, i, columns_A );
+                INDEX_MATRIX ( B, i, j, columns_B ) = conj ( element );
             }
         }
         return 0;
@@ -741,10 +741,10 @@ int ComplexMatrixHermitianConjugation ( std :: complex<double> * A , int columns
 }
 
 
-long GetDigit ( long number , long decimals , long rank )
+long GetDigit ( long number, long decimals, long rank )
 {
-    long divider_1 = ( long ) pow ( decimals , rank );
-    long divider_2 = ( long ) pow ( decimals , rank + 1 );
+    long divider_1 = ( long ) pow ( decimals, rank );
+    long divider_2 = ( long ) pow ( decimals, rank + 1 );
 
     long modulus_1 = number % divider_1;
     long modulus_2 = number % divider_2;
@@ -773,7 +773,7 @@ double sqrt_inverse ( double x )
 
 double Signum ( double x )
 {
-	return GSL_SIGN (x);
+    return GSL_SIGN ( x );
 }
 
 
@@ -815,7 +815,7 @@ double LogarithmusFactorial ( int i )
 }
 
 
-double & ScalarMultiplication ( boost::numeric::ublas::vector<double> & vector1 , boost::numeric::ublas::vector<double> & vector2 )
+double & ScalarMultiplication ( boost::numeric::ublas::vector<double> & vector1, boost::numeric::ublas::vector<double> & vector2 )
 {
     double * result = new double;
     * result = 0;
@@ -836,7 +836,7 @@ double & ScalarMultiplication ( boost::numeric::ublas::vector<double> & vector1 
 }
 
 
-std :: complex<double> & ScalarMultiplication ( boost::numeric::ublas::vector<std :: complex<double> > & vector1 , boost::numeric::ublas::vector<std :: complex<double> > & vector2 )
+std :: complex<double> & ScalarMultiplication ( boost::numeric::ublas::vector<std :: complex<double> > & vector1, boost::numeric::ublas::vector<std :: complex<double> > & vector2 )
 {
     std :: complex<double> * result = new std :: complex<double>;
     * result = ( std :: complex<double> ) 0;
@@ -857,19 +857,19 @@ std :: complex<double> & ScalarMultiplication ( boost::numeric::ublas::vector<st
 }
 
 
-double Combination ( int n , int m )
+double Combination ( int n, int m )
 {
-    return gsl_sf_choose ( n , m );
+    return gsl_sf_choose ( n, m );
 }
 
 
-double LogarithmusCombination ( int n , int m )
+double LogarithmusCombination ( int n, int m )
 {
-    return gsl_sf_lnchoose ( n , m );
+    return gsl_sf_lnchoose ( n, m );
 }
 
 
-int minimum ( int a , int b )
+int minimum ( int a, int b )
 {
     if ( a < b )
     {
@@ -881,15 +881,15 @@ int minimum ( int a , int b )
     }
 }
 
-double GeneralizedHarmonicNumber ( unsigned int N , double s )
+double GeneralizedHarmonicNumber ( unsigned int N, double s )
 {
-	double sum = 0;
-	for ( unsigned int i = 1 ; i <= N ; i ++ )
-	{
-		sum += 1.0 / pow ( i , s );
-	}
+    double sum = 0;
+    for ( unsigned int i = 1 ; i <= N ; i ++ )
+    {
+        sum += 1.0 / pow ( i, s );
+    }
 
-	return sum;
+    return sum;
 }
 
 }
